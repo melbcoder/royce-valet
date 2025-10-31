@@ -111,7 +111,7 @@ export default function Staff(){
     catch(e){ alert('Error: ' + (e?.message || e)) }
   }
 
-  const onOpenPark = (v)=>{ setParkForTag(v.tag); setParkForm({ bay:||"", make:v.make||"", model:v.model||"", colour:v.colour||"", plate:v.plate||"" }); setParkOpen(true) }
+  const onOpenPark = (v)=>{ setParkForTag(v.tag); setParkForm({ bay: v.bay || "", make: v.make || "", model: v.model || "", colour: v.colour || "", plate: v.plate || "" }); setParkOpen(true) }
   const onConfirmPark = async ()=>{
     if(!String(parkForm.bay).trim()){ alert('Bay number is required.'); return }
     if(!String(parkForm.plate).trim()){ alert('Licence plate is required.'); return }
