@@ -1,74 +1,100 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-export default function History(){
-  const [history, setHistory] = useState([])
-  const [search, setSearch] = useState('')
-  useEffect(()=>{
-    try{
-      const key = 'royce-valet-history'
-      const raw = JSON.parse(localStorage.getItem(key) || '[]')
-      const cutoff = Date.now() - 7*24*60*60*1000
-      const recent = raw.filter(v=> !v.departedAt || Date.parse(v.departedAt) >= cutoff )
-      localStorage.setItem(key, JSON.stringify(recent))
-      setHistory(recent.sort((a,b)=> new Date(b.departedAt||0) - new Date(a.departedAt||0)))
-    }catch{ setHistory([]) }
-  }, [])
-  const filtered = useMemo(()=>{
-    const q = search.trim().toLowerCase()
-    if(!q) return history
-    return history.filter(v =>
-      (v.guestName||'').toLowerCase().includes(q) ||
-      String(v.tag||'').toLowerCase().includes(q) ||
-      String(v.plate||'').toLowerCase().includes(q)
-    )
-  }, [search, history])
-  const grouped = useMemo(()=>{
-    return filtered.reduce((acc, v)=>{
-      const key = v.departureDate || 'Unknown'
-      if(!acc[key]) acc[key] = []
-      acc[key].push(v)
-      return acc
-    }, {})
-  }, [filtered])
-  const groups = Object.keys(grouped).sort((a,b)=> new Date(b) - new Date(a))
-  const total = history.length
-  const shown = filtered.length
+import React, { useEffect, useState } from "react";
+import {
+  subscribeHistory,
+  reinstateVehicle,
+} from "../services/valetFirestore";
+
+export default function History() {
+  const [history, setHistory] = useState([]);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const unsub = subscribeHistory((list) => {
+      setHistory(list);
+    });
+    return unsub;
+  }, []);
+
+  // filter by search (guest or tag)
+  const filtered = history.filter((v) => {
+    const term = search.toLowerCase();
+    return (
+      v.tag?.toString().includes(term) ||
+      v.guestName?.toLowerCase().includes(term) ||
+      v.roomNumber?.toString().includes(term)
+    );
+  });
+
+  // group by departure date (archivedAt)
+  const grouped = {};
+  filtered.forEach((v) => {
+    const d = v.archivedAt?.toDate
+      ? v.archivedAt.toDate().toLocaleDateString()
+      : "";
+    if (!grouped[d]) grouped[d] = [];
+    grouped[d].push(v);
+  });
+
+  const todayStr = new Date().toLocaleDateString();
+
   return (
     <section className="card pad">
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-        <h1>History</h1>
-        <Link to="/staff" className="btn secondary">Back to Dashboard</Link>
-      </div>
-      <div className="field" style={{marginTop:12}}>
-        <input placeholder="Search by guest, tag, or plate" value={search} onChange={e=>setSearch(e.target.value)} />
-        {search && <button className="btn secondary" style={{marginTop:8}} onClick={()=>setSearch('')}>Clear</button>}
-      </div>
-      <p style={{marginTop:8, color:'var(--muted)'}}>Showing {shown}{shown!==total?` of ${total}`:''} vehicle{shown===1?'':'s'} departed in the last 7 days</p>
-      {groups.length===0 && <p style={{opacity:.7, marginTop:16}}>No departures in the last 7 days.</p>}
-      {groups.map(date => (
-        <div key={date} style={{marginTop:20}}>
-          <h2 style={{marginBottom:8}}>Departed {date}</h2>
-          <div style={{overflowX:'auto'}}>
-            <table>
+      <h2>Departed Vehicles</h2>
+
+      <input
+        className="field"
+        placeholder="Search by guest name, tag, or room"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 15 }}
+      />
+
+      {Object.keys(grouped)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .map((date) => (
+          <div key={date} style={{ marginBottom: 25 }}>
+            <h3 style={{ marginBottom: 10 }}>{date}</h3>
+
+            <table className="table">
               <thead>
-                <tr><th>Tag</th><th>Guest</th><th>Vehicle</th><th>Departure</th><th>Handover</th><th>Notes</th></tr>
+                <tr>
+                  <th>Tag</th>
+                  <th>Guest</th>
+                  <th>Room</th>
+                  <th>Vehicle</th>
+                  <th>Bay</th>
+                  <th>Action</th>
+                </tr>
               </thead>
+
               <tbody>
-                {grouped[date].map(v => (
-                  <tr key={`${date}-${v.tag}`}>
+                {grouped[date].map((v) => (
+                  <tr key={v._id}>
                     <td>{v.tag}</td>
-                    <td>{v.guestName} (#{v.roomNumber})</td>
-                    <td>{[v.colour, v.make, v.model].filter(Boolean).join(' ')} {v.plate? '• '+v.plate : ''}</td>
-                    <td>{v.departureDate || '—'}</td>
-                    <td>{v.departedAt ? new Date(v.departedAt).toLocaleString() : '—'}</td>
-                    <td>{v.notes || '—'}</td>
+                    <td>{v.guestName}</td>
+                    <td>{v.roomNumber}</td>
+                    <td>
+                      {v.color} {v.make}
+                      <br />
+                      {v.license}
+                    </td>
+                    <td>{v.bay}</td>
+                    <td>
+                      {date === todayStr && (
+                        <button
+                          className="btn secondary"
+                          onClick={() => reinstateVehicle(v._id, v)}
+                        >
+                          Reinstate
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      ))}
+        ))}
     </section>
-  )
+  );
 }

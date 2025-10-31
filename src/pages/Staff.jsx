@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { createVehicle, subscribeVehicles, setVehicleStatus, parkVehicle, acknowledgeRequest, markReady, markOut, scheduleRequest, clearSchedule, requestVehicle, updateDepartureDate, moveToHistory, restoreFromHistory } from '../services/valetLocal'
+import { createVehicle, subscribeVehicles, setVehicleStatus, parkVehicle, acknowledgeRequest, markReady, markOut, scheduleRequest, clearSchedule, requestVehicle, updateDepartureDate, moveToHistory, restoreFromHistory } from '../services/valetFirestore'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
 

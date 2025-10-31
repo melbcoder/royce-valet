@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, clearSchedule } from '../services/valetLocal'
+import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, clearSchedule } from '../services/valetFirestore'
 const StatusBadge = ({status}) => {
   const cls = status==='Ready' ? 'status-ready' : (status==='Retrieving' ? 'status-retrieving' : (status==='Out' ? 'status-out' : 'status-parked'))
   const label = status==='Out' ? 'Out & About' : status
