@@ -107,7 +107,7 @@ export default function Staff(){
   const onSubmit = async (ev)=>{
     ev.preventDefault()
     if(!validateCreate()) return
-    try { await createVehicle(form); setForm({guestName:'', roomNumber:'', phone:'', tag:'', departureDate:'', plate:'', make:'', model:'', colour:'', bay:'', notes:''}); setShowAdvanced(false) }
+    try { await createVehicle(form); setForm({guestName: ?? "", roomNumber: ?? "", phone: ?? "", tag: ?? "", departureDate: ?? "", plate: ?? "", make: ?? "", model: ?? "", colour: ?? "", bay: ?? "", notes: ?? ""}); setShowAdvanced(false) }
     catch(e){ alert('Error: ' + (e?.message || e)) }
   }
 
