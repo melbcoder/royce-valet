@@ -164,7 +164,7 @@ export default function Staff(){
               {errors.roomNumber && <small style={{color:'#b94b4b'}}>{errors.roomNumber}</small>}
             </div>
             <div className="field"><label>Mobile number</label>
-              <input value={form.phone} onChange={e=>update('mobile', e.target.value)} />
+              <input value={form.phone} onChange={e=>update('phone', e.target.value)} />
               {errors.phone && <small style={{color:'#b94b4b'}}>{errors.phone}</small>}
             </div>
             <div className="field"><label>Tag number</label>
