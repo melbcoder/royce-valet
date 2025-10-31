@@ -107,7 +107,7 @@ export default function Staff(){
   const onSubmit = async (ev)=>{
     ev.preventDefault()
     if(!validateCreate()) return
-    try { await createVehicle(form); setForm({guestName: ?? "", roomNumber: ?? "", phone: ?? "", tag: ?? "", departureDate: ?? "", plate: ?? "", make: ?? "", model: ?? "", colour: ?? "", bay: ?? "", notes: ?? ""}); setShowAdvanced(false) }
+    try { await createVehicle(form); setForm({guestName:"", roomNumber:"", phone:"", tag:"", departureDate:"", plate:"", make:"", model:"", colour:"", bay:"", notes:""}); setShowAdvanced(false) }
     catch(e){ alert('Error: ' + (e?.message || e)) }
   }
 
@@ -221,15 +221,15 @@ export default function Staff(){
                   <td>{v.guestName} (#{v.roomNumber})</td>
                   <td>{v.requestedAt ? new Date(v.requestedAt).toLocaleString() : '—'}</td>
                   <td>{v.scheduledAt ? new Date(v.scheduledAt).toLocaleString() : '—'}</td>
-                  <td><span className={'status-pill ' + (v.status==='Ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
+                  <td><span className={'status-pill ' + (v.status==='ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
                   <td className="row">
                     {!v.ack && (
-                      <button className="btn" onClick={()=>requestVehicle(v.tag)}>Acknowledge</button>
+                      <button className="btn" onClick={()=>updateVehicle(v.tag,{ requested:true, ack:true, status:'retrieving' })}>Acknowledge</button>
                     )}
                     {v.ack && v.status==='Retrieving' && (
                       <button className="btn" onClick={()=>markReady(v.tag)}>Mark Ready</button>
                     )}
-                    {v.ack && v.status==='Ready' && (
+                    {v.ack && v.status==='ready' && (
                       <button className="btn" onClick={()=>handleHandOver(v)}>Hand Over</button>
                     )}
                   </td>
@@ -261,7 +261,7 @@ export default function Staff(){
                   <td>{v.guestName} (#{v.roomNumber})</td>
                   <td>{v.scheduledAt ? new Date(v.scheduledAt).toLocaleString() : '—'}</td>
                   <td>{[v.colour, v.make, v.model].filter(x=>!!(x||'').trim()).join(' ')} {v.plate? '• '+v.plate : ''}</td>
-                  <td><span className={'status-pill ' + (v.status==='Ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
+                  <td><span className={'status-pill ' + (v.status==='ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
                   <td className="row">
                     <button className="btn" onClick={async()=>{
                       const val = prompt('Enter a new date & time (local). Leave blank to cancel.')
@@ -305,10 +305,10 @@ export default function Staff(){
                   <td>{v.bay || '—'}</td>
                   <td>{v.guestName} (#{v.roomNumber})</td>
                   <td>{[v.colour, v.make, v.model].filter(x=>!!(x||'').trim()).join(' ')} {v.plate? '• '+v.plate : ''}</td>
-                  <td><span className={'status-pill ' + (v.status==='Ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
+                  <td><span className={'status-pill ' + (v.status==='ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
                   <td>{v.requested ? (v.ack ? 'Yes (Ack)' : 'Yes') : '—'}</td>
                   <td className="row">
-                    <button className="btn" onClick={()=>updateVehicle(v.tag,'Ready')}>Ready</button>
+                    <button className="btn" onClick={()=>updateVehicle(v.tag,{ status:'ready' })}>Ready</button>
                     <button className="btn" onClick={()=>handleHandOver(v)}>Hand Over</button>
                     <button className="btn" onClick={()=>{ setParkForm({ bay:'', make:v.make||'', model:v.model||'', colour:v.colour||'', plate:v.plate||'' }); setParkForTag(v.tag); setParkOpen(true) }}>{v.status==='Parked' ? 'Park Again' : 'Park'}</button>
                   </td>
