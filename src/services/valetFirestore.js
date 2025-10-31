@@ -82,10 +82,10 @@ export async function markOut(tag) {
 export async function parkAgain(tag, bay, license, make, color) {
   await updateVehicle(tag, {
     status: "parked",
-    bay,
-    license,
-    make,
-    color,
+    bay: bay ?? "",
+    license: license ?? "",
+    make: make ?? "",
+    color: color ?? "",
   });
 }
 
