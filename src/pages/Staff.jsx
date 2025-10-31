@@ -35,7 +35,7 @@ function StatusDropdown({value, onChange}){
 }
 
 export default function Staff(){
-  const [form, setForm] = useState({ guestName:'', roomNumber:'', mobile:'', tag:'', departureDate:'', plate:'', make:'', model:'', colour:'', bay:'', notes:'' })
+  const [form, setForm] = useState({ guestName:'', roomNumber:'', phone:'', tag:'', departureDate:'', plate:'', make:'', model:'', colour:'', bay:'', notes:'' })
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [vehicles, setVehicles] = useState([])
   const [errors, setErrors] = useState({})
@@ -98,7 +98,7 @@ export default function Staff(){
     const e = {}
     if(!form.guestName.trim()) e.guestName = 'Required'
     if(!form.roomNumber.trim()) e.roomNumber = 'Required'
-    if(!form.mobile.trim()) e.mobile = 'Required'
+    if(!form.phone.trim()) e.phone = 'Required'
     if(!form.tag.trim()) e.tag = 'Required'
     if(!form.departureDate?.trim()) e.departureDate = 'Required'
     setErrors(e); return Object.keys(e).length === 0
@@ -164,8 +164,8 @@ export default function Staff(){
               {errors.roomNumber && <small style={{color:'#b94b4b'}}>{errors.roomNumber}</small>}
             </div>
             <div className="field"><label>Mobile number</label>
-              <input value={form.mobile} onChange={e=>update('mobile', e.target.value)} />
-              {errors.mobile && <small style={{color:'#b94b4b'}}>{errors.mobile}</small>}
+              <input value={form.phone} onChange={e=>update('mobile', e.target.value)} />
+              {errors.phone && <small style={{color:'#b94b4b'}}>{errors.phone}</small>}
             </div>
             <div className="field"><label>Tag number</label>
               <input value={form.tag} onChange={e=>update('tag', e.target.value)} />
