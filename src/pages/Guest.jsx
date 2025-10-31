@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom'
 import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, clearSchedule } from '../services/valetFirestore'
 const StatusBadge = ({status}) => {
   const cls = status==='Ready' ? 'status-ready' : (status==='Retrieving' ? 'status-retrieving' : (status==='Out' ? 'status-out' : 'status-parked'))
-  const label = status==='Out' ? 'Out & About' : status
+  const prettyStatus = status.charAt(0).toUpperCase() + status.slice(1)
+  const label = status === 'out' ? 'Out & About' : prettyStatus
   return <span className={'status-pill '+cls}>{label}</span>
 }
 export default function Guest(){
@@ -44,7 +45,7 @@ export default function Guest(){
         <div className="tag">Tag #{v.tag}</div>
         <StatusBadge status={v.status} />
       </div>
-      {v.status==='Out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
+      {v.status==='out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
       <div className="grid cols-2">
         <div className="field"><label>Guest</label><div>{v.guestName} (Room {v.roomNumber})</div></div>
         <div className="field"><label>Plate</label><div>{v.plate || '—'}</div></div>
