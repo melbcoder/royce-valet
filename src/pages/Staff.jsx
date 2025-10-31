@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { createVehicle, subscribeVehicles, setVehicleStatus, parkVehicle, acknowledgeRequest, markReady, markOut, scheduleRequest, clearSchedule, requestVehicle, updateDepartureDate, moveToHistory, restoreFromHistory } from '../services/valetFirestore'
+import { createVehicle,subscribeActiveVehicles,updateVehicle,requestVehicle,cancelRequest,markReady,markOut,parkAgain,scheduleRequest,clearSchedule } from '../services/valetFirestore'
 import Modal from '../components/Modal'
 import { showToast } from '../components/Toast'
 
@@ -52,7 +52,7 @@ export default function Staff(){
   const titleBase = useRef(document.title)
 
   const update = (k,v)=> setForm(s=>({...s, [k]:v}))
-  useEffect(()=>{ const unsub = subscribeVehicles(setVehicles); return () => unsub && unsub() }, [])
+  useEffect(()=>{ const unsub = subscribeActiveVehicles(setVehicles); return () => unsub && unsub() }, [])
 
   // Promote scheduled pickups 10 min before to queue (requestVehicle clears schedule)
   const vehiclesRef = useRef([])
@@ -115,7 +115,7 @@ export default function Staff(){
   const onConfirmPark = async ()=>{
     if(!String(parkForm.bay).trim()){ alert('Bay number is required.'); return }
     if(!String(parkForm.plate).trim()){ alert('Licence plate is required.'); return }
-    try { await parkVehicle(parkForTag, parkForm); setParkOpen(false) } catch(e){ alert('Error: ' + (e?.message || e)) }
+    try { await parkAgain(parkForTag, parkForm); setParkOpen(false) } catch(e){ alert('Error: ' + (e?.message || e)) }
   }
 
   const todayISO = new Date().toISOString().slice(0,10)
@@ -224,7 +224,7 @@ export default function Staff(){
                   <td><span className={'status-pill ' + (v.status==='Ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
                   <td className="row">
                     {!v.ack && (
-                      <button className="btn" onClick={()=>acknowledgeRequest(v.tag)}>Acknowledge</button>
+                      <button className="btn" onClick={()=>requestVehicle(v.tag)}>Acknowledge</button>
                     )}
                     {v.ack && v.status==='Retrieving' && (
                       <button className="btn" onClick={()=>markReady(v.tag)}>Mark Ready</button>
@@ -308,7 +308,7 @@ export default function Staff(){
                   <td><span className={'status-pill ' + (v.status==='Ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
                   <td>{v.requested ? (v.ack ? 'Yes (Ack)' : 'Yes') : '—'}</td>
                   <td className="row">
-                    <button className="btn" onClick={()=>setVehicleStatus(v.tag,'Ready')}>Ready</button>
+                    <button className="btn" onClick={()=>updateVehicle(v.tag,'Ready')}>Ready</button>
                     <button className="btn" onClick={()=>handleHandOver(v)}>Hand Over</button>
                     <button className="btn" onClick={()=>{ setParkForm({ bay:'', make:v.make||'', model:v.model||'', colour:v.colour||'', plate:v.plate||'' }); setParkForTag(v.tag); setParkOpen(true) }}>{v.status==='Parked' ? 'Park Again' : 'Park'}</button>
                   </td>
