@@ -221,12 +221,8 @@ export default function Staff(){
                   <td>{v.guestName} (#{v.roomNumber})</td>
                   <td>{v.requestedAt ? new Date(v.requestedAt).toLocaleString() : '—'}</td>
                   <td>{v.scheduledAt ? new Date(v.scheduledAt).toLocaleString() : '—'}</td>
-<<<<<<< HEAD
                   <td><span className={'status-pill ' + (v.status==='ready'? 'status-ready': v.status==='retrieving' ? 'status-retrieving': v.status==='out' ? 'status-out': 'status-parked')}>
                     {v.status === 'out' ? 'Out & About' : v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span></td>
-=======
-                  <td><span className={'status-pill ' + (v.status==='ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
->>>>>>> 60459bb9b4bde27a0afefaba214de5ef0599f5d9
                   <td className="row">
                     {!v.ack && (
                       <button className="btn" onClick={()=>updateVehicle(v.tag,{ requested:true, ack:true, status:'retrieving' })}>Acknowledge</button>
@@ -266,12 +262,8 @@ export default function Staff(){
                   <td>{v.guestName} (#{v.roomNumber})</td>
                   <td>{v.scheduledAt ? new Date(v.scheduledAt).toLocaleString() : '—'}</td>
                   <td>{[v.colour, v.make, v.model].filter(x=>!!(x||'').trim()).join(' ')} {v.plate? '• '+v.plate : ''}</td>
-<<<<<<< HEAD
                   <td><span className={'status-pill ' + (v.status==='ready'? 'status-ready': v.status==='retrieving' ? 'status-retrieving': v.status==='out' ? 'status-out': 'status-parked')}>
                     {v.status === 'out' ? 'Out & About' : v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span></td>
-=======
-                  <td><span className={'status-pill ' + (v.status==='ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
->>>>>>> 60459bb9b4bde27a0afefaba214de5ef0599f5d9
                   <td className="row">
                     <button className="btn" onClick={async()=>{
                       const val = prompt('Enter a new date & time (local). Leave blank to cancel.')
@@ -315,12 +307,8 @@ export default function Staff(){
                   <td>{v.bay || '—'}</td>
                   <td>{v.guestName} (#{v.roomNumber})</td>
                   <td>{[v.colour, v.make, v.model].filter(x=>!!(x||'').trim()).join(' ')} {v.plate? '• '+v.plate : ''}</td>
-<<<<<<< HEAD
                   <td><span className={'status-pill ' + (v.status==='ready'? 'status-ready': v.status==='retrieving' ? 'status-retrieving': v.status==='out' ? 'status-out': 'status-parked')}>
                     {v.status === 'out' ? 'Out & About' : v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span></td>
-=======
-                  <td><span className={'status-pill ' + (v.status==='ready'?'status-ready':(v.status==='Retrieving'?'status-retrieving':(v.status==='Out'?'status-out':'status-parked')))}>{v.status==='Out'?'Out & About':v.status}</span></td>
->>>>>>> 60459bb9b4bde27a0afefaba214de5ef0599f5d9
                   <td>{v.requested ? (v.ack ? 'Yes (Ack)' : 'Yes') : '—'}</td>
                   <td className="row">
                     <button className="btn" onClick={()=>updateVehicle(v.tag,{ status:'ready' })}>Ready</button>
