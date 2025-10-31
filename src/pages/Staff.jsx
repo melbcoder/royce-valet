@@ -42,7 +42,7 @@ export default function Staff(){
 
   const [parkOpen, setParkOpen] = useState(false)
   const [parkForTag, setParkForTag] = useState('')
-  const [parkForm, setParkForm] = useState({ bay:'', make:'', model:'', colour:'', plate:'' })
+  const [parkForm, setParkForm] = useState({ bay:"", make:"", model:"", colour:"", plate:"" })
 
   const [departTodayOnly, setDepartTodayOnly] = useState(false)
   const [statusFilter, setStatusFilter] = useState('All')
@@ -111,7 +111,7 @@ export default function Staff(){
     catch(e){ alert('Error: ' + (e?.message || e)) }
   }
 
-  const onOpenPark = (v)=>{ setParkForTag(v.tag); setParkForm({ bay:'', make:v.make||'', model:v.model||'', colour:v.colour||'', plate:v.plate||'' }); setParkOpen(true) }
+  const onOpenPark = (v)=>{ setParkForTag(v.tag); setParkForm({ bay:||"", make:v.make||"", model:v.model||"", colour:v.colour||"", plate:v.plate||"" }); setParkOpen(true) }
   const onConfirmPark = async ()=>{
     if(!String(parkForm.bay).trim()){ alert('Bay number is required.'); return }
     if(!String(parkForm.plate).trim()){ alert('Licence plate is required.'); return }
@@ -333,19 +333,19 @@ export default function Staff(){
       <Modal open={parkOpen} title={`Park vehicle #${parkForTag}`} onClose={()=>setParkOpen(false)}>
         <div className="grid cols-2">
           <div className="field"><label>Bay number</label>
-            <input value={parkForm.bay} onChange={e=>setParkForm(s=>({...s, bay:e.target.value}))} />
+            <input value={parkForm.bay || ""} onChange={e=>setParkForm(s=>({...s, bay:e.target.value}))} />
           </div>
           <div className="field"><label>Licence plate</label>
-            <input value={parkForm.plate} onChange={e=>setParkForm(s=>({...s, plate:e.target.value}))} />
+            <input value={parkForm.plate || ""} onChange={e=>setParkForm(s=>({...s, plate:e.target.value}))} />
           </div>
           <div className="field"><label>Make (required)</label>
-            <input value={parkForm.make} onChange={e=>setParkForm(s=>({...s, make:e.target.value}))} />
+            <input value={parkForm.make || ""} onChange={e=>setParkForm(s=>({...s, make:e.target.value}))} />
           </div>
           <div className="field"><label>Model (optional)</label>
-            <input value={parkForm.model} onChange={e=>setParkForm(s=>({...s, model:e.target.value}))} />
+            <input value={parkForm.model || ""} onChange={e=>setParkForm(s=>({...s, model:e.target.value}))} />
           </div>
           <div className="field"><label>Colour (required)</label>
-            <input value={parkForm.colour} onChange={e=>setParkForm(s=>({...s, colour:e.target.value}))} />
+            <input value={parkForm.colour || ""} onChange={e=>setParkForm(s=>({...s, colour:e.target.value}))} />
           </div>
         </div>
         <div className="row" style={{justifyContent:'flex-end', marginTop:12}}>
