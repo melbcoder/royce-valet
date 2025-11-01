@@ -341,7 +341,7 @@ export default function Staff() {
               )}
               {requestQueue.map((v) => (
                 <tr key={`q-${v.tag}`}>
-                  <td>{v.tag}</td>
+                  <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{v.requestedAt ? fmtDT(v.requestedAt) : "—"}</td>
@@ -406,7 +406,7 @@ export default function Staff() {
               )}
               {scheduled.map((v) => (
                 <tr key={`s-${v.tag}`}>
-                  <td>{v.tag}</td>
+                  <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{fmtDT(v.scheduledAt)}</td>
@@ -568,7 +568,7 @@ export default function Staff() {
               )}
               {active.map((v) => (
                 <tr key={`a-${v.tag}`}>
-                  <td>{v.tag}</td>
+                  <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{v.license || "—"}</td>
