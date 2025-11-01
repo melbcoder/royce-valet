@@ -133,6 +133,7 @@ export default function Staff() {
   // Active Vehicles (all), filtered by status if selected
   const active = useMemo(() => {
     const list = [...vehicles].sort((a, b) => String(a.tag).localeCompare(String(b.tag)));
+    if (filterStatus === "departing") {const today = new Date().toISOString().slice(0, 10);return list.filter((v) => v.departureDate === today);}
     return filterStatus ? list.filter((v) => v.status === filterStatus) : list;
   }, [vehicles, filterStatus]);
 
@@ -404,22 +405,32 @@ export default function Staff() {
       <section className="card pad">
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
-          <div className="row" style={{ gap: 8 }}>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All statuses</option>
-              <option value="parked">Parked</option>
-              <option value="retrieving">Retrieving</option>
-              <option value="ready">Ready</option>
-              <option value="out">Out</option>
-            </select>
-            {filterStatus && (
-              <button className="btn secondary" onClick={() => setFilterStatus("")}>
-                Clear filter
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {["", "parked", "retrieving", "ready", "out"].map((s) => (
+              <button
+                key={s || "all"}
+                className={
+                  "status-pill filter-pill " +
+                  (filterStatus === s ? "selected" : "")
+                }
+                onClick={() => setFilterStatus(filterStatus === s ? "" : s)}
+              >
+                {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
               </button>
-            )}
+            ))}
+
+            {/* Departing Today filter */}
+            <button
+              className={
+                "status-pill filter-pill " +
+                (filterStatus === "departing" ? "selected" : "")
+              }
+              onClick={() =>
+                setFilterStatus(filterStatus === "departing" ? "" : "departing")
+              }
+            >
+              Departing Today
+            </button>
           </div>
         </div>
 
