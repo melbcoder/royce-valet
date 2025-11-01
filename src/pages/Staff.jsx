@@ -134,11 +134,11 @@ export default function Staff() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
 
   // Close status dropdown when clicking outside
-useEffect(() => {
-  const close = () => setShowStatusMenu(false);
-  window.addEventListener("click", close);
-  return () => window.removeEventListener("click", close);
-}, []);
+  useEffect(() => {
+    const close = () => setShowStatusMenu(false);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
 
   const active = useMemo(() => {
     const list = [...vehicles].sort((a, b) => String(a.tag).localeCompare(String(b.tag)));
@@ -409,102 +409,100 @@ useEffect(() => {
 
       {/* Active Vehicles */}
       <section className="card pad">
-        <div className="row space-between" style={{ marginBottom: 8 }}>
+        <div className="row space-between" style={{ marginBottom: 8, leftMargin: 0 }}>
           <h3>Active Vehicles</h3>
           {/* Filter Bar */}
-<div style={{
-  display: "flex",
-  justifyContent: "flex-end",
-  marginBottom: "12px",
-  gap: "12px",
-  position: "relative"
-}}>
-  
-  {/* STATUS FILTER */}
-  <div style={{ position: "relative" }}>
-    <button
-      onClick={(e) => {
-    e.stopPropagation();
-    setShowStatusMenu(!showStatusMenu);
-  }}
-      style={{
-        padding: "6px 14px",
-        borderRadius: "22px",
-        border: "1px solid #000",
-        background: "#fff",
-        fontSize: "14px",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: "8px"
-      }}
-    >
-      <span style={{
-        width: "10px",
-        height: "10px",
-        borderRadius: "50%",
-        background: filterStatus === "" ? "black"
-          : filterStatus === "parked" ? "#777"
-          : filterStatus === "retrieving" ? "#b68b2e"
-          : filterStatus === "ready" ? "#4caf50"
-          : filterStatus === "out" ? "#1976d2"
-          : "black"
-      }}></span>
-
-      {filterStatus === "" ? "All Statuses"
-        : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
-      <span style={{ fontSize: "12px" }}>▾</span>
-    </button>
-
-    {showStatusMenu && (
-      <div style={{
-        position: "absolute",
-        right: 0,
-        marginTop: "8px",
-        background: "#fff",
-        borderRadius: "14px",
-        border: "1px solid #ddd",
-        boxShadow: "0 4px 8px rgba(0,0,0,0.08)",
-        width: "160px",
-        zIndex: 20,
-        padding: "6px"
-      }}>
-
-        {[
-          { value: "", label: "All Statuses", color: "black" },
-          { value: "parked", label: "Parked", color: "#777" },
-          { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
-          { value: "ready", label: "Ready", color: "#4caf50" },
-          { value: "out", label: "Out", color: "#1976d2" }
-        ].map(s => (
-          <button key={s.value}
-            onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
-            style={{
-              width: "100%",
-              textAlign: "left",
-              padding: "8px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              borderRadius: "20px",
-              border: "1px solid #eee",
-              background: filterStatus === s.value ? "#f8f8f8" : "#fff",
-              cursor: "pointer"
+          <div style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: "12px",
+            gap: "12px",
+            position: "relative"
+          }}>
+            <div className="btn" style={{ position: "relative" }}>
+              <button
+                onClick={(e) => {
+              e.stopPropagation();
+              setShowStatusMenu(!showStatusMenu);
             }}
-          >
-            <span style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              background: s.color
-            }}></span>
-            {s.label}
-          </button>
-        ))}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "22px",
+                  border: "1px solid #000",
+                  background: "#fff",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}
+              >
+                <span style={{
+                  width: "10px",
+                  height: "10px",
+                  borderRadius: "50%",
+                  background: filterStatus === "" ? "black"
+                    : filterStatus === "parked" ? "#777"
+                    : filterStatus === "retrieving" ? "#b68b2e"
+                    : filterStatus === "ready" ? "#4caf50"
+                    : filterStatus === "out" ? "#1976d2"
+                    : "black"
+                }}></span>
 
-      </div>
-    )}
-  </div>
+                {filterStatus === "" ? "All Statuses"
+                  : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+                <span style={{ fontSize: "12px" }}>▾</span>
+              </button>
+
+              {showStatusMenu && (
+                <div style={{
+                  position: "absolute",
+                  right: 0,
+                  marginTop: "8px",
+                  background: "#fff",
+                  borderRadius: "14px",
+                  border: "1px solid #ddd",
+                  boxShadow: "0 4px 8px rgba(0,0,0,0.08)",
+                  width: "160px",
+                  zIndex: 20,
+                  padding: "6px"
+                }}>
+
+                  {[
+                    { value: "", label: "All Statuses", color: "black" },
+                    { value: "parked", label: "Parked", color: "#777" },
+                    { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
+                    { value: "ready", label: "Ready", color: "#4caf50" },
+                    { value: "out", label: "Out", color: "#1976d2" }
+                  ].map(s => (
+                    <button key={s.value}
+                      onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        borderRadius: "20px",
+                        border: "1px solid #eee",
+                        background: filterStatus === s.value ? "#f8f8f8" : "#fff",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <span style={{
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        background: s.color
+                      }}></span>
+                      {s.label}
+                    </button>
+                  ))}
+
+                </div>
+              )}
+            </div>
 
             {/* Departing Today Toggle */}
             <button className="btn"
