@@ -419,7 +419,7 @@ export default function Staff() {
                 style={{
                   alignItems: "center",
                   gap: "8px",
-                  width: "160px",
+                  width: "170px",
                   justifyContent: "flex-start",
                   display: "flex",
                   marginLeft: "auto"
