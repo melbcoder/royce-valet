@@ -284,9 +284,6 @@ export default function Staff() {
       {/* Request Queue */}
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Request Queue</h3>
-        <p style={{ marginTop: 6, marginBottom: 12 }}>
-          Vehicles guests have requested. Acknowledge → Ready → Hand Over.
-        </p>
 
         <div className="table-wrap">
           <table className="table">
@@ -350,7 +347,7 @@ export default function Staff() {
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Scheduled Pickups</h3>
         <p style={{ marginTop: 6, marginBottom: 12 }}>
-          Vehicles scheduled for later. They’ll auto-enter the queue 10 minutes prior.
+          Vehicles will enter the Request Queue 10 minutes before their scheduled pickup time.
         </p>
 
         <div className="table-wrap">
@@ -411,7 +408,7 @@ export default function Staff() {
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
               style={{
-                padding: "6px 12px",
+                padding: "20px 12px",
                 borderRadius: "20px",
                 border: "1px solid #ccc",
                 fontSize: "14px"
