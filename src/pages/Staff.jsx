@@ -427,12 +427,6 @@ export default function Staff() {
             }}
                 style={{
                   padding: "6px 14px",
-                  borderRadius: "22px",
-                  border: "1px solid #000",
-                  background: "#fff",
-                  fontSize: "14px",
-                  cursor: "pointer",
-                  display: "flex",
                   alignItems: "center",
                   gap: "8px"
                 }}
