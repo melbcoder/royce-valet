@@ -604,12 +604,12 @@ export default function Staff() {
                     )}
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
-                    {v.status === "retrieving" && (
+                    {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
                       <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
-                    {v.status === "ready" && (
+                    {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
                       <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
