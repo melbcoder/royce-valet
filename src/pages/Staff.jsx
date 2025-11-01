@@ -468,7 +468,9 @@ export default function Staff() {
 
                   {[
                     { value: "", label: "All Statuses", color: "black" },
+                    { value: "received", label: "Received", color: "#777" },
                     { value: "parked", label: "Parked", color: "#777" },
+                    { value: "requested", label: "Requested", color: "#ff5900ff" },
                     { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
                     { value: "ready", label: "Ready", color: "#4caf50" },
                     { value: "out", label: "Out", color: "#1976d2" }
@@ -568,7 +570,7 @@ export default function Staff() {
                     {/* Park / Park Again (when out) */}
                     {(v.status === "out") && (
                       <button className="btn secondary" onClick={() => openPark(v)}>
-                        Park Again
+                        Park
                       </button>
                     )}
 
