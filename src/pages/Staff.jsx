@@ -475,7 +475,8 @@ export default function Staff() {
                         borderRadius: "20px",
                         border: "1px solid #eee",
                         background: filterStatus === s.value ? "#f8f8f8" : "#fff",
-                        cursor: "pointer"
+                        cursor: "pointer",
+                        leftMargin: "auto"
                       }}
                     >
                       <span style={{
