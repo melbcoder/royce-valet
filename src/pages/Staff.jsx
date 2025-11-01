@@ -186,6 +186,7 @@ export default function Staff() {
       roomNumber,
       phone,
       departureDate,
+      status: "received" // set initial status to "received"
     });
     setNewVehicle({
       tag: "",
@@ -600,7 +601,7 @@ export default function Staff() {
           className="col"
           style={{ display: "flex", flexDirection: "column", gap: 16 }}
         >
-           <input placeholder="Tag Number" value={newVehicle.tag}
+          <input placeholder="Tag Number" value={newVehicle.tag}
                   onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
                  onChange={(e) => setNewVehicle({ ...newVehicle, guestName: e.target.value })} />
