@@ -405,12 +405,17 @@ export default function Staff() {
       <section className="card pad">
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
-          <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:12, marginBottom:16 }}>
-            {/* Status dropdown */}
+          <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "12px",marginBottom: "12px",flexWrap: "wrap"}}>
+            {/* Status Dropdown */}
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              style={{ padding:"6px 12px", borderRadius:20, border:"1px solid #ccc", fontSize:14 }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "20px",
+                border: "1px solid #ccc",
+                fontSize: "14px"
+              }}
             >
               <option value="">All</option>
               <option value="parked">Parked</option>
@@ -419,10 +424,20 @@ export default function Staff() {
               <option value="out">Out</option>
             </select>
 
-            {/* Departing Today pill */}
+            {/* Departing Today Toggle */}
             <button
-              className="btn primary"
-              onClick={() => setFilterStatus(filterStatus === "departing" ? "" : "departing")}
+              onClick={() =>
+                setFilterStatus(filterStatus === "departing" ? "" : "departing")
+              }
+              style={{
+                padding: "6px 12px",
+                borderRadius: "20px",
+                border: "1px solid #000",
+                fontSize: "14px",
+                cursor: "pointer",
+                background: filterStatus === "departing" ? "#000" : "#fff",
+                color: filterStatus === "departing" ? "#fff" : "#000"
+              }}
             >
               Departing Today
             </button>
