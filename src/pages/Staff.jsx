@@ -285,7 +285,7 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <button className="btn" onClick={() => setNewOpen(true)} style={{backgroundColor: "#000", color: "#fff", marginLeft: "auto"}}>
+        <button className="btn primary" onClick={() => setNewOpen(true)}>
           Add Vehicle
         </button>
       </div>
@@ -330,17 +330,17 @@ export default function Staff() {
                   <td style={{ display: "flex", gap: 6 }}>
                     {/* one button at a time */}
                     {!v.ack && v.status !== "ready" && v.status !== "out" && (
-                      <button className="btn" onClick={() => ackRequest(v)}>
+                      <button className="btn secondary" onClick={() => ackRequest(v)}>
                         Acknowledge
                       </button>
                     )}
                     {v.ack && v.status === "retrieving" && (
-                      <button className="btn" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
                     {v.status === "ready" && (
-                      <button className="btn" onClick={() => handOver(v.tag)}>
+                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
                     )}
@@ -393,7 +393,7 @@ export default function Staff() {
                   </td>
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6 }}>
-                    <button className="btn" onClick={() => queueNow(v)}>
+                    <button className="btn secondary" onClick={() => queueNow(v)}>
                       Queue Now
                     </button>
                     <button className="btn secondary" onClick={() => cancelSched(v.tag)}>
@@ -414,7 +414,7 @@ export default function Staff() {
           {/* Filter Bar */}
           <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto"}}>
             <div style={{ position: "relative" }}>
-              <button className="btn"
+              <button className="btn secondary"
                 onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
                   alignItems: "center",
@@ -503,7 +503,7 @@ export default function Staff() {
             </div>
 
             {/* Departing Today Toggle */}
-            <button className="btn"
+            <button className="btn secondary"
               onClick={() =>
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
@@ -553,7 +553,7 @@ export default function Staff() {
                   <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {/* Request (only visible when allowed) */}
                     {v.status === "parked" && !v.requested && (
-                      <button className="btn" onClick={() =>
+                      <button className="btn secondary" onClick={() =>
                         updateVehicle(v.tag, {
                           status: "retrieving",
                           requested: true,
@@ -574,12 +574,12 @@ export default function Staff() {
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
                     {v.status === "retrieving" && (
-                      <button className="btn" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
                     {v.status === "ready" && (
-                      <button className="btn" onClick={() => handOver(v.tag)}>
+                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
                     )}
@@ -672,7 +672,7 @@ function ScheduleInline({ v, onSet, onClear }) {
               <button className="btn secondary" onClick={() => onClear(v.tag)}>
                 Clear
               </button>
-              <button className="btn" onClick={() => setOpen(true)}>
+              <button className="btn secondary" onClick={() => setOpen(true)}>
                 Edit
               </button>
             </>
@@ -686,7 +686,7 @@ function ScheduleInline({ v, onSet, onClear }) {
             onChange={(e) => setIso(e.target.value)}
           />
           <button
-            className="btn"
+            className="btn primary"
             onClick={() => {
               onSet(v.tag, iso);
               setOpen(false);
