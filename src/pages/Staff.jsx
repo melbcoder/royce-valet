@@ -405,31 +405,36 @@ export default function Staff() {
       <section className="card pad">
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            {["", "parked", "retrieving", "ready", "out"].map((s) => (
-              <button
-                key={s || "all"}
-                className={
-                  "status-pill filter-pill " +
-                  (filterStatus === s ? "selected" : "")
-                }
-                onClick={() => setFilterStatus(filterStatus === s ? "" : s)}
-              >
-                {s === "" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            ))}
+          <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:12, marginBottom:16 }}>
+            {/* Status dropdown */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{ padding:"6px 12px", borderRadius:20, border:"1px solid #ccc", fontSize:14 }}
+            >
+              <option value="">All</option>
+              <option value="parked">Parked</option>
+              <option value="retrieving">Retrieving</option>
+              <option value="ready">Ready</option>
+              <option value="out">Out</option>
+            </select>
 
-            {/* Departing Today filter */}
+            {/* Departing Today pill */}
             <button
-              className={
-                "status-pill filter-pill " +
-                (filterStatus === "departing" ? "selected" : "")
-              }
+              className={"filter-pill " + (filterStatus === "departing" ? "selected" : "")}
               onClick={() =>
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
             >
               Departing Today
+            </button>
+
+            {/* Add Vehicle Button */}
+            <button
+              className="btn primary"
+              onClick={() => setShowAdd(true)}
+            >
+              Add Vehicle
             </button>
           </div>
         </div>
