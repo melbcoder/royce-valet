@@ -596,8 +596,8 @@ export default function Staff() {
 
       {/* Create Vehicle */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
-        <div className="col" style={{ gap: 8 }}>
-          <input placeholder="Tag (4 digits)" value={newVehicle.tag}
+        <div className="col" style={{ gap: 16 }}>
+          <input placeholder="Tag Number" value={newVehicle.tag}
                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
                  onChange={(e) => setNewVehicle({ ...newVehicle, guestName: e.target.value })} />
