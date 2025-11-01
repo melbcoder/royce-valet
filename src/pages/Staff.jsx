@@ -404,7 +404,8 @@ export default function Staff() {
           <h3>Active Vehicles</h3>
           <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "20px",marginBottom: "0px",flexWrap: "wrap",marginLeft: "auto"}}>
             {/* Status Dropdown */}
-            <select className="status-pill"
+            <select 
+              className={`status-pill ${filterStatus ? `status-${filterStatus}` : ''}`}
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
