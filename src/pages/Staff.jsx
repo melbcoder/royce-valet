@@ -415,9 +415,9 @@ export default function Staff() {
           <div style={{
             display: "flex",
             justifyContent: "flex-end",
-            marginBottom: "12px",
             gap: "12px",
-            position: "relative"
+            position: "relative",
+            marginLeft: "auto"
           }}>
             <div style={{ position: "relative" }}>
               <button className="btn"
