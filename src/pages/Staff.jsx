@@ -430,7 +430,9 @@ export default function Staff() {
                   height: "10px",
                   borderRadius: "50%",
                   background: filterStatus === "" ? "black"
+                    : filterStatus === "received" ? "#777"
                     : filterStatus === "parked" ? "#777"
+                    : filterStatus === "requested" ? "#ff5900ff"
                     : filterStatus === "retrieving" ? "#b68b2e"
                     : filterStatus === "ready" ? "#4caf50"
                     : filterStatus === "out" ? "#1976d2"
