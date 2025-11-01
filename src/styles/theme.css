@@ -30,6 +30,7 @@ input:focus, textarea:focus{ border-color:var(--gold); box-shadow:0 0 0 3px rgba
 .status-all{ background: rgba(255, 255, 255, 0.15); border:1px solid rgba(0,0,0,.15); }
 .status-received{ background: rgba(54, 54, 54, 0.15); border:1px solid rgba(0,0,0,.15); }
 .status-parked{ background: rgba(98, 2, 122, 0.15); border:1px solid rgba(0,0,0,.15); }
+.status-requested{ background: rgba(255, 89, 0, 0.15); border:1px solid rgba(0,0,0,.15); }
 .status-retrieving{ background: rgba(243, 148, 7, 0.15); border:1px solid rgba(0,0,0,.15); }
 .status-ready{ background: rgba(80,180,120,.15); border:1px solid rgba(0,0,0,.15); }
 .status-out{ background: rgba(60,120,200,.15); border:1px solid rgba(0,0,0,.15); }

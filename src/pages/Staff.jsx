@@ -492,7 +492,7 @@ export default function Staff() {
                     { value: "", label: "All Statuses", color: "black" },
                     { value: "received", label: "Received", color: "#777" },
                     { value: "parked", label: "Parked", color: "#e8daec" },
-                    { value: "requested", label: "Requested", color: "#ff5900ff" },
+                    { value: "requested", label: "Requested", color: "rgba(255, 89, 0, 1)" },
                     { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
                     { value: "ready", label: "Ready", color: "#4caf50" },
                     { value: "out", label: "Out", color: "#1976d2" }
