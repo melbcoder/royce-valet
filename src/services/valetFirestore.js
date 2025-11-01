@@ -24,7 +24,7 @@ export async function createVehicle(data) {
     guestName: data.guestName,
     roomNumber: data.roomNumber,
     phone: data.phone,
-    status: "parked",
+    status: "received",
 
     license: "",
     make: "",
@@ -53,7 +53,7 @@ export async function updateVehicle(tag, updates) {
 // Guest: request pickup
 export async function requestVehicle(tag) {
   await updateVehicle(tag, {
-    status: "retrieving",
+    status: "requested",
     requested: true,
     scheduledAt: null,
   });
@@ -62,7 +62,6 @@ export async function requestVehicle(tag) {
 // Guest: cancel request
 export async function cancelRequest(tag) {
   await updateVehicle(tag, {
-    status: "parked",
     requested: false,
     scheduledAt: null,
   });

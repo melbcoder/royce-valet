@@ -56,7 +56,7 @@ export default function Staff() {
       // ensure stable shape
       const stable = list.map((v) => ({
         ...v,
-        status: (v.status || "parked").toLowerCase(),
+        status: (v.status || "received").toLowerCase(),
         requested: Boolean(v.requested),
         ack: Boolean(v.ack),
         scheduledAt: v.scheduledAt || null,
@@ -186,7 +186,6 @@ export default function Staff() {
       roomNumber,
       phone,
       departureDate,
-      status: "received" // set initial status to "received"
     });
     setNewVehicle({
       tag: "",
