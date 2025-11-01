@@ -569,8 +569,8 @@ export default function Staff() {
                       </button>
                     )}
 
-                    {/* Park / Park Again (when out) */}
-                    {(v.status === "out") && (
+                    {/* Park */}
+                    {(v.status === "out" || v.status === "received" || v.status === "retrieving" || v.status === "ready") && (
                       <button className="btn secondary" onClick={() => openPark(v)}>
                         Park
                       </button>
