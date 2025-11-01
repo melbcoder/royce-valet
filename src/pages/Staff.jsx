@@ -201,7 +201,7 @@ export default function Staff() {
   const openPark = (v) => {
     setParkForTag(v.tag);
     setParkForm({
-      bay: v.bay || "",
+      bay: "", // always ask for bay again
       license: v.license || "",
       make: v.make || "",
       color: v.color || "",
@@ -606,10 +606,7 @@ export default function Staff() {
 
       {/* Create Vehicle */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
-        <div
-          className="col"
-          style={{ display: "flex", flexDirection: "column", gap: 16 }}
-        >
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <input placeholder="Tag Number" value={newVehicle.tag}
                   onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
@@ -630,10 +627,10 @@ export default function Staff() {
 
       {/* Park Modal */}
       <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
-        <div className="col" style={{ gap: 8 }}>
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
-          <input placeholder="License Plate" value={parkForm.license}
+          <input placeholder="License Plate (required)" value={parkForm.license}
                  onChange={(e) => setParkForm({ ...parkForm, license: e.target.value })} />
           <input placeholder="Make" value={parkForm.make}
                  onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
