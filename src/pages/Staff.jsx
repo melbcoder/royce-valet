@@ -245,11 +245,15 @@ export default function Staff() {
 
   const setReady = async (tag) => {
     await markReady(tag);
+    // clear bay when marking ready
+    await updateVehicle(tag, { bay: "" });
     showToast("Vehicle ready at driveway.");
   };
 
   const handOver = async (tag) => {
     await markOut(tag);
+    // clear bay when handing over
+    await updateVehicle(tag, { bay: "" });
     showToast("Vehicle handed over.");
   };
 
