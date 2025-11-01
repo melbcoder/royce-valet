@@ -59,8 +59,13 @@ export default function Staff() {
         status: (v.status || "received").toLowerCase(),
         requested: Boolean(v.requested),
         ack: Boolean(v.ack),
-        scheduledAt: v.scheduledAt || null,
-        requestedAt: v.requestedAt || null,
+        // normalize timestamps: accept number or ISO string
+        scheduledAt: v.scheduledAt
+          ? (Number(v.scheduledAt) || Date.parse(v.scheduledAt))
+          : null,
+        requestedAt: v.requestedAt
+          ? (Number(v.requestedAt) || Date.parse(v.requestedAt))
+          : null,
         bay: v.bay || "",
         license: v.license || "",
         make: v.make || "",
