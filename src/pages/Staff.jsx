@@ -434,12 +434,22 @@ export default function Staff() {
                     : filterStatus === "retrieving" ? "#b68b2e"
                     : filterStatus === "ready" ? "#4caf50"
                     : filterStatus === "out" ? "#1976d2"
-                    : "black"
+                    : "black",
+                  flex: "0 0 auto"
                 }}></span>
 
-                {filterStatus === "" ? "All Statuses"
-                  : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
-                <span style={{ fontSize: "12px" }}>▾</span>
+                <span style={{
+                  flex: 1,
+                  textAlign: "right",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  marginLeft: "8px"
+                }}>
+                  {filterStatus === "" ? "All Statuses" : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+                </span>
+
+                <span style={{ fontSize: "12px", marginLeft: "8px" }}>▾</span>
               </button>
 
               {showStatusMenu && (
@@ -463,40 +473,28 @@ export default function Staff() {
                     { value: "ready", label: "Ready", color: "#4caf50" },
                     { value: "out", label: "Out", color: "#1976d2" }
                   ].map(s => (
-                    <button
-                      key={s.value}
+                    <button key={s.value}
                       onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
                       style={{
                         width: "100%",
+                        textAlign: "left",
                         padding: "8px",
                         display: "flex",
                         alignItems: "center",
+                        gap: "8px",
                         borderRadius: "20px",
                         border: "1px solid #eee",
                         background: filterStatus === s.value ? "#f8f8f8" : "#fff",
                         cursor: "pointer"
                       }}
                     >
-                      {/* left-aligned dot */}
                       <span style={{
                         width: "10px",
                         height: "10px",
                         borderRadius: "50%",
-                        background: s.color,
-                        marginRight: "8px",
-                        flex: "0 0 auto"
-                      }} />
-
-                      {/* right-aligned label */}
-                      <span style={{
-                        flex: 1,
-                        textAlign: "right",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}>
-                        {s.label}
-                      </span>
+                        background: s.color
+                      }}></span>
+                      {s.label}
                     </button>
                   ))}
 
