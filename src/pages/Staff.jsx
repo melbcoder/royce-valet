@@ -421,20 +421,10 @@ export default function Staff() {
 
             {/* Departing Today pill */}
             <button
-              className={"filter-pill " + (filterStatus === "departing" ? "selected" : "")}
-              onClick={() =>
-                setFilterStatus(filterStatus === "departing" ? "" : "departing")
-              }
+              className="btn primary"
+              onClick={() => setFilterStatus(filterStatus === "departing" ? "" : "departing")}
             >
               Departing Today
-            </button>
-
-            {/* Add Vehicle Button */}
-            <button
-              className="btn primary"
-              onClick={() => setShowAdd(true)}
-            >
-              Add Vehicle
             </button>
           </div>
         </div>
