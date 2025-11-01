@@ -412,21 +412,11 @@ export default function Staff() {
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
           {/* Filter Bar */}
-          <div style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "12px",
-            position: "relative",
-            marginLeft: "auto"
-          }}>
+          <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto"}}>
             <div style={{ position: "relative" }}>
               <button className="btn"
-                onClick={(e) => {
-              e.stopPropagation();
-              setShowStatusMenu(!showStatusMenu);
-            }}
+                onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
-                  padding: "6px 14px",
                   alignItems: "center",
                   gap: "8px"
                 }}
