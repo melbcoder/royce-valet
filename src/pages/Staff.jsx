@@ -285,7 +285,7 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <button className="btn" onClick={() => setNewOpen(true)}>
+        <button className="btn" onClick={() => setNewOpen(true)} style={{backgroundColor: "#000", color: "#fff", marginLeft: "auto"}}>
           Add Vehicle
         </button>
       </div>
@@ -417,6 +417,7 @@ export default function Staff() {
               <button className="btn"
                 onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
+                  alignItems: "center",
                   gap: "8px",
                   width: "160px",
                   justifyContent: "flex-start",
