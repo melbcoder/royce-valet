@@ -552,7 +552,7 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
-                <th>License Plate</th>
+                <th>Vehicle</th>
                 <th>Status</th>
                 <th>Bay</th>
                 <th>Actions</th>
@@ -571,7 +571,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.license || "—"}</td>
+                  <td>{v.make + "•" + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
