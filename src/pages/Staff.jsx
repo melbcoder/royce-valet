@@ -417,9 +417,8 @@ export default function Staff() {
               <button className="btn"
                 onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
-                  alignItems: "center",
                   gap: "8px",
-                  width: "150px",
+                  width: "160px",
                   justifyContent: "flex-start",
                   display: "flex",
                   marginLeft: "auto"
