@@ -166,6 +166,7 @@ export default function Staff() {
           status: "retrieving",
           requested: true,
           requestedAt: Date.now(),
+          prevStatus: v.status // remember previous status so cancellation can revert
         });
         autoQueued.current.add(v.tag);
       }
@@ -259,6 +260,7 @@ export default function Staff() {
       requested: true,
       requestedAt: Date.now(),
       scheduledAt: null,
+      prevStatus: v.status
     });
   };
 
@@ -277,6 +279,24 @@ export default function Staff() {
       return;
     }
     await scheduleRequest(tag, t);
+  };
+
+  // Cancel a guest request — restore previous status if needed
+  const cancelRequestFor = async (tag) => {
+    const v = vehicles.find((x) => x.tag === tag);
+    if (!v) return;
+    // If vehicle is in a 'requested' transient state, revert to prevStatus
+    let targetStatus = v.status;
+    if (v.status === "requested") {
+      targetStatus = v.prevStatus || "parked";
+    }
+    await updateVehicle(tag, {
+      requested: false,
+      requestedAt: null,
+      status: targetStatus,
+      prevStatus: null, // clear stored previous status
+    });
+    showToast("Request cancelled.");
   };
 
   // ---------- UI ----------
@@ -562,7 +582,8 @@ export default function Staff() {
                           status: "retrieving",
                           requested: true,
                           requestedAt: Date.now(),
-                          ack: false
+                          ack: false,
+                          prevStatus: v.status
                         })
                       }>
                         Retrieve
