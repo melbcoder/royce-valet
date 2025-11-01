@@ -548,9 +548,9 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
+                <th>License Plate</th>
                 <th>Status</th>
                 <th>Bay</th>
-                <th>Scheduled</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -567,13 +567,13 @@ export default function Staff() {
                   <td>{v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
+                  <td>{v.license || "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
-                  <td>{v.scheduledAt ? fmtDT(v.scheduledAt) : "—"}</td>
                   <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {/* Request (only visible when allowed) */}
                     {v.status === "parked" && !v.requested && (
