@@ -426,15 +426,6 @@ export default function Staff() {
               onClick={() =>
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
-              style={{
-                padding: "6px 12px",
-                borderRadius: "20px",
-                border: "1px solid #000",
-                fontSize: "14px",
-                cursor: "pointer",
-                background: filterStatus === "departing" ? "#000" : "#fff",
-                color: filterStatus === "departing" ? "#fff" : "#000"
-              }}
             >
               Departing Today
             </button>
