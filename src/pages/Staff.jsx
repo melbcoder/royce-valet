@@ -409,7 +409,7 @@ export default function Staff() {
 
       {/* Active Vehicles */}
       <section className="card pad">
-        <div className="row space-between" style={{ marginBottom: 8, leftMargin: 0 }}>
+        <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
           {/* Filter Bar */}
           <div style={{
