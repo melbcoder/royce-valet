@@ -414,7 +414,10 @@ export default function Staff() {
   {/* STATUS FILTER */}
   <div style={{ position: "relative" }}>
     <button
-      onClick={() => setShowStatusMenu(!showStatusMenu)}
+      onClick={(e) => {
+    e.stopPropagation();
+    setShowStatusMenu(!showStatusMenu);
+  }}
       style={{
         padding: "6px 14px",
         borderRadius: "22px",
@@ -632,6 +635,14 @@ export default function Staff() {
 function ScheduleInline({ v, onSet, onClear }) {
   const [open, setOpen] = useState(false);
   const [iso, setIso] = useState("");
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
+  // Close status dropdown when clicking outside
+useEffect(() => {
+  const close = () => setShowStatusMenu(false);
+  window.addEventListener("click", close);
+  return () => window.removeEventListener("click", close);
+}, []);
 
   useEffect(() => {
     if (v.scheduledAt) {
