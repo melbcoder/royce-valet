@@ -467,7 +467,7 @@ export default function Staff() {
                       onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
                       style={{
                         width: "100%",
-                        textAlign: "left",
+                        textAlign: "right",
                         padding: "8px",
                         display: "flex",
                         alignItems: "center",
