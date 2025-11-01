@@ -402,7 +402,7 @@ export default function Staff() {
       <section className="card pad">
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
-          <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "20px",marginBottom: "0px",flexWrap: "wrap",marginRight: "0px"}}>
+          <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "20px",marginBottom: "0px",flexWrap: "wrap",marginLeft: "300px"}}>
             {/* Status Dropdown */}
             <select
               value={filterStatus}
