@@ -419,8 +419,8 @@ export default function Staff() {
             gap: "12px",
             position: "relative"
           }}>
-            <div className="btn" style={{ position: "relative" }}>
-              <button
+            <div style={{ position: "relative" }}>
+              <button className="btn"
                 onClick={(e) => {
               e.stopPropagation();
               setShowStatusMenu(!showStatusMenu);
