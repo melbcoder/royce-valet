@@ -355,7 +355,7 @@ export default function Staff() {
       {/* Scheduled Pickups */}
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Scheduled Pickups</h3>
-        <p style={{ marginTop: 6, marginBottom: 12 }}>
+        <p style={{ marginTop: 6, marginBottom: 12, fontSize: "0.9em" }}>
           Vehicles will enter the Request Queue 10 minutes before their scheduled pickup time.
         </p>
 
