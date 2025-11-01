@@ -402,18 +402,19 @@ export default function Staff() {
       <section className="card pad">
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
-          <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "20px",marginBottom: "0px",flexWrap: "wrap",marginLeft: "auto"}}>
+          <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "12px",marginBottom: "0px",flexWrap: "wrap",marginLeft: "auto"}}>
             {/* Status Dropdown */}
             <select 
               className={`status-pill ${filterStatus ? `status-${filterStatus}` : ''}`}
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
             >
-              <option value="">All</option>
-              <option value="parked">Parked</option>
-              <option value="retrieving">Retrieving</option>
-              <option value="ready">Ready</option>
-              <option value="out">Out</option>
+              <option value="">⚪️ All</option>
+              <option value="received">⚫ Received</option>
+              <option value="parked">🟣 Parked</option>
+              <option value="retrieving">🟠 Retrieving</option>
+              <option value="ready">🟢 Ready</option>
+              <option value="out">🔵 Out</option>
             </select>
 
             {/* Departing Today Toggle */}
