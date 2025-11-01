@@ -285,7 +285,7 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ leftMargin: "auto" }}>
+        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: "auto" }}>
           Add Vehicle
         </button>
       </div>
