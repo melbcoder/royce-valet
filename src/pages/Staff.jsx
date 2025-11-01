@@ -404,15 +404,9 @@ export default function Staff() {
           <h3>Active Vehicles</h3>
           <div style={{display: "flex",justifyContent: "flex-end",alignItems: "center",gap: "20px",marginBottom: "0px",flexWrap: "wrap",marginLeft: "auto"}}>
             {/* Status Dropdown */}
-            <select
+            <select className="status-pill"
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: "20px",
-                border: "1px solid #ccc",
-                fontSize: "14px"
-              }}
             >
               <option value="">All</option>
               <option value="parked">Parked</option>
@@ -427,9 +421,9 @@ export default function Staff() {
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
               style={{
-                background: filterStatus === "departing" ? "#000" : "#fff",
-                color: filterStatus === "departing" ? "#fff" : "#000"
-              }}
+                background: filterStatus === "departing" ? "#000" : "#fff",
+                color: filterStatus === "departing" ? "#fff" : "#000"
+              }}
             >
               Departing Today
             </button>
