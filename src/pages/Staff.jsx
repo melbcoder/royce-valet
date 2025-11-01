@@ -419,9 +419,10 @@ export default function Staff() {
                 style={{
                   alignItems: "center",
                   gap: "8px",
-                  width: "160px",
+                  width: "150px",
                   justifyContent: "flex-start",
-                  display: "flex"
+                  display: "flex",
+                  marginLeft: "auto"
                 }}
               >
                 <span style={{
