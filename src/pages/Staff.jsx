@@ -166,17 +166,17 @@ export default function Staff() {
       );
       for (const v of due) {
         if (autoQueued.current.has(v.tag)) continue;
-        // mark retrieving + requested + requestedAt
+        // mark requested (enqueue) — staff will ack to move to retrieving
         await updateVehicle(v.tag, {
-          status: "retrieving",
-          requested: true,
-          requestedAt: Date.now(),
-          prevStatus: v.status // remember previous status so cancellation can revert
-        });
-        autoQueued.current.add(v.tag);
-      }
-    }, 10_000);
-    return () => clearInterval(t);
+          status: "requested",
+           requested: true,
+           requestedAt: Date.now(),
+           prevStatus: v.status // remember previous status so cancellation can revert
+         });
+         autoQueued.current.add(v.tag);
+       }
+     }, 10_000);
+     return () => clearInterval(t);
   }, [vehicles]);
 
   // ---------- actions ----------
