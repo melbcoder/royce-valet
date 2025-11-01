@@ -131,6 +131,15 @@ export default function Staff() {
   }, [vehicles]);
 
   // Active Vehicles (all), filtered by status if selected
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+
+  // Close status dropdown when clicking outside
+useEffect(() => {
+  const close = () => setShowStatusMenu(false);
+  window.addEventListener("click", close);
+  return () => window.removeEventListener("click", close);
+}, []);
+
   const active = useMemo(() => {
     const list = [...vehicles].sort((a, b) => String(a.tag).localeCompare(String(b.tag)));
     if (filterStatus === "departing") {const today = new Date().toISOString().slice(0, 10);return list.filter((v) => v.departureDate === today);}
@@ -635,14 +644,6 @@ export default function Staff() {
 function ScheduleInline({ v, onSet, onClear }) {
   const [open, setOpen] = useState(false);
   const [iso, setIso] = useState("");
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
-
-  // Close status dropdown when clicking outside
-useEffect(() => {
-  const close = () => setShowStatusMenu(false);
-  window.addEventListener("click", close);
-  return () => window.removeEventListener("click", close);
-}, []);
 
   useEffect(() => {
     if (v.scheduledAt) {
