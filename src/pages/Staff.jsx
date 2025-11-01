@@ -431,7 +431,7 @@ export default function Staff() {
                   borderRadius: "50%",
                   background: filterStatus === "" ? "black"
                     : filterStatus === "received" ? "#777"
-                    : filterStatus === "parked" ? "#777"
+                    : filterStatus === "parked" ? "#e8daec"
                     : filterStatus === "requested" ? "#ff5900ff"
                     : filterStatus === "retrieving" ? "#b68b2e"
                     : filterStatus === "ready" ? "#4caf50"
@@ -471,7 +471,7 @@ export default function Staff() {
                   {[
                     { value: "", label: "All Statuses", color: "black" },
                     { value: "received", label: "Received", color: "#777" },
-                    { value: "parked", label: "Parked", color: "#777" },
+                    { value: "parked", label: "Parked", color: "#e8daec" },
                     { value: "requested", label: "Requested", color: "#ff5900ff" },
                     { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
                     { value: "ready", label: "Ready", color: "#4caf50" },
@@ -573,6 +573,12 @@ export default function Staff() {
                     {(v.status === "out" || v.status === "received" || v.status === "retrieving" || v.status === "ready") && (
                       <button className="btn secondary" onClick={() => openPark(v)}>
                         Park
+                      </button>
+                    )}
+
+                    {(v.status === "parked") && (
+                      <button className="btn secondary" onClick={() => openPark(v)}>
+                        Repark
                       </button>
                     )}
 
