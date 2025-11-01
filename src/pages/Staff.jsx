@@ -463,29 +463,40 @@ export default function Staff() {
                     { value: "ready", label: "Ready", color: "#4caf50" },
                     { value: "out", label: "Out", color: "#1976d2" }
                   ].map(s => (
-                    <button key={s.value}
+                    <button
+                      key={s.value}
                       onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
                       style={{
                         width: "100%",
-                        textAlign: "right",
                         padding: "8px",
                         display: "flex",
                         alignItems: "center",
-                        gap: "8px",
                         borderRadius: "20px",
                         border: "1px solid #eee",
                         background: filterStatus === s.value ? "#f8f8f8" : "#fff",
-                        cursor: "pointer",
-                        leftMargin: "auto"
+                        cursor: "pointer"
                       }}
                     >
+                      {/* left-aligned dot */}
                       <span style={{
                         width: "10px",
                         height: "10px",
                         borderRadius: "50%",
-                        background: s.color
-                      }}></span>
-                      {s.label}
+                        background: s.color,
+                        marginRight: "8px",
+                        flex: "0 0 auto"
+                      }} />
+
+                      {/* right-aligned label */}
+                      <span style={{
+                        flex: 1,
+                        textAlign: "right",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
+                      }}>
+                        {s.label}
+                      </span>
                     </button>
                   ))}
 
