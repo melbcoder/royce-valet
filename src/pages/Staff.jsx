@@ -422,7 +422,7 @@ export default function Staff() {
             </select>
 
             {/* Departing Today Toggle */}
-            <button
+            <button className="btn"
               onClick={() =>
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
