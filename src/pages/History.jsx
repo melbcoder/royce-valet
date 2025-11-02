@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from "react";
+import {
+  subscribeHistory,
+  reinstateVehicle,
+} from "../services/valetFirestore";
 
-export default function History({ history }) { // Accept history as a prop
+export default function History() {
+  const [history, setHistory] = useState([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    // Load history if needed
+    const unsub = subscribeHistory((list) => {
+      setHistory(list);
+    });
+    return unsub;
   }, []);
 
-  // Filter by search (guest or tag)
+  // filter by search (guest or tag)
   const filtered = history.filter((v) => {
     const term = search.toLowerCase();
     return (
@@ -17,7 +25,7 @@ export default function History({ history }) { // Accept history as a prop
     );
   });
 
-  // Group by departure date (archivedAt)
+  // group by departure date (archivedAt)
   const grouped = {};
   filtered.forEach((v) => {
     const d = v.archivedAt?.toDate

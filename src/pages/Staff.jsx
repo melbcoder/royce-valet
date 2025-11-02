@@ -13,21 +13,16 @@ import {
 } from "../services/valetFirestore";
 import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
-import History from './History'; // Import History component
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 const fmtDT = (t) => (t ? new Date(t).toLocaleString() : "—");
-// time only (HH:MM) — accepts ms or ISO string
-const fmtTime = (t) =>
-  t ? new Date(Number(t)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
 export default function Staff() {
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
-  const [history, setHistory] = useState([]); // Add history state
   const [filterStatus, setFilterStatus] = useState(""); // active table filter
   const [newOpen, setNewOpen] = useState(false);
   const [newVehicle, setNewVehicle] = useState({
@@ -61,16 +56,11 @@ export default function Staff() {
       // ensure stable shape
       const stable = list.map((v) => ({
         ...v,
-        status: (v.status || "received").toLowerCase(),
+        status: (v.status || "parked").toLowerCase(),
         requested: Boolean(v.requested),
         ack: Boolean(v.ack),
-        // normalize timestamps: accept number or ISO string
-        scheduledAt: v.scheduledAt
-          ? (Number(v.scheduledAt) || Date.parse(v.scheduledAt))
-          : null,
-        requestedAt: v.requestedAt
-          ? (Number(v.requestedAt) || Date.parse(v.requestedAt))
-          : null,
+        scheduledAt: v.scheduledAt || null,
+        requestedAt: v.requestedAt || null,
         bay: v.bay || "",
         license: v.license || "",
         make: v.make || "",
@@ -171,17 +161,16 @@ export default function Staff() {
       );
       for (const v of due) {
         if (autoQueued.current.has(v.tag)) continue;
-        // mark requested (enqueue) — staff will ack to move to retrieving
+        // mark retrieving + requested + requestedAt
         await updateVehicle(v.tag, {
-          status: "requested",
-           requested: true,
-           requestedAt: Date.now(),
-           prevStatus: v.status // remember previous status so cancellation can revert
-         });
-         autoQueued.current.add(v.tag);
-       }
-     }, 10_000);
-     return () => clearInterval(t);
+          status: "retrieving",
+          requested: true,
+          requestedAt: Date.now(),
+        });
+        autoQueued.current.add(v.tag);
+      }
+    }, 10_000);
+    return () => clearInterval(t);
   }, [vehicles]);
 
   // ---------- actions ----------
@@ -212,7 +201,7 @@ export default function Staff() {
   const openPark = (v) => {
     setParkForTag(v.tag);
     setParkForm({
-      bay: "", // always ask for bay again
+      bay: v.bay || "",
       license: v.license || "",
       make: v.make || "",
       color: v.color || "",
@@ -255,20 +244,12 @@ export default function Staff() {
 
   const setReady = async (tag) => {
     await markReady(tag);
-    // clear bay when marking ready
-    await updateVehicle(tag, { bay: "" });
     showToast("Vehicle ready at driveway.");
   };
 
   const handOver = async (tag) => {
-    const isDeparting = window.confirm("Is the vehicle departing?");
-    if (isDeparting) {
-      // Remove the vehicle from active vehicles
-      setVehicles((prevVehicles) => prevVehicles.filter(v => v.tag !== tag));
-
-      // Add the vehicle to the history section
-      setHistory((prevHistory) => [...prevHistory, { tag }]); // Adjust as necessary to include other vehicle details
-    }
+    await markOut(tag);
+    showToast("Vehicle handed over.");
   };
 
   const queueNow = async (v) => {
@@ -278,7 +259,6 @@ export default function Staff() {
       requested: true,
       requestedAt: Date.now(),
       scheduledAt: null,
-      prevStatus: v.status
     });
   };
 
@@ -299,40 +279,13 @@ export default function Staff() {
     await scheduleRequest(tag, t);
   };
 
-  // Cancel a guest request — restore previous status if needed
-  const cancelRequestFor = async (tag) => {
-    const v = vehicles.find((x) => x.tag === tag);
-    if (!v) return;
-
-    // decrement tab badge if this request was counted as unseen
-    if (unseenCount.current > 0 && (prevQueueIds.current.has(tag) || v.requested)) {
-      unseenCount.current = Math.max(0, unseenCount.current - 1);
-      setBadgeCount(unseenCount.current);
-      // remove from prevQueueIds so it won't be considered "new" again
-      prevQueueIds.current.delete(tag);
-    }
-
-    // If vehicle is in a 'requested' transient state, revert to prevStatus
-    let targetStatus = v.status;
-    if (v.status === "requested") {
-      targetStatus = v.prevStatus || "parked";
-    }
-    await updateVehicle(tag, {
-      requested: false,
-      requestedAt: null,
-      status: targetStatus,
-      prevStatus: null, // clear stored previous status
-    });
-    showToast("Request cancelled.");
-  };
-
   // ---------- UI ----------
   return (
     <div className="page pad">
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: "auto" }}>
+        <button className="btn" onClick={() => setNewOpen(true)} style={{backgroundColor: "#000", color: "#fff", marginLeft: "auto"}}>
           Add Vehicle
         </button>
       </div>
@@ -348,8 +301,7 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
-                <th>Vehicle</th>
-                <th>Requested At</th>
+                <th>Requested</th>
                 <th>Status</th>
                 <th>Bay</th>
                 <th>Action</th>
@@ -358,18 +310,17 @@ export default function Staff() {
             <tbody>
               {requestQueue.length === 0 && (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
+                  <td colSpan="7" style={{ textAlign: "center", opacity: 0.7 }}>
                     No current requests.
                   </td>
                 </tr>
               )}
               {requestQueue.map((v) => (
                 <tr key={`q-${v.tag}`}>
-                  <td>{"#" + v.tag}</td>
+                  <td>{v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
-                  <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
+                  <td>{v.requestedAt ? fmtDT(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
@@ -378,26 +329,21 @@ export default function Staff() {
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6 }}>
                     {/* one button at a time */}
-                    {v.status === "requested" && (
-                      <button className="btn secondary" onClick={() => ackRequest(v)}>
+                    {!v.ack && v.status !== "ready" && v.status !== "out" && (
+                      <button className="btn" onClick={() => ackRequest(v)}>
                         Acknowledge
                       </button>
                     )}
                     {v.ack && v.status === "retrieving" && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
+                      <button className="btn" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
                     {v.status === "ready" && (
-                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
+                      <button className="btn" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
                     )}
-
-                    {/* Cancel request (available at all stages in the queue) */}
-                    <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)}>
-                      Cancel
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -436,7 +382,7 @@ export default function Staff() {
               )}
               {scheduled.map((v) => (
                 <tr key={`s-${v.tag}`}>
-                  <td>{"#" + v.tag}</td>
+                  <td>{v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{fmtDT(v.scheduledAt)}</td>
@@ -447,7 +393,7 @@ export default function Staff() {
                   </td>
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6 }}>
-                    <button className="btn secondary" onClick={() => queueNow(v)}>
+                    <button className="btn" onClick={() => queueNow(v)}>
                       Queue Now
                     </button>
                     <button className="btn secondary" onClick={() => cancelSched(v.tag)}>
@@ -468,12 +414,12 @@ export default function Staff() {
           {/* Filter Bar */}
           <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto"}}>
             <div style={{ position: "relative" }}>
-              <button className="btn secondary"
+              <button className="btn"
                 onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
                   alignItems: "center",
                   gap: "8px",
-                  width: "170px",
+                  width: "160px",
                   justifyContent: "flex-start",
                   display: "flex",
                   marginLeft: "auto"
@@ -484,28 +430,16 @@ export default function Staff() {
                   height: "10px",
                   borderRadius: "50%",
                   background: filterStatus === "" ? "black"
-                    : filterStatus === "received" ? "#777"
-                    : filterStatus === "parked" ? "#e8daec"
-                    : filterStatus === "requested" ? "#ff5900ff"
+                    : filterStatus === "parked" ? "#777"
                     : filterStatus === "retrieving" ? "#b68b2e"
                     : filterStatus === "ready" ? "#4caf50"
                     : filterStatus === "out" ? "#1976d2"
-                    : "black",
-                  flex: "0 0 auto"
+                    : "black"
                 }}></span>
 
-                <span style={{
-                  flex: 1,
-                  textAlign: "right",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  marginLeft: "8px"
-                }}>
-                  {filterStatus === "" ? "All Statuses" : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
-                </span>
-
-                <span style={{ fontSize: "12px", marginLeft: "8px" }}>▾</span>
+                {filterStatus === "" ? "All Statuses"
+                  : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+                <span style={{ fontSize: "12px" }}>▾</span>
               </button>
 
               {showStatusMenu && (
@@ -524,9 +458,7 @@ export default function Staff() {
 
                   {[
                     { value: "", label: "All Statuses", color: "black" },
-                    { value: "received", label: "Received", color: "#777" },
-                    { value: "parked", label: "Parked", color: "#e8daec" },
-                    { value: "requested", label: "Requested", color: "rgba(255, 89, 0, 1)" },
+                    { value: "parked", label: "Parked", color: "#777" },
                     { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
                     { value: "ready", label: "Ready", color: "#4caf50" },
                     { value: "out", label: "Out", color: "#1976d2" }
@@ -561,7 +493,7 @@ export default function Staff() {
             </div>
 
             {/* Departing Today Toggle */}
-            <button className="btn secondary"
+            <button className="btn"
               onClick={() =>
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
@@ -582,9 +514,9 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
-                <th>Vehicle</th>
                 <th>Status</th>
                 <th>Bay</th>
+                <th>Scheduled</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -598,53 +530,46 @@ export default function Staff() {
               )}
               {active.map((v) => (
                 <tr key={`a-${v.tag}`}>
-                  <td>{"#" + v.tag}</td>
+                  <td>{v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
+                  <td>{v.scheduledAt ? fmtDT(v.scheduledAt) : "—"}</td>
                   <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {/* Request (only visible when allowed) */}
                     {v.status === "parked" && !v.requested && (
-                      <button className="btn secondary" onClick={() =>
+                      <button className="btn" onClick={() =>
                         updateVehicle(v.tag, {
                           status: "retrieving",
                           requested: true,
                           requestedAt: Date.now(),
-                          ack: false,
-                          prevStatus: v.status
+                          ack: false
                         })
                       }>
                         Retrieve
                       </button>
                     )}
 
-                    {/* Park */}
-                    {(v.status === "out" || v.status === "received" || v.status === "retrieving" || v.status === "ready") && (
+                    {/* Park / Park Again (when out) */}
+                    {(v.status === "out") && (
                       <button className="btn secondary" onClick={() => openPark(v)}>
-                        Park
-                      </button>
-                    )}
-
-                    {(v.status === "parked") && (
-                      <button className="btn secondary" onClick={() => openPark(v)}>
-                        Repark
+                        Park Again
                       </button>
                     )}
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
-                    {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
+                    {v.status === "retrieving" && (
+                      <button className="btn" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
-                    {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
-                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
+                    {v.status === "ready" && (
+                      <button className="btn" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
                     )}
@@ -660,10 +585,10 @@ export default function Staff() {
       </section>
 
       {/* Create Vehicle */}
-      <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
-        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <input placeholder="Tag Number" value={newVehicle.tag}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
+      <Modal visible={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
+        <div className="col" style={{ gap: 8 }}>
+          <input placeholder="Tag (4 digits)" value={newVehicle.tag}
+                 onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
                  onChange={(e) => setNewVehicle({ ...newVehicle, guestName: e.target.value })} />
           <input placeholder="Room Number" value={newVehicle.roomNumber}
@@ -681,11 +606,11 @@ export default function Staff() {
       </Modal>
 
       {/* Park Modal */}
-      <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
-        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Modal visible={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
+        <div className="col" style={{ gap: 8 }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
-          <input placeholder="License Plate (required)" value={parkForm.license}
+          <input placeholder="License Plate" value={parkForm.license}
                  onChange={(e) => setParkForm({ ...parkForm, license: e.target.value })} />
           <input placeholder="Make" value={parkForm.make}
                  onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
@@ -697,8 +622,6 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
-
-      <History history={history} setHistory={setHistory} /> {/* Pass history and setHistory */}
     </div>
   );
 }
@@ -739,7 +662,7 @@ function ScheduleInline({ v, onSet, onClear }) {
               <button className="btn secondary" onClick={() => onClear(v.tag)}>
                 Clear
               </button>
-              <button className="btn secondary" onClick={() => setOpen(true)}>
+              <button className="btn" onClick={() => setOpen(true)}>
                 Edit
               </button>
             </>
@@ -753,7 +676,7 @@ function ScheduleInline({ v, onSet, onClear }) {
             onChange={(e) => setIso(e.target.value)}
           />
           <button
-            className="btn primary"
+            className="btn"
             onClick={() => {
               onSet(v.tag, iso);
               setOpen(false);
