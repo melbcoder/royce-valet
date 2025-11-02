@@ -343,7 +343,7 @@ export default function Staff() {
             <tbody>
               {requestQueue.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", opacity: 0.7 }}>
+                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
                     No current requests.
                   </td>
                 </tr>
