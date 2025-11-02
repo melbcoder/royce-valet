@@ -17,6 +17,9 @@ import { showToast } from "../components/Toast";
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 const fmtDT = (t) => (t ? new Date(t).toLocaleString() : "—");
+// time only (HH:MM) — accepts ms or ISO string
+const fmtTime = (t) =>
+  t ? new Date(Number(t)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
@@ -56,11 +59,16 @@ export default function Staff() {
       // ensure stable shape
       const stable = list.map((v) => ({
         ...v,
-        status: (v.status || "parked").toLowerCase(),
+        status: (v.status || "received").toLowerCase(),
         requested: Boolean(v.requested),
         ack: Boolean(v.ack),
-        scheduledAt: v.scheduledAt || null,
-        requestedAt: v.requestedAt || null,
+        // normalize timestamps: accept number or ISO string
+        scheduledAt: v.scheduledAt
+          ? (Number(v.scheduledAt) || Date.parse(v.scheduledAt))
+          : null,
+        requestedAt: v.requestedAt
+          ? (Number(v.requestedAt) || Date.parse(v.requestedAt))
+          : null,
         bay: v.bay || "",
         license: v.license || "",
         make: v.make || "",
@@ -161,16 +169,17 @@ export default function Staff() {
       );
       for (const v of due) {
         if (autoQueued.current.has(v.tag)) continue;
-        // mark retrieving + requested + requestedAt
+        // mark requested (enqueue) — staff will ack to move to retrieving
         await updateVehicle(v.tag, {
-          status: "retrieving",
-          requested: true,
-          requestedAt: Date.now(),
-        });
-        autoQueued.current.add(v.tag);
-      }
-    }, 10_000);
-    return () => clearInterval(t);
+          status: "requested",
+           requested: true,
+           requestedAt: Date.now(),
+           prevStatus: v.status // remember previous status so cancellation can revert
+         });
+         autoQueued.current.add(v.tag);
+       }
+     }, 10_000);
+     return () => clearInterval(t);
   }, [vehicles]);
 
   // ---------- actions ----------
@@ -198,10 +207,10 @@ export default function Staff() {
     showToast("Vehicle created.");
   };
 
-  const parkOpenModal = (v) => {
+  const openPark = (v) => {
     setParkForTag(v.tag);
     setParkForm({
-      bay: "", // always reset bay for a new parking session
+      bay: "", // always ask for bay again
       license: v.license || "",
       make: v.make || "",
       color: v.color || "",
@@ -236,7 +245,6 @@ export default function Staff() {
       await updateVehicle(v.tag, {
         status: "retrieving",
         ack: true,
-        bay: "", // clear bay when leaving parked
       });
     } else {
       await updateVehicle(v.tag, { ack: true });
@@ -245,11 +253,15 @@ export default function Staff() {
 
   const setReady = async (tag) => {
     await markReady(tag);
+    // clear bay when marking ready
+    await updateVehicle(tag, { bay: "" });
     showToast("Vehicle ready at driveway.");
   };
 
   const handOver = async (tag) => {
     await markOut(tag);
+    // clear bay when handing over
+    await updateVehicle(tag, { bay: "" });
     showToast("Vehicle handed over.");
   };
 
@@ -260,7 +272,7 @@ export default function Staff() {
       requested: true,
       requestedAt: Date.now(),
       scheduledAt: null,
-      bay: "", // clear bay when leaving parked
+      prevStatus: v.status
     });
   };
 
@@ -285,6 +297,15 @@ export default function Staff() {
   const cancelRequestFor = async (tag) => {
     const v = vehicles.find((x) => x.tag === tag);
     if (!v) return;
+
+    // decrement tab badge if this request was counted as unseen
+    if (unseenCount.current > 0 && (prevQueueIds.current.has(tag) || v.requested)) {
+      unseenCount.current = Math.max(0, unseenCount.current - 1);
+      setBadgeCount(unseenCount.current);
+      // remove from prevQueueIds so it won't be considered "new" again
+      prevQueueIds.current.delete(tag);
+    }
+
     // If vehicle is in a 'requested' transient state, revert to prevStatus
     let targetStatus = v.status;
     if (v.status === "requested") {
@@ -305,7 +326,7 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <button className="btn" onClick={() => setNewOpen(true)} style={{backgroundColor: "#000", color: "#fff", marginLeft: "auto"}}>
+        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: "auto" }}>
           Add Vehicle
         </button>
       </div>
@@ -321,7 +342,8 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
-                <th>Requested</th>
+                <th>Vehicle</th>
+                <th>Requested At</th>
                 <th>Status</th>
                 <th>Bay</th>
                 <th>Action</th>
@@ -330,26 +352,27 @@ export default function Staff() {
             <tbody>
               {requestQueue.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", opacity: 0.7 }}>
+                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
                     No current requests.
                   </td>
                 </tr>
               )}
               {requestQueue.map((v) => (
                 <tr key={`q-${v.tag}`}>
-                  <td>{v.tag}</td>
+                  <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.requestedAt ? fmtDT(v.requestedAt) : "—"}</td>
+                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
+                  <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: "6px" }}>
+                  <td style={{ display: "flex", gap: 6 }}>
                     {/* one button at a time */}
-                    { v.status === "requested" && (
+                    {v.status === "requested" && (
                       <button className="btn secondary" onClick={() => ackRequest(v)}>
                         Acknowledge
                       </button>
@@ -364,6 +387,11 @@ export default function Staff() {
                         Hand Over
                       </button>
                     )}
+
+                    {/* Cancel request (available at all stages in the queue) */}
+                    <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)}>
+                      Cancel
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -402,7 +430,7 @@ export default function Staff() {
               )}
               {scheduled.map((v) => (
                 <tr key={`s-${v.tag}`}>
-                  <td>{v.tag}</td>
+                  <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{fmtDT(v.scheduledAt)}</td>
@@ -412,8 +440,8 @@ export default function Staff() {
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: "6px" }}>
-                    <button className="btn" onClick={() => queueNow(v)}>
+                  <td style={{ display: "flex", gap: 6 }}>
+                    <button className="btn secondary" onClick={() => queueNow(v)}>
                       Queue Now
                     </button>
                     <button className="btn secondary" onClick={() => cancelSched(v.tag)}>
@@ -439,7 +467,7 @@ export default function Staff() {
                 style={{
                   alignItems: "center",
                   gap: "8px",
-                  width: "160px",
+                  width: "170px",
                   justifyContent: "flex-start",
                   display: "flex",
                   marginLeft: "auto"
@@ -450,18 +478,28 @@ export default function Staff() {
                   height: "10px",
                   borderRadius: "50%",
                   background: filterStatus === "" ? "black"
-                    : filterStatus === "received" ? "#d4d4d4ff"
-                    : filterStatus === "parked" ? "#62027aff"
-                    : filterStatus === "requested" ? "#ff5900"
-                    : filterStatus === "retrieving" ? "#f39507"
-                    : filterStatus === "ready" ? "#50b478"
-                    : filterStatus === "out" ? "#3c79c8"
-                    : "black"
+                    : filterStatus === "received" ? "#777"
+                    : filterStatus === "parked" ? "#e8daec"
+                    : filterStatus === "requested" ? "#ff5900ff"
+                    : filterStatus === "retrieving" ? "#b68b2e"
+                    : filterStatus === "ready" ? "#4caf50"
+                    : filterStatus === "out" ? "#1976d2"
+                    : "black",
+                  flex: "0 0 auto"
                 }}></span>
 
-                {filterStatus === "" ? "All Statuses"
-                  : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
-                <span style={{ fontSize: "12px" }}>▾</span>
+                <span style={{
+                  flex: 1,
+                  textAlign: "right",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  marginLeft: "8px"
+                }}>
+                  {filterStatus === "" ? "All Statuses" : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
+                </span>
+
+                <span style={{ fontSize: "12px", marginLeft: "8px" }}>▾</span>
               </button>
 
               {showStatusMenu && (
@@ -479,13 +517,13 @@ export default function Staff() {
                 }}>
 
                   {[
-                    { value: "", label: "All Statuses", color: "#000000ff" },
-                    { value: "received", label: "Received", color: "#d4d4d4ff" },
-                    { value: "parked", label: "Parked", color: "#62027aff" },
-                    { value: "requested", label: "Requested", color: "#ff5900ff" },
-                    { value: "retrieving", label: "Retrieving", color: "#f39507ff" },
-                    { value: "ready", label: "Ready", color: "#50b478ff" },
-                    { value: "out", label: "Out", color: "#3c79c8ff" }
+                    { value: "", label: "All Statuses", color: "black" },
+                    { value: "received", label: "Received", color: "#777" },
+                    { value: "parked", label: "Parked", color: "#e8daec" },
+                    { value: "requested", label: "Requested", color: "rgba(255, 89, 0, 1)" },
+                    { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
+                    { value: "ready", label: "Ready", color: "#4caf50" },
+                    { value: "out", label: "Out", color: "#1976d2" }
                   ].map(s => (
                     <button key={s.value}
                       onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
@@ -517,7 +555,7 @@ export default function Staff() {
             </div>
 
             {/* Departing Today Toggle */}
-            <button className="btn"
+            <button className="btn secondary"
               onClick={() =>
                 setFilterStatus(filterStatus === "departing" ? "" : "departing")
               }
@@ -538,9 +576,9 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
+                <th>Vehicle</th>
                 <th>Status</th>
                 <th>Bay</th>
-                <th>Scheduled</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -554,16 +592,16 @@ export default function Staff() {
               )}
               {active.map((v) => (
                 <tr key={`a-${v.tag}`}>
-                  <td>{v.tag}</td>
+                  <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
+                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
-                  <td>{v.scheduledAt ? fmtDT(v.scheduledAt) : "—"}</td>
                   <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {/* Request (only visible when allowed) */}
                     {v.status === "parked" && !v.requested && (
@@ -573,32 +611,33 @@ export default function Staff() {
                           requested: true,
                           requestedAt: Date.now(),
                           ack: false,
-                          bay: "", // clear bay when leaving parked
+                          prevStatus: v.status
                         })
                       }>
                         Retrieve
                       </button>
                     )}
 
-                    {/* Park / Repark - available for parked, out, ready, retrieving */}
-                    {(v.status === "parked" || v.status === "out" || v.status === "ready" || v.status === "retrieving") && (
-                      <button className="btn secondary" onClick={() => parkOpenModal(v)}>
-                        {v.status === "parked" ? "Repark" : "Park"}
+                    {/* Park */}
+                    {(v.status === "out" || v.status === "received" || v.status === "retrieving" || v.status === "ready") && (
+                      <button className="btn secondary" onClick={() => openPark(v)}>
+                        Park
+                      </button>
+                    )}
+
+                    {(v.status === "parked") && (
+                      <button className="btn secondary" onClick={() => openPark(v)}>
+                        Repark
                       </button>
                     )}
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
-                    {v.status === "requested" && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
-                        Acknowledge
-                      </button>
-                    )}
-                    {v.status === "retrieving" && (
+                    {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
                       <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
-                    {v.status === "ready" && (
+                    {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
                       <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
@@ -616,9 +655,9 @@ export default function Staff() {
 
       {/* Create Vehicle */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
-        <div className="col" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <input placeholder="Tag (4 digits)" value={newVehicle.tag}
-                 onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <input placeholder="Tag Number" value={newVehicle.tag}
+                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
                  onChange={(e) => setNewVehicle({ ...newVehicle, guestName: e.target.value })} />
           <input placeholder="Room Number" value={newVehicle.roomNumber}
@@ -628,7 +667,7 @@ export default function Staff() {
           <label style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>Departure Date</label>
           <input type="date" value={newVehicle.departureDate}
                  onChange={(e) => setNewVehicle({ ...newVehicle, departureDate: e.target.value })} />
-          <div className="row" style={{ gap: "8px", marginTop: "8px" }}>
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={handleCreate}>Create Vehicle</button>
             <button className="btn secondary" onClick={() => setNewOpen(false)}>Cancel</button>
           </div>
@@ -637,16 +676,16 @@ export default function Staff() {
 
       {/* Park Modal */}
       <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
-        <div className="col" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
-          <input placeholder="License Plate" value={parkForm.license}
+          <input placeholder="License Plate (required)" value={parkForm.license}
                  onChange={(e) => setParkForm({ ...parkForm, license: e.target.value })} />
           <input placeholder="Make" value={parkForm.make}
                  onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
           <input placeholder="Color" value={parkForm.color}
                  onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} />
-          <div className="row" style={{ gap: "8px", marginTop: "8px" }}>
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={confirmPark}>Save</button>
             <button className="btn secondary" onClick={() => setParkOpen(false)}>Cancel</button>
           </div>
@@ -677,7 +716,7 @@ function ScheduleInline({ v, onSet, onClear }) {
   if (v.status !== "parked") return null;
 
   return (
-    <div className="row" style={{ gap: "6px", alignItems: "center" }}>
+    <div className="row" style={{ gap: 6, alignItems: "center" }}>
       {!open ? (
         <>
           {!v.scheduledAt ? (
@@ -692,7 +731,7 @@ function ScheduleInline({ v, onSet, onClear }) {
               <button className="btn secondary" onClick={() => onClear(v.tag)}>
                 Clear
               </button>
-              <button className="btn" onClick={() => setOpen(true)}>
+              <button className="btn secondary" onClick={() => setOpen(true)}>
                 Edit
               </button>
             </>
@@ -706,7 +745,7 @@ function ScheduleInline({ v, onSet, onClear }) {
             onChange={(e) => setIso(e.target.value)}
           />
           <button
-            className="btn"
+            className="btn primary"
             onClick={() => {
               onSet(v.tag, iso);
               setOpen(false);
