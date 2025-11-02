@@ -445,18 +445,6 @@ export default function Staff() {
                   marginLeft: "auto"
                 }}
               >
-                <span style={{
-                  width: "10px",
-                  height: "10px",
-                  borderRadius: "50%",
-                  background: filterStatus === "" ? "black"
-                    : filterStatus === "received" ? "#e2e2e2ff"
-                    : filterStatus === "parked" ? "rgba(98, 2, 122, 1)"
-                    : filterStatus === "retrieving" ? "#b68b2e"
-                    : filterStatus === "ready" ? "#4caf50"
-                    : filterStatus === "out" ? "#1976d2"
-                    : "black"
-                }}></span>
 
                 {filterStatus === "" ? "All Statuses"
                   : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
