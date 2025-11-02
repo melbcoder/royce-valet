@@ -20,6 +20,7 @@ export default function Guest(){
   if(!v){ return <section className="card pad"><h1>Valet Link</h1><p>We couldn't find details for tag <strong>{tag}</strong>. Please check with the concierge.</p></section> }
   async function onRequest(){
     if(sending) return
+    if (String(v?.status || '').toLowerCase() === 'out') { alert('Vehicle is out and cannot be requested.'); return }
     setSending(true)
     try { await requestVehicle(v.tag) } catch(e){ alert(e?.message || 'Unable to request right now.') } finally { setSending(false) }
   }
@@ -37,7 +38,7 @@ export default function Guest(){
     await scheduleRequest(v.tag, when.toISOString())
     alert('Pickup scheduled. We will move your request into the queue ~10 minutes prior.')
   }
-  const canRequest = v.status !== 'Out'
+  const canRequest = String(v?.status || '').toLowerCase() !== 'out'
   return (
     <section className="card pad">
       <h1>Your Vehicle</h1>
@@ -54,7 +55,7 @@ export default function Guest(){
         <div className="field"><label>Schedule a pickup time</label>
           <div className="row">
             <input type="datetime-local" id="sched" defaultValue="" />
-            <button className="btn" onClick={onSchedule}>Schedule</button>
+            <button className="btn secondary" onClick={onSchedule}>Schedule</button>
             {v.scheduledAt && <button className="btn secondary" onClick={async()=>{ await clearSchedule(v.tag) }}>Clear</button>}
           </div>
           {v.scheduledAt && <small>Scheduled for: {new Date(v.scheduledAt).toLocaleString()}</small>}
@@ -64,7 +65,9 @@ export default function Guest(){
         {canRequest && !v.requested && !sending && (
           <button className="btn btn-dark" onClick={onRequest}>Request My Vehicle</button>
         )}
-        {v.requested && v.status!=='Out' && <button className="btn secondary" disabled={sending} onClick={onCancel}>Cancel Request</button>}
+        {v.requested && String(v?.status || '').toLowerCase() !== 'out' && (
+          <button className="btn secondary" disabled={sending} onClick={onCancel}>Cancel Request</button>
+        )}
       </div>
       <p style={{marginTop:14, color:'var(--muted)'}}>We’ll update your status here when the valet is retrieving or ready.</p>
     </section>
