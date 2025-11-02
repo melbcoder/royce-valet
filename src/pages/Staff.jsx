@@ -349,18 +349,18 @@ export default function Staff() {
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: "6px" }}>
                     {/* one button at a time */}
-                    {!v.ack && v.status !== "ready" && v.status !== "out" && (
-                      <button className="btn" onClick={() => ackRequest(v)}>
+                    { v.status === "requested" && (
+                      <button className="btn secondary" onClick={() => ackRequest(v)}>
                         Acknowledge
                       </button>
                     )}
                     {v.ack && v.status === "retrieving" && (
-                      <button className="btn" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
                     {v.status === "ready" && (
-                      <button className="btn" onClick={() => handOver(v.tag)}>
+                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
                     )}
@@ -499,8 +499,7 @@ export default function Staff() {
                         borderRadius: "20px",
                         border: "1px solid #eee",
                         background: filterStatus === s.value ? "#f8f8f8" : "#fff",
-                        cursor: "pointer",
-                        font: "inherit"
+                        cursor: "pointer"
                       }}
                     >
                       <span style={{
