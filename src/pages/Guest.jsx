@@ -2,14 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, clearSchedule } from '../services/valetFirestore'
 const StatusBadge = ({ status }) => {
-  const s = String(status || '').toLowerCase()
-  const cls =
-    s === 'ready' ? 'status-ready' :
-    s === 'retrieving' ? 'status-retrieving' :
-    s === 'out' ? 'status-out' :
-    'status-parked'
+  const s = String(status || '').toLowerCase() || 'parked'
   const label = s === 'out' ? 'Out & About' : (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
-  return <span className={'status-pill ' + cls}>{label}</span>
+  return <span className={`status-pill status-${s}`}>{label}</span>
 }
 export default function Guest(){
   const { tag } = useParams()
