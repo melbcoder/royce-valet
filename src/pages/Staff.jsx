@@ -378,6 +378,11 @@ export default function Staff() {
                         Hand Over
                       </button>
                     )}
+
+                    {/* Cancel request (available at all stages in the queue) */}
+                    <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)}>
+                      Cancel
+                    </button>
                   </td>
                 </tr>
               ))}
