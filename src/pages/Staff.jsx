@@ -451,7 +451,7 @@ export default function Staff() {
                   borderRadius: "50%",
                   background: filterStatus === "" ? "black"
                     : filterStatus === "received" ? "#e2e2e2ff"
-                    : filterStatus === "parked" ? rgba(98, 2, 122, 1)
+                    : filterStatus === "parked" ? "rgba(98, 2, 122, 1)"
                     : filterStatus === "retrieving" ? "#b68b2e"
                     : filterStatus === "ready" ? "#4caf50"
                     : filterStatus === "out" ? "#1976d2"
