@@ -478,12 +478,13 @@ export default function Staff() {
                 }}>
 
                   {[
-                    { value: "", label: "All Statuses", color: "black" },
-                    { value: "received", label: "Received", color: "rgba(226, 226, 226, 1)" },
-                    { value: "parked", label: "Parked", color: "rgba(98, 2, 122, 1)" },
-                    { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
-                    { value: "ready", label: "Ready", color: "#4caf50" },
-                    { value: "out", label: "Out", color: "#1976d2" }
+                    { value: "", label: "All Statuses", color: "#ffffff26" },
+                    { value: "received", label: "Received", color: "#ecececb9" },
+                    { value: "parked", label: "Parked", color: "#62027a26" },
+                    { value: "requested", label: "Requested", color: "#ff590026" },
+                    { value: "retrieving", label: "Retrieving", color: "#f3940726" },
+                    { value: "ready", label: "Ready", color: "#50b47826" },
+                    { value: "out", label: "Out", color: "#3c78c826" }
                   ].map(s => (
                     <button key={s.value}
                       onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
