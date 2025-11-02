@@ -609,7 +609,7 @@ export default function Staff() {
 
       {/* Create Vehicle */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
-        <div className="col" style={{ gap: "16px" }}>
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <input placeholder="Tag (4 digits)" value={newVehicle.tag}
                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
@@ -630,7 +630,7 @@ export default function Staff() {
 
       {/* Park Modal */}
       <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
-        <div className="col" style={{ gap: "16px" }}>
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
           <input placeholder="License Plate" value={parkForm.license}
