@@ -13,6 +13,7 @@ import {
 } from "../services/valetFirestore";
 import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
+import History from './History'; // Import History component
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -26,6 +27,7 @@ const TEN_MIN = 10 * 60 * 1000;
 export default function Staff() {
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
+  const [history, setHistory] = useState([]); // Add history state
   const [filterStatus, setFilterStatus] = useState(""); // active table filter
   const [newOpen, setNewOpen] = useState(false);
   const [newVehicle, setNewVehicle] = useState({
@@ -259,10 +261,14 @@ export default function Staff() {
   };
 
   const handOver = async (tag) => {
-    await markOut(tag);
-    // clear bay when handing over
-    await updateVehicle(tag, { bay: "" });
-    showToast("Vehicle handed over.");
+    const isDeparting = window.confirm("Is the vehicle departing?");
+    if (isDeparting) {
+      // Remove the vehicle from active vehicles
+      setVehicles((prevVehicles) => prevVehicles.filter(v => v.tag !== tag));
+
+      // Add the vehicle to the history section
+      setHistory((prevHistory) => [...prevHistory, { tag }]); // Adjust as necessary to include other vehicle details
+    }
   };
 
   const queueNow = async (v) => {
@@ -691,6 +697,8 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
+
+      <History history={history} setHistory={setHistory} /> {/* Pass history and setHistory */}
     </div>
   );
 }
