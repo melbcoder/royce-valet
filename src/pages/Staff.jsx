@@ -198,7 +198,7 @@ export default function Staff() {
     showToast("Vehicle created.");
   };
 
-  const openParkModal = (v) => {
+  const parkOpenModal = (v) => {
     setParkForTag(v.tag);
     setParkForm({
       bay: v.bay || "",
@@ -557,7 +557,7 @@ export default function Staff() {
 
                     {/* Park / Park Again (when out) */}
                     {(v.status === "out") && (
-                      <button className="btn secondary" onClick={() => openParkModal(v)}>
+                      <button className="btn secondary" onClick={() => parkOpenModal(v)}>
                         Park Again
                       </button>
                     )}
