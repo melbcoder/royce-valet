@@ -353,7 +353,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.make + " • " + (v.license || "—")}</td>
+                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
@@ -581,7 +581,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.make + " • " + (v.license || "—")}</td>
+                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
