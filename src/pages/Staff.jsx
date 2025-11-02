@@ -435,7 +435,7 @@ export default function Staff() {
           <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto"}}>
             <div style={{ position: "relative" }}>
               <button className="btn secondary"
-                onClick={(e) => { e.stopPropagation(); setShowStatusMenu(!showStatusMenu); }}
+                onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
                   alignItems: "center",
                   gap: "8px",
@@ -445,27 +445,22 @@ export default function Staff() {
                   marginLeft: "auto"
                 }}
               >
-                <span
-                  style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "50%",
-                    background:
-                      filterStatus === "" ? "black"
-                        : filterStatus === "received" ? "#d4d4d4ff"
-                        : filterStatus === "parked" ? "#62027aff"
-                        : filterStatus === "requested" ? "#ff5900"
-                        : filterStatus === "retrieving" ? "#f39507"
-                        : filterStatus === "ready" ? "#50b478"
-                        : filterStatus === "out" ? "#3c79c8"
-                        : "black"
-                  }}
-                />
-                {/* Wrap the label text so it's a flex item */}
-                <span>
-                  {filterStatus === "" ? "All Statuses"
-                    : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
-                </span>
+                <span style={{
+                  width: "10px",
+                  height: "10px",
+                  borderRadius: "50%",
+                  background: filterStatus === "" ? "black"
+                    : filterStatus === "received" ? "#d4d4d4ff"
+                    : filterStatus === "parked" ? "#62027aff"
+                    : filterStatus === "requested" ? "#ff5900"
+                    : filterStatus === "retrieving" ? "#f39507"
+                    : filterStatus === "ready" ? "#50b478"
+                    : filterStatus === "out" ? "#3c79c8"
+                    : "black"
+                }}></span>
+
+                {filterStatus === "" ? "All Statuses"
+                  : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
                 <span style={{ fontSize: "12px" }}>▾</span>
               </button>
 
