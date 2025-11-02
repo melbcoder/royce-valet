@@ -345,7 +345,7 @@ export default function Staff() {
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: 6 }}>
+                  <td style={{ display: "flex", gap: "6px" }}>
                     {/* one button at a time */}
                     {!v.ack && v.status !== "ready" && v.status !== "out" && (
                       <button className="btn" onClick={() => ackRequest(v)}>
@@ -410,7 +410,7 @@ export default function Staff() {
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: 6 }}>
+                  <td style={{ display: "flex", gap: "6px" }}>
                     <button className="btn" onClick={() => queueNow(v)}>
                       Queue Now
                     </button>
@@ -581,6 +581,11 @@ export default function Staff() {
                     )}
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
+                    {v.status === "requested" && (
+                      <button className="btn" onClick={() => setReady(v.tag)}>
+                        Acknowledge
+                      </button>
+                    )}
                     {v.status === "retrieving" && (
                       <button className="btn" onClick={() => setReady(v.tag)}>
                         Ready
@@ -604,7 +609,7 @@ export default function Staff() {
 
       {/* Create Vehicle */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
-        <div className="col" style={{ gap: 8 }}>
+        <div className="col" style={{ gap: "16px" }}>
           <input placeholder="Tag (4 digits)" value={newVehicle.tag}
                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
           <input placeholder="Guest Name" value={newVehicle.guestName}
@@ -616,7 +621,7 @@ export default function Staff() {
           <label style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>Departure Date</label>
           <input type="date" value={newVehicle.departureDate}
                  onChange={(e) => setNewVehicle({ ...newVehicle, departureDate: e.target.value })} />
-          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+          <div className="row" style={{ gap: "8px", marginTop: "8px" }}>
             <button className="btn primary" onClick={handleCreate}>Create Vehicle</button>
             <button className="btn secondary" onClick={() => setNewOpen(false)}>Cancel</button>
           </div>
@@ -625,7 +630,7 @@ export default function Staff() {
 
       {/* Park Modal */}
       <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
-        <div className="col" style={{ gap: 8 }}>
+        <div className="col" style={{ gap: "16px" }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
           <input placeholder="License Plate" value={parkForm.license}
@@ -634,7 +639,7 @@ export default function Staff() {
                  onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
           <input placeholder="Color" value={parkForm.color}
                  onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} />
-          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+          <div className="row" style={{ gap: "8px", marginTop: "8px" }}>
             <button className="btn primary" onClick={confirmPark}>Save</button>
             <button className="btn secondary" onClick={() => setParkOpen(false)}>Cancel</button>
           </div>
@@ -665,7 +670,7 @@ function ScheduleInline({ v, onSet, onClear }) {
   if (v.status !== "parked") return null;
 
   return (
-    <div className="row" style={{ gap: 6, alignItems: "center" }}>
+    <div className="row" style={{ gap: "6px", alignItems: "center" }}>
       {!open ? (
         <>
           {!v.scheduledAt ? (
