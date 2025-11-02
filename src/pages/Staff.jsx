@@ -434,7 +434,7 @@ export default function Staff() {
           {/* Filter Bar */}
           <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto"}}>
             <div style={{ position: "relative" }}>
-              <button className="btn"
+              <button className="btn secondary"
                 onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
                 style={{
                   alignItems: "center",
@@ -585,12 +585,12 @@ export default function Staff() {
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
                     {v.status === "requested" && (
-                      <button className="btn" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Acknowledge
                       </button>
                     )}
                     {v.status === "retrieving" && (
-                      <button className="btn" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         Ready
                       </button>
                     )}
