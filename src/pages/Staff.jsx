@@ -297,6 +297,15 @@ export default function Staff() {
   const cancelRequestFor = async (tag) => {
     const v = vehicles.find((x) => x.tag === tag);
     if (!v) return;
+
+    // decrement tab badge if this request was counted as unseen
+    if (unseenCount.current > 0 && (prevQueueIds.current.has(tag) || v.requested)) {
+      unseenCount.current = Math.max(0, unseenCount.current - 1);
+      setBadgeCount(unseenCount.current);
+      // remove from prevQueueIds so it won't be considered "new" again
+      prevQueueIds.current.delete(tag);
+    }
+
     // If vehicle is in a 'requested' transient state, revert to prevStatus
     let targetStatus = v.status;
     if (v.status === "requested") {
