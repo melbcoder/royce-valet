@@ -201,7 +201,7 @@ export default function Staff() {
   const parkOpenModal = (v) => {
     setParkForTag(v.tag);
     setParkForm({
-      bay: v.bay || "",
+      bay: "", // always reset bay for a new parking session
       license: v.license || "",
       make: v.make || "",
       color: v.color || "",
@@ -236,6 +236,7 @@ export default function Staff() {
       await updateVehicle(v.tag, {
         status: "retrieving",
         ack: true,
+        bay: "", // clear bay when leaving parked
       });
     } else {
       await updateVehicle(v.tag, { ack: true });
@@ -259,6 +260,7 @@ export default function Staff() {
       requested: true,
       requestedAt: Date.now(),
       scheduledAt: null,
+      bay: "", // clear bay when leaving parked
     });
   };
 
@@ -561,12 +563,13 @@ export default function Staff() {
                   <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {/* Request (only visible when allowed) */}
                     {v.status === "parked" && !v.requested && (
-                      <button className="btn" onClick={() =>
+                      <button className="btn secondary" onClick={() =>
                         updateVehicle(v.tag, {
                           status: "retrieving",
                           requested: true,
                           requestedAt: Date.now(),
-                          ack: false
+                          ack: false,
+                          bay: "", // clear bay when leaving parked
                         })
                       }>
                         Retrieve
