@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, clearSchedule } from '../services/valetFirestore'
-const StatusBadge = ({status}) => {
-  const cls = status==='Ready' ? 'status-ready' : (status==='Retrieving' ? 'status-retrieving' : (status==='Out' ? 'status-out' : 'status-parked'))
-  const prettyStatus = status.charAt(0).toUpperCase() + status.slice(1)
-  const label = status === 'out' ? 'Out & About' : prettyStatus
-  return <span className={'status-pill '+cls}>{label}</span>
+const StatusBadge = ({ status }) => {
+  const s = String(status || '').toLowerCase()
+  const cls =
+    s === 'ready' ? 'status-ready' :
+    s === 'retrieving' ? 'status-retrieving' :
+    s === 'out' ? 'status-out' :
+    'status-parked'
+  const label = s === 'out' ? 'Out & About' : (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
+  return <span className={'status-pill ' + cls}>{label}</span>
 }
 export default function Guest(){
   const { tag } = useParams()
@@ -18,6 +22,8 @@ export default function Guest(){
   }, [tag])
   if(!loaded){ return <section className="card pad"><p>Loading…</p></section> }
   if(!v){ return <section className="card pad"><h1>Valet Link</h1><p>We couldn't find details for tag <strong>{tag}</strong>. Please check with the concierge.</p></section> }
+  // normalized status to make rendering/guards consistent
+  const status = String(v?.status || '').toLowerCase()
   async function onRequest(){
     if(sending) return
     if (String(v?.status || '').toLowerCase() === 'out') { alert('Vehicle is out and cannot be requested.'); return }
@@ -38,7 +44,7 @@ export default function Guest(){
     await scheduleRequest(v.tag, when.toISOString())
     alert('Pickup scheduled. We will move your request into the queue ~10 minutes prior.')
   }
-  const canRequest = String(v?.status || '').toLowerCase() !== 'out'
+  const canRequest = status !== 'out'
   return (
     <section className="card pad">
       <h1>Your Vehicle</h1>
@@ -46,7 +52,7 @@ export default function Guest(){
         <div className="tag">Tag #{v.tag}</div>
         <StatusBadge status={v.status} />
       </div>
-      {v.status==='out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
+      {status === 'out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
       <div className="grid cols-2">
         <div className="field"><label>Guest</label><div>{v.guestName}</div></div>
         <div className="field"><label>Room Number</label><div>{v.roomNumber}</div></div>
@@ -65,7 +71,7 @@ export default function Guest(){
         {canRequest && !v.requested && !sending && (
           <button className="btn btn-dark" onClick={onRequest}>Request My Vehicle</button>
         )}
-        {v.requested && String(v?.status || '').toLowerCase() !== 'out' && (
+        {v.requested && status !== 'out' && (
           <button className="btn secondary" disabled={sending} onClick={onCancel}>Cancel Request</button>
         )}
       </div>
