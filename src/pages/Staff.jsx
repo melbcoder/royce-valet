@@ -17,6 +17,9 @@ import { showToast } from "../components/Toast";
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 const fmtDT = (t) => (t ? new Date(t).toLocaleString() : "—");
+// time only (HH:MM) — accepts ms or ISO string
+const fmtTime = (t) =>
+  t ? new Date(Number(t)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
