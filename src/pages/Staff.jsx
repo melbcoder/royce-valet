@@ -603,7 +603,7 @@ export default function Staff() {
       </section>
 
       {/* Create Vehicle */}
-      <Modal visible={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
+      <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
         <div className="col" style={{ gap: 8 }}>
           <input placeholder="Tag (4 digits)" value={newVehicle.tag}
                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
@@ -624,7 +624,7 @@ export default function Staff() {
       </Modal>
 
       {/* Park Modal */}
-      <Modal visible={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
+      <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
         <div className="col" style={{ gap: 8 }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
