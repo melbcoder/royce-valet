@@ -479,7 +479,8 @@ export default function Staff() {
 
                   {[
                     { value: "", label: "All Statuses", color: "black" },
-                    { value: "parked", label: "Parked", color: "#777" },
+                    { value: "received", label: "Received", color: "rgba(226, 226, 226, 1)" },
+                    { value: "parked", label: "Parked", color: "rgba(98, 2, 122, 1)" },
                     { value: "retrieving", label: "Retrieving", color: "#b68b2e" },
                     { value: "ready", label: "Ready", color: "#4caf50" },
                     { value: "out", label: "Out", color: "#1976d2" }
@@ -596,7 +597,7 @@ export default function Staff() {
                       </button>
                     )}
                     {v.status === "ready" && (
-                      <button className="btn" onClick={() => handOver(v.tag)}>
+                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         Hand Over
                       </button>
                     )}
