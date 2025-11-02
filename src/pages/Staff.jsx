@@ -20,16 +20,6 @@ const fmtDT = (t) => (t ? new Date(t).toLocaleString() : "—");
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All Statuses", color: "#000000ff" },
-  { value: "received", label: "Received", color: "#d4d4d4ff" },
-  { value: "parked", label: "Parked", color: "#62027aff" },
-  { value: "requested", label: "Requested", color: "#ff5900ff" },
-  { value: "retrieving", label: "Retrieving", color: "#f39507ff" },
-  { value: "ready", label: "Ready", color: "#50b478ff" },
-  { value: "out", label: "Out", color: "#3c79c8ff" },
-];
-
 export default function Staff() {
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
@@ -155,15 +145,6 @@ export default function Staff() {
     if (filterStatus === "departing") {const today = new Date().toISOString().slice(0, 10);return list.filter((v) => v.departureDate === today);}
     return filterStatus ? list.filter((v) => v.status === filterStatus) : list;
   }, [vehicles, filterStatus]);
-
-  // Look up the current status option by the selected filter
-  const currentStatusOpt = React.useMemo(
-    () => STATUS_OPTIONS.find(o => o.value === filterStatus),
-    [filterStatus]
-  );
-
-  // Fallback to black if not found (e.g., when filterStatus is "departing")
-  const statusDotColor = currentStatusOpt?.color ?? "#000";
 
   // ---------- auto-move scheduled → queue (10 min prior) ----------
   // Client-side guard to avoid spam: remember what we've auto-queued this session
@@ -464,14 +445,18 @@ export default function Staff() {
                   marginLeft: "auto"
                 }}
               >
-                <span
-                  style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "50%",
-                    background: statusDotColor,
-                  }}
-                ></span>
+                <span style={{
+                  width: "10px",
+                  height: "10px",
+                  borderRadius: "50%",
+                  background: filterStatus === "" ? "black"
+                    : filterStatus === "received" ? "#e2e2e2ff"
+                    : filterStatus === "parked" ? "rgba(98, 2, 122, 1)"
+                    : filterStatus === "retrieving" ? "#b68b2e"
+                    : filterStatus === "ready" ? "#4caf50"
+                    : filterStatus === "out" ? "#1976d2"
+                    : "black"
+                }}></span>
 
                 {filterStatus === "" ? "All Statuses"
                   : filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}
@@ -492,7 +477,15 @@ export default function Staff() {
                   padding: "6px"
                 }}>
 
-                  {STATUS_OPTIONS.map(s => (
+                  {[
+                    { value: "", label: "All Statuses", color: "#000000ff" },
+                    { value: "received", label: "Received", color: "#d4d4d4ff" },
+                    { value: "parked", label: "Parked", color: "#62027aff" },
+                    { value: "requested", label: "Requested", color: "#ff5900ff" },
+                    { value: "retrieving", label: "Retrieving", color: "#f39507ff" },
+                    { value: "ready", label: "Ready", color: "#50b478ff" },
+                    { value: "out", label: "Out", color: "#3c79c8ff" }
+                  ].map(s => (
                     <button key={s.value}
                       onClick={() => { setFilterStatus(s.value); setShowStatusMenu(false); }}
                       style={{
