@@ -450,7 +450,8 @@ export default function Staff() {
                   height: "10px",
                   borderRadius: "50%",
                   background: filterStatus === "" ? "black"
-                    : filterStatus === "parked" ? "#777"
+                    : filterStatus === "received" ? "#e2e2e2ff"
+                    : filterStatus === "parked" ? rgba(98, 2, 122, 1)
                     : filterStatus === "retrieving" ? "#b68b2e"
                     : filterStatus === "ready" ? "#4caf50"
                     : filterStatus === "out" ? "#1976d2"
