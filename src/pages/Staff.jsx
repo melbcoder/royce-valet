@@ -573,10 +573,10 @@ export default function Staff() {
                       </button>
                     )}
 
-                    {/* Park / Park Again (when out) */}
-                    {(v.status === "out") && (
+                    {/* Park / Repark - available for parked, out, ready, retrieving */}
+                    {(v.status === "parked" || v.status === "out" || v.status === "ready" || v.status === "retrieving") && (
                       <button className="btn secondary" onClick={() => parkOpenModal(v)}>
-                        Park Again
+                        {v.status === "parked" ? "Repark" : "Park"}
                       </button>
                     )}
 
