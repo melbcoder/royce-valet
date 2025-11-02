@@ -351,7 +351,7 @@ export default function Staff() {
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{v.make + " • " + (v.license || "—")}</td>
-                  <td>{v.requestedAt ? fmtDT(v.requestedAt) : "—"}</td>
+                  <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out & About" : cap(v.status)}
