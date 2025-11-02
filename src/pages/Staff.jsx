@@ -330,7 +330,8 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
-                <th>Requested</th>
+                <th>Vehicle</th>
+                <th>Requested At</th>
                 <th>Status</th>
                 <th>Bay</th>
                 <th>Action</th>
@@ -349,6 +350,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
+                  <td>{v.make + " • " + (v.license || "—")}</td>
                   <td>{v.requestedAt ? fmtDT(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
@@ -358,7 +360,7 @@ export default function Staff() {
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6 }}>
                     {/* one button at a time */}
-                    {!v.ack && v.status !== "ready" && v.status !== "out" && (
+                    {v.status === "requested" && (
                       <button className="btn secondary" onClick={() => ackRequest(v)}>
                         Acknowledge
                       </button>
