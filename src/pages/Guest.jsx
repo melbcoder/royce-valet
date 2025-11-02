@@ -47,8 +47,9 @@ export default function Guest(){
       </div>
       {v.status==='out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
       <div className="grid cols-2">
-        <div className="field"><label>Guest</label><div>{v.guestName} (Room {v.roomNumber})</div></div>
-        <div className="field"><label>Plate</label><div>{v.plate || '—'}</div></div>
+        <div className="field"><label>Guest</label><div>{v.guestName}</div></div>
+        <div className="field"><label>Room Number</label><div>{v.roomNumber}</div></div>
+        <div className="field"><label>Plate</label><div>{v.license || '—'}</div></div>
         <div className="field"><label>Vehicle</label><div>{[v.colour, v.make, v.model].filter(x=>!!(x||'').trim()).join(' ') || '—'}</div></div>
         <div className="field"><label>Schedule a pickup time</label>
           <div className="row">
