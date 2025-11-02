@@ -156,6 +156,15 @@ export default function Staff() {
     return filterStatus ? list.filter((v) => v.status === filterStatus) : list;
   }, [vehicles, filterStatus]);
 
+  // Look up the current status option by the selected filter
+  const currentStatusOpt = React.useMemo(
+    () => STATUS_OPTIONS.find(o => o.value === filterStatus),
+    [filterStatus]
+  );
+
+  // Fallback to black if not found (e.g., when filterStatus is "departing")
+  const statusDotColor = currentStatusOpt?.color ?? "#000";
+
   // ---------- auto-move scheduled → queue (10 min prior) ----------
   // Client-side guard to avoid spam: remember what we've auto-queued this session
   const autoQueued = useRef(new Set());
