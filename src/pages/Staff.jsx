@@ -576,6 +576,7 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
+                <th>Departure</th>
                 <th>Vehicle</th>
                 <th>Status</th>
                 <th>Bay</th>
@@ -595,6 +596,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
+                  <td>{v.departureDate || "—"}</td>
                   <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
