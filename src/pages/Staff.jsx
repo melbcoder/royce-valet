@@ -23,6 +23,36 @@ const fmtTime = (t) =>
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
+// Reusable Park Icon Component
+const ParkIcon = () => (
+  <img src="/parked-car.png" alt="Park" style={{ width: "24px", height: "24px" }} />
+);
+
+// Reusable Ready Icon Component
+const ReadyIcon = () => (
+  <img src="/tick.png" alt="Ready" style={{ width: "24px", height: "24px" }} />
+);
+
+// Reusable Hand Over Icon Component
+const HandOverIcon = () => (
+  <img src="/hand-over.png" alt="Hand Over" style={{ width: "24px", height: "24px" }} />
+);
+
+// Reusable Schedule Icon Component
+const ScheduleIcon = () => (
+  <img src="/schedule.png" alt="Schedule" style={{ width: "24px", height: "24px" }} />
+);
+
+// Reusable Cancel Icon Component
+const CancelIcon = () => (
+  <img src="/cancel.png" alt="Cancel" style={{ width: "24px", height: "24px" }} />
+);
+
+// Reusable Acknowledge Icon Component
+const AcknowledgeIcon = () => (
+  <img src="/acknowledge.png" alt="Acknowledge" style={{ width: "24px", height: "24px" }} />
+);
+
 export default function Staff() {
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
@@ -374,22 +404,22 @@ export default function Staff() {
                     {/* one button at a time */}
                     {v.status === "requested" && (
                       <button className="btn secondary" onClick={() => ackRequest(v)}>
-                        Acknowledge
+                        <AcknowledgeIcon />
                       </button>
                     )}
                     {v.ack && v.status === "retrieving" && (
                       <button className="btn secondary" onClick={() => setReady(v.tag)}>
-                        Ready
+                        <ReadyIcon />
                       </button>
                     )}
                     {v.status === "ready" && (
                       <button className="btn secondary" onClick={() => handOver(v.tag)}>
-                        Hand Over
+                        <HandOverIcon />
                       </button>
                     )}
                     {v.status !== "out" && (
                       <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)}>
-                        Cancel
+                        <CancelIcon />
                       </button>
                     )}
                   </td>
@@ -445,7 +475,7 @@ export default function Staff() {
                       Queue Now
                     </button>
                     <button className="btn secondary" onClick={() => cancelSched(v.tag)}>
-                      Cancel
+                      <CancelIcon />
                     </button>
                   </td>
                 </tr>
@@ -586,7 +616,7 @@ export default function Staff() {
             <tbody>
               {active.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", opacity: 0.7 }}>
+                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
                     No vehicles to display.
                   </td>
                 </tr>
@@ -622,19 +652,20 @@ export default function Staff() {
 
                     {/* Park */}
                     <button className="btn secondary" onClick={() => openPark(v)}>
-                      <img src="/parked-car.png" alt="" style={{ width: "24px", height: "24px" }} />
+                      <ParkIcon />
                     </button>
 
-                    {/* Ready / Hand Over quick controls if not in queue list */}
+                    {/* Ready */}
                     {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
                       <button className="btn secondary" onClick={() => setReady(v.tag)}>
-                        <img src="/tick.png" alt="" style={{ width: "24px", height: "24px" }} />
+                        <ReadyIcon />
                       </button>
                     )}
-
+                    
+                    {/* Hand Over */}
                     {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
                       <button className="btn secondary" onClick={() => handOver(v.tag)}>
-                        <img src="/hand-over.png" alt="" style={{ width: "24px", height: "24px" }} />
+                        <HandOverIcon />
                       </button>
                     )}
 
