@@ -621,24 +621,17 @@ export default function Staff() {
                     )}
 
                     {/* Park */}
-                    {(v.status !== "parked") && (
-                      <button className="btn secondary" onClick={() => openPark(v)}>
-                        <img src="/parked-car.png" alt="" style={{ width: "24px", height: "24px" }} />
-                      </button>
-                    )}
-
-                    {(v.status === "parked") && (
-                      <button className="btn secondary" onClick={() => openPark(v)}>
-                        Repark
-                      </button>
-                    )}
+                    <button className="btn secondary" onClick={() => openPark(v)}>
+                      <img src="/parked-car.png" alt="" style={{ width: "24px", height: "24px" }} />
+                    </button>
 
                     {/* Ready / Hand Over quick controls if not in queue list */}
                     {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
                       <button className="btn secondary" onClick={() => setReady(v.tag)}>
-                        Ready
+                        <img src="/tick.png" alt="" style={{ width: "24px", height: "24px" }} />
                       </button>
                     )}
+
                     {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
                       <button className="btn secondary" onClick={() => handOver(v.tag)}>
                         <img src="/hand-over.png" alt="" style={{ width: "24px", height: "24px" }} />
