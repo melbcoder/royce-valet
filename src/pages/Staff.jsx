@@ -641,7 +641,7 @@ export default function Staff() {
                     )}
                     {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
                       <button className="btn secondary" onClick={() => handOver(v.tag)}>
-                        Hand Over
+                        <img src="/hand-over.png" alt="" style={{ width: "24px", height: "24px" }} />
                       </button>
                     )}
 
