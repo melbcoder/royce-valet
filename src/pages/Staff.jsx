@@ -623,7 +623,7 @@ export default function Staff() {
                     {/* Park */}
                     {(v.status !== "parked") && (
                       <button className="btn secondary" onClick={() => openPark(v)}>
-                        <img src="/parked-car.png" alt="" />
+                        <img src="/parked-car.png" alt="" style={{ width: "16px", height: "16px" }} />
                       </button>
                     )}
 
