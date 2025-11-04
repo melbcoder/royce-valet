@@ -407,7 +407,7 @@ export default function Staff() {
                         <AcknowledgeIcon />
                       </button>
                     )}
-                    {v.ack && v.status === "retrieving" && (
+                    {v.status === "retrieving" && (
                       <button className="btn secondary" onClick={() => setReady(v.tag)}>
                         <ReadyIcon />
                       </button>
