@@ -621,9 +621,9 @@ export default function Staff() {
                     )}
 
                     {/* Park */}
-                    {(v.status === "out" || v.status === "received" || v.status === "retrieving" || v.status === "ready") && (
+                    {(v.status !== "parked") && (
                       <button className="btn secondary" onClick={() => openPark(v)}>
-                        Park
+                        <img src="/icons/park.svg" alt="" />
                       </button>
                     )}
 
