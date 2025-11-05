@@ -766,14 +766,19 @@ function EditableDepartureDate({ vehicle }) {
               Set Date
             </button>
           ) : (
-            <>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>
-                {fmtDate(vehicle.departureDate)}
-              </span>
-              <button className="btn secondary" onClick={() => setIsEditing(true)}>
-                Edit
-              </button>
-            </>
+            <span 
+              style={{ 
+                fontSize: 12, 
+                opacity: 0.8, 
+                cursor: "pointer",
+                borderBottom: "1px dashed #ccc",
+                padding: "2px 0"
+              }}
+              onClick={() => setIsEditing(true)}
+              title="Click to edit departure date"
+            >
+              {fmtDate(vehicle.departureDate)}
+            </span>
           )}
         </>
       ) : (
