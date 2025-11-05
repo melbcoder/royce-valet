@@ -747,7 +747,7 @@ function ScheduleInline({ v, onSet, onClear }) {
         <>
           {!v.scheduledAt ? (
             <button className="btn secondary" onClick={() => setOpen(true)}>
-              Schedule
+              <ScheduleIcon />
             </button>
           ) : (
             <>
