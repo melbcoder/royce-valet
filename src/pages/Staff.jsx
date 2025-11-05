@@ -20,6 +20,16 @@ const fmtDT = (t) => (t ? new Date(t).toLocaleString() : "—");
 // time only (HH:MM) — accepts ms or ISO string
 const fmtTime = (t) =>
   t ? new Date(Number(t)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+// format date as DD-MM-YYYY
+const fmtDate = (dateStr) => {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "—";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+};
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
@@ -626,9 +636,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>
-                    <EditableDepartureDate vehicle={v} />
-                  </td>
+                  <td><EditableDepartureDate vehicle={v} /></td>
                   <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
@@ -783,7 +791,7 @@ function EditableDepartureDate({ vehicle }) {
       }}
       title="Click to edit departure date"
     >
-      {vehicle.departureDate || "—"}
+      {fmtDate(vehicle.departureDate)}
     </span>
   );
 }
