@@ -753,45 +753,46 @@ function EditableDepartureDate({ vehicle }) {
     setIsEditing(false);
   };
 
+  if (isEditing) {
+    return (
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ fontSize: "14px", padding: "2px 4px" }}
+          autoFocus
+        />
+        <button
+          className="btn secondary"
+          onClick={handleSave}
+          style={{ padding: "2px 6px", fontSize: "12px" }}
+        >
+          ✓
+        </button>
+        <button
+          className="btn secondary"
+          onClick={handleCancel}
+          style={{ padding: "2px 6px", fontSize: "12px" }}
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="row" style={{ gap: 6, alignItems: "center" }}>
-      {!isEditing ? (
-        <>
-          {!vehicle.departureDate ? (
-            <button className="btn secondary" onClick={() => setIsEditing(true)}>
-              Set Date
-            </button>
-          ) : (
-            <>
-              <span style={{ fontSize: 12, opacity: 0.8 }}>
-                {fmtDate(vehicle.departureDate)}
-              </span>
-              <button className="btn secondary" onClick={() => setIsEditing(true)}>
-                Edit
-              </button>
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            autoFocus
-          />
-          <button
-            className="btn primary"
-            onClick={handleSave}
-          >
-            Save
-          </button>
-          <button className="btn secondary" onClick={handleCancel}>
-            Cancel
-          </button>
-        </>
-      )}
-    </div>
+    <span
+      onClick={() => setIsEditing(true)}
+      style={{
+        cursor: "pointer",
+        borderBottom: "1px dashed #ccc",
+        padding: "2px 0"
+      }}
+      title="Click to edit departure date"
+    >
+      {fmtDate(vehicle.departureDate)}
+    </span>
   );
 }
 
