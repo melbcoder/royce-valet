@@ -626,7 +626,9 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.departureDate || "—"}</td>
+                  <td>
+                    <EditableDepartureDate vehicle={v} />
+                  </td>
                   <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
@@ -718,6 +720,71 @@ export default function Staff() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+// Editable departure date component
+function EditableDepartureDate({ vehicle }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [date, setDate] = useState(vehicle.departureDate || "");
+
+  useEffect(() => {
+    setDate(vehicle.departureDate || "");
+  }, [vehicle.departureDate]);
+
+  const handleSave = async () => {
+    if (date !== vehicle.departureDate) {
+      await updateVehicle(vehicle.tag, { departureDate: date });
+      showToast("Departure date updated.");
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDate(vehicle.departureDate || "");
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ fontSize: "14px", padding: "2px 4px" }}
+          autoFocus
+        />
+        <button
+          className="btn secondary"
+          onClick={handleSave}
+          style={{ padding: "2px 6px", fontSize: "12px" }}
+        >
+          ✓
+        </button>
+        <button
+          className="btn secondary"
+          onClick={handleCancel}
+          style={{ padding: "2px 6px", fontSize: "12px" }}
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <span
+      onClick={() => setIsEditing(true)}
+      style={{
+        cursor: "pointer",
+        borderBottom: "1px dashed #ccc",
+        padding: "2px 0"
+      }}
+      title="Click to edit departure date"
+    >
+      {vehicle.departureDate || "—"}
+    </span>
   );
 }
 
