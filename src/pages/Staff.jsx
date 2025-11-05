@@ -35,32 +35,32 @@ const TEN_MIN = 10 * 60 * 1000;
 
 // Reusable Park Icon Component
 const ParkIcon = () => (
-  <img src="/parked-car.png" alt="Park" style={{ width: "24px", height: "24px" }} />
+  <img src="/parked-car.png" alt="Park" style={{ width: "20px", height: "20px" }} />
 );
 
 // Reusable Ready Icon Component
 const ReadyIcon = () => (
-  <img src="/tick.png" alt="Ready" style={{ width: "24px", height: "24px" }} />
+  <img src="/tick.png" alt="Ready" style={{ width: "20px", height: "20px" }} />
 );
 
 // Reusable Hand Over Icon Component
 const HandOverIcon = () => (
-  <img src="/hand-over.png" alt="Hand Over" style={{ width: "24px", height: "24px" }} />
+  <img src="/hand-over.png" alt="Hand Over" style={{ width: "20px", height: "20px" }} />
 );
 
 // Reusable Schedule Icon Component
 const ScheduleIcon = () => (
-  <img src="/schedule.png" alt="Schedule" style={{ width: "24px", height: "24px" }} />
+  <img src="/schedule.png" alt="Schedule" style={{ width: "20px", height: "20px" }} />
 );
 
 // Reusable Cancel Icon Component
 const CancelIcon = () => (
-  <img src="/cancel.png" alt="Cancel" style={{ width: "24px", height: "24px" }} />
+  <img src="/cancel.png" alt="Cancel" style={{ width: "20px", height: "20px" }} />
 );
 
 // Reusable Acknowledge Icon Component
 const AcknowledgeIcon = () => (
-  <img src="/acknowledge.png" alt="Acknowledge" style={{ width: "24px", height: "24px" }} />
+  <img src="/acknowledge.png" alt="Acknowledge" style={{ width: "20px", height: "20px" }} />
 );
 
 export default function Staff() {
