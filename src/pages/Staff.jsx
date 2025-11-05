@@ -733,7 +733,6 @@ export default function Staff() {
 
 // Editable departure date component
 function EditableDepartureDate({ vehicle }) {
-  const [isEditing, setIsEditing] = useState(false);
   const [date, setDate] = useState(vehicle.departureDate || "");
 
   useEffect(() => {
@@ -749,49 +748,17 @@ function EditableDepartureDate({ vehicle }) {
       await updateVehicle(vehicle.tag, { departureDate: newDate });
       showToast("Departure date updated.");
     }
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDate(vehicle.departureDate || "");
-    setIsEditing(false);
   };
 
   return (
     <div className="row" style={{ gap: 6, alignItems: "center" }}>
-      {!isEditing ? (
-        <>
-          {!vehicle.departureDate ? (
-            <button className="btn secondary" onClick={() => setIsEditing(true)}>
-              Set Date
-            </button>
-          ) : (
-            <span 
-              style={{ 
-                fontSize: 12, 
-                opacity: 0.8, 
-                cursor: "pointer",
-                borderBottom: "1px dashed #ccc",
-                padding: "2px 0"
-              }}
-              onClick={() => setIsEditing(true)}
-              title="Click to edit departure date"
-            >
-              {fmtDate(vehicle.departureDate)}
-            </span>
-          )}
-        </>
-      ) : (
-        <>
-          <input
-            type="date"
-            value={date}
-            onChange={handleDateChange}
-            onBlur={() => setIsEditing(false)}
-            autoFocus
-          />
-        </>
-      )}
+      <input
+        type="date"
+        value={date}
+        onChange={handleDateChange}
+        style={{ fontSize: "14px", padding: "4px 6px" }}
+        title="Select departure date"
+      />
     </div>
   );
 }
