@@ -740,9 +740,13 @@ function EditableDepartureDate({ vehicle }) {
     setDate(vehicle.departureDate || "");
   }, [vehicle.departureDate]);
 
-  const handleSave = async () => {
-    if (date !== vehicle.departureDate) {
-      await updateVehicle(vehicle.tag, { departureDate: date });
+  const handleDateChange = async (e) => {
+    const newDate = e.target.value;
+    setDate(newDate);
+    
+    // Auto-save when date changes
+    if (newDate !== vehicle.departureDate) {
+      await updateVehicle(vehicle.tag, { departureDate: newDate });
       showToast("Departure date updated.");
     }
     setIsEditing(false);
@@ -753,46 +757,37 @@ function EditableDepartureDate({ vehicle }) {
     setIsEditing(false);
   };
 
-  if (isEditing) {
-    return (
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          style={{ fontSize: "14px", padding: "2px 4px" }}
-          autoFocus
-        />
-        <button
-          className="btn secondary"
-          onClick={handleSave}
-          style={{ padding: "2px 6px", fontSize: "12px" }}
-        >
-          ✓
-        </button>
-        <button
-          className="btn secondary"
-          onClick={handleCancel}
-          style={{ padding: "2px 6px", fontSize: "12px" }}
-        >
-          ✕
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <span
-      onClick={() => setIsEditing(true)}
-      style={{
-        cursor: "pointer",
-        borderBottom: "1px dashed #ccc",
-        padding: "2px 0"
-      }}
-      title="Click to edit departure date"
-    >
-      {fmtDate(vehicle.departureDate)}
-    </span>
+    <div className="row" style={{ gap: 6, alignItems: "center" }}>
+      {!isEditing ? (
+        <>
+          {!vehicle.departureDate ? (
+            <button className="btn secondary" onClick={() => setIsEditing(true)}>
+              Set Date
+            </button>
+          ) : (
+            <>
+              <span style={{ fontSize: 12, opacity: 0.8 }}>
+                {fmtDate(vehicle.departureDate)}
+              </span>
+              <button className="btn secondary" onClick={() => setIsEditing(true)}>
+                Edit
+              </button>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <input
+            type="date"
+            value={date}
+            onChange={handleDateChange}
+            onBlur={() => setIsEditing(false)}
+            autoFocus
+          />
+        </>
+      )}
+    </div>
   );
 }
 
