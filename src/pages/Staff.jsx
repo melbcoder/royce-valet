@@ -636,7 +636,7 @@ export default function Staff() {
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {/* Request (only visible when allowed) */}
-                    {v.status === "parked" && !v.requested && (
+                    {/* {v.status === "parked" && !v.requested && (
                       <button className="btn secondary" onClick={() =>
                         updateVehicle(v.tag, {
                           status: "retrieving",
@@ -648,7 +648,7 @@ export default function Staff() {
                       }>
                         Retrieve
                       </button>
-                    )}
+                    )} */}
 
                     {/* Park */}
                     <button className="btn secondary" onClick={() => openPark(v)}>
