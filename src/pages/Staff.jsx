@@ -86,6 +86,10 @@ export default function Staff() {
     color: "",
   });
 
+  // Departure confirmation modal
+  const [departureModalOpen, setDepartureModalOpen] = useState(false);
+  const [departureTag, setDepartureTag] = useState(null);
+
   // notification count & chime
   const unseenCount = useRef(0);
   const [badgeCount, setBadgeCount] = useState(0);
@@ -309,16 +313,10 @@ export default function Staff() {
     
     // Check if departure date is today or earlier
     if (departureDate && departureDate <= today) {
-      const hasDeparted = window.confirm(
-        "Has this vehicle departed the property?"
-      );
-      
-      if (hasDeparted) {
-        // Mark as departed and clear bay
-        await updateVehicle(tag, { status: "departed", bay: "", requested: false, requestedAt: null });
-        showToast("Vehicle marked as departed.");
-        return;
-      }
+      // Show custom modal instead of window.confirm
+      setDepartureTag(tag);
+      setDepartureModalOpen(true);
+      return;
     }
     
     // Normal hand over flow
@@ -326,6 +324,31 @@ export default function Staff() {
     // clear bay when handing over
     await updateVehicle(tag, { bay: "" });
     showToast("Vehicle handed over.");
+  };
+
+  const confirmDeparture = async () => {
+    if (departureTag) {
+      await updateVehicle(departureTag, { 
+        status: "departed", 
+        bay: "", 
+        requested: false, 
+        requestedAt: null 
+      });
+      showToast("Vehicle marked as departed.");
+    }
+    setDepartureModalOpen(false);
+    setDepartureTag(null);
+  };
+
+  const declineDeparture = async () => {
+    if (departureTag) {
+      // Normal hand over flow
+      await markOut(departureTag);
+      await updateVehicle(departureTag, { bay: "" });
+      showToast("Vehicle handed over.");
+    }
+    setDepartureModalOpen(false);
+    setDepartureTag(null);
   };
 
   const queueNow = async (v) => {
@@ -749,6 +772,23 @@ export default function Staff() {
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={confirmPark}>Save</button>
             <button className="btn secondary" onClick={() => setParkOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Departure Confirmation Modal */}
+      <Modal open={departureModalOpen} onClose={() => setDepartureModalOpen(false)} title="Confirm Departure">
+        <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <p style={{ marginBottom: 16 }}>
+            Mark this vehicle as departed? This will clear the bay and update the status.
+          </p>
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+            <button className="btn primary" onClick={confirmDeparture}>
+              Yes, Mark Departed
+            </button>
+            <button className="btn secondary" onClick={() => setDepartureModalOpen(false)}>
+              Cancel
+            </button>
           </div>
         </div>
       </Modal>
