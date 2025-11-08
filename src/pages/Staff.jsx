@@ -214,6 +214,7 @@ export default function Staff() {
           status: "requested",
            requested: true,
            requestedAt: Date.now(),
+           scheduledAt: null,
            prevStatus: v.status // remember previous status so cancellation can revert
          });
          autoQueued.current.add(v.tag);
@@ -458,13 +459,13 @@ export default function Staff() {
                 <th>Pickup Time</th>
                 <th>Status</th>
                 <th>Bay</th>
-                <th>Quick Actions</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {scheduled.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: "center", opacity: 0.7 }}>
+                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
                     No scheduled pickups.
                   </td>
                 </tr>
