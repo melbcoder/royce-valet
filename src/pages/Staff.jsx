@@ -189,7 +189,10 @@ export default function Staff() {
   }, []);
 
   const active = useMemo(() => {
-    const list = [...vehicles].sort((a, b) => String(a.tag).localeCompare(String(b.tag)));
+    // Filter out departed vehicles
+    const list = [...vehicles]
+      .filter((v) => v.status !== "departed")
+      .sort((a, b) => String(a.tag).localeCompare(String(b.tag)));
     if (filterStatus === "departing") {const today = new Date().toISOString().slice(0, 10);return list.filter((v) => v.departureDate === today);}
     return filterStatus ? list.filter((v) => v.status === filterStatus) : list;
   }, [vehicles, filterStatus]);
@@ -300,6 +303,25 @@ export default function Staff() {
   };
 
   const handOver = async (tag) => {
+    const v = vehicles.find((x) => x.tag === tag);
+    const today = new Date().toISOString().slice(0, 10);
+    const departureDate = v?.departureDate || "";
+    
+    // Check if departure date is today or earlier
+    if (departureDate && departureDate <= today) {
+      const hasDeparted = window.confirm(
+        "Has this vehicle departed the property?"
+      );
+      
+      if (hasDeparted) {
+        // Mark as departed and clear bay
+        await updateVehicle(tag, { status: "departed", bay: "", requested: false, requestedAt: null });
+        showToast("Vehicle marked as departed.");
+        return;
+      }
+    }
+    
+    // Normal hand over flow
     await markOut(tag);
     // clear bay when handing over
     await updateVehicle(tag, { bay: "" });
