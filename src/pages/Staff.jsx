@@ -406,7 +406,7 @@ export default function Staff() {
                   <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
-                      {v.status === "out" ? "Out & About" : cap(v.status)}
+                      {v.status === "out" ? "Out" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
@@ -454,6 +454,7 @@ export default function Staff() {
                 <th>Tag</th>
                 <th>Guest</th>
                 <th>Room</th>
+                <th>Vehicle</th>
                 <th>Pickup Time</th>
                 <th>Status</th>
                 <th>Bay</th>
@@ -473,10 +474,11 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
+                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>{fmtDT(v.scheduledAt)}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
-                      {v.status === "out" ? "Out & About" : cap(v.status)}
+                      {v.status === "out" ? "Out" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
@@ -640,7 +642,7 @@ export default function Staff() {
                   <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
-                      {v.status === "out" ? "Out & About" : cap(v.status)}
+                      {v.status === "out" ? "Out" : cap(v.status)}
                     </span>
                   </td>
                   <td>{v.bay || "—"}</td>
