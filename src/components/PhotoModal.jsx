@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import Modal from "./Modal";
-import { storage } from "../services/firebase";
+import { storage } from "../services/valetFirestore";
 import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
 import { updateVehicle } from "../services/valetFirestore";
 import { showToast } from "./Toast";
