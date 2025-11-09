@@ -29,6 +29,14 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
   const [activeAngle, setActiveAngle] = useState("front");
   const fileInputRefs = useRef({});
 
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setPhotos({ front: null, rear: null, left: null, right: null });
+      setActiveAngle("front");
+    }
+  }, [open]);
+
   // Load existing photos when modal opens
   useEffect(() => {
     if (open && vehicleTag) {
@@ -47,7 +55,8 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
         const url = await getDownloadURL(photoRef);
         newPreviews[angle.key] = url;
       } catch (error) {
-        // Photo doesn't exist yet
+        // Photo doesn't exist yet - this is normal
+        console.log(`No ${angle.key} photo found`);
       }
     }
 
@@ -82,7 +91,9 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
 
   const handleCapture = async (angle) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } // Use back camera on mobile
+      });
       const video = document.createElement("video");
       video.srcObject = stream;
       video.play();
@@ -105,16 +116,20 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
 
           // Stop the stream
           stream.getTracks().forEach((track) => track.stop());
-        }, "image/jpeg");
+        }, "image/jpeg", 0.9);
       };
     } catch (error) {
+      console.error("Camera error:", error);
       showToast("Camera access denied or unavailable.");
     }
   };
 
   const handleRemovePhoto = (angle) => {
     setPhotos((prev) => ({ ...prev, [angle]: null }));
-    setPreviews((prev) => ({ ...prev, [angle]: null }));
+    // Don't remove preview if it's from server - only clear if it's a new photo
+    if (photos[angle]) {
+      setPreviews((prev) => ({ ...prev, [angle]: null }));
+    }
     if (fileInputRefs.current[angle]) {
       fileInputRefs.current[angle].value = "";
     }
@@ -126,13 +141,26 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
     setUploading(true);
     try {
       const uploadPromises = [];
+      let uploadCount = 0;
 
       for (const angle of PHOTO_ANGLES) {
         const file = photos[angle.key];
         if (file) {
+          console.log(`Uploading ${angle.key} photo...`);
           const photoRef = ref(storage, `vehicles/${vehicleTag}/${angle.key}.jpg`);
-          uploadPromises.push(uploadBytes(photoRef, file));
+          uploadPromises.push(
+            uploadBytes(photoRef, file).then(() => {
+              uploadCount++;
+              console.log(`${angle.key} uploaded successfully`);
+            })
+          );
         }
+      }
+
+      if (uploadPromises.length === 0) {
+        showToast("No new photos to upload.");
+        setUploading(false);
+        return;
       }
 
       await Promise.all(uploadPromises);
@@ -142,11 +170,18 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
         photosUpdatedAt: Date.now(),
       });
 
-      showToast("Photos uploaded successfully.");
-      onClose();
+      console.log(`Successfully uploaded ${uploadCount} photos`);
+      showToast(`${uploadCount} photo(s) uploaded successfully.`);
+      
+      // Reload photos to show saved versions
+      await loadExistingPhotos();
+      
+      // Clear the new photos state
+      setPhotos({ front: null, rear: null, left: null, right: null });
+      
     } catch (error) {
       console.error("Upload error:", error);
-      showToast("Failed to upload photos.");
+      showToast(`Failed to upload photos: ${error.message}`);
     } finally {
       setUploading(false);
     }
@@ -162,6 +197,7 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       setPhotos((prev) => ({ ...prev, [angle]: null }));
       showToast(`${angle} photo deleted.`);
     } catch (error) {
+      console.error("Delete error:", error);
       showToast("Failed to delete photo.");
     }
   };
@@ -222,12 +258,29 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
                 }}
               />
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <button
-                  className="btn secondary"
-                  onClick={() => handleRemovePhoto(activeAngle)}
-                >
-                  Replace
-                </button>
+                {photos[activeAngle] ? (
+                  <button
+                    className="btn secondary"
+                    onClick={() => handleRemovePhoto(activeAngle)}
+                  >
+                    Cancel Upload
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="btn secondary"
+                      onClick={() => handleRemovePhoto(activeAngle)}
+                    >
+                      Replace
+                    </button>
+                    <button
+                      className="btn secondary"
+                      onClick={() => handleDeletePhoto(activeAngle)}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ) : (
@@ -243,11 +296,12 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
               <p style={{ marginBottom: 16, opacity: 0.7 }}>
                 No {activeAngle} photo yet
               </p>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                 <input
                   ref={(el) => (fileInputRefs.current[activeAngle] = el)}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   onChange={(e) => handleFileSelect(activeAngle, e)}
                   style={{ display: "none" }}
                   id={`file-${activeAngle}`}
@@ -282,7 +336,7 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
               {uploading ? "Uploading..." : "Save Photos"}
             </button>
           )}
-          <button className="btn secondary" onClick={onClose}>
+          <button className="btn secondary" onClick={onClose} disabled={uploading}>
             {hasNewPhotos ? "Cancel" : "Close"}
           </button>
         </div>
