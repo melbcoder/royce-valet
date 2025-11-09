@@ -334,7 +334,7 @@ export default function Staff() {
         requested: false, 
         requestedAt: null 
       });
-      showToast("Vehicle marked as departed.");
+      showToast("Vehicle marked as departed.", v.markOut);
     }
     setDepartureModalOpen(false);
     setDepartureTag(null);
@@ -780,7 +780,7 @@ export default function Staff() {
       <Modal open={departureModalOpen} onClose={() => setDepartureModalOpen(false)} title="Confirm Departure">
         <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <p style={{ marginBottom: 16 }}>
-            Mark this vehicle as departed? This will clear the bay and update the status.
+            Mark this vehicle as departed? This will move this vehicle to the history page.
           </p>
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={confirmDeparture}>
