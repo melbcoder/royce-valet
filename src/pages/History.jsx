@@ -4,6 +4,11 @@ import {
   updateVehicle,
 } from "../services/valetFirestore";
 
+// Reusable Photo Icon Component
+const CameraIcon = () => (
+  <img src="/camera.png" alt="Camera" style={{ width: "20px", height: "20px" }} />
+);
+
 export default function History() {
   const [history, setHistory] = useState([]);
   const [search, setSearch] = useState("");
@@ -84,6 +89,11 @@ export default function History() {
                           Reinstate
                         </button>
                       )}
+
+                      {/* Add & View Photos */}
+                      <button className="btn secondary" onClick={() => openPhotos(v.tag)}>
+                        <CameraIcon />
+                      </button>
                     </td>
                   </tr>
                 ))}

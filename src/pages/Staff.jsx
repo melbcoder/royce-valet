@@ -63,6 +63,11 @@ const AcknowledgeIcon = () => (
   <img src="/acknowledge.png" alt="Acknowledge" style={{ width: "20px", height: "20px" }} />
 );
 
+// Reusable Photo Icon Component
+const CameraIcon = () => (
+  <img src="/camera.png" alt="Camera" style={{ width: "20px", height: "20px" }} />
+);
+
 export default function Staff() {
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
@@ -732,6 +737,11 @@ export default function Staff() {
                         <HandOverIcon />
                       </button>
                     )}
+
+                    {/* Add & View Photos */}
+                    <button className="btn secondary" onClick={() => openPhotos(v.tag)}>
+                      <CameraIcon />
+                    </button>
 
                     {/* Schedule pickup */}
                     <ScheduleInline v={v} onSet={setSchedule} onClear={cancelSched} />
