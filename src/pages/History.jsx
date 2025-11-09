@@ -64,7 +64,7 @@ export default function History() {
                   <th>Guest</th>
                   <th>Room</th>
                   <th>Vehicle</th>
-                  <th>Action</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
 
