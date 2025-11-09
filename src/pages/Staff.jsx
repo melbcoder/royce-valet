@@ -89,6 +89,7 @@ export default function Staff() {
   // Departure confirmation modal
   const [departureModalOpen, setDepartureModalOpen] = useState(false);
   const [departureTag, setDepartureTag] = useState(null);
+  const [lastDeparture, setLastDeparture] = useState(null); // store vehicle state for undo
 
   // notification count & chime
   const unseenCount = useRef(0);
@@ -328,16 +329,44 @@ export default function Staff() {
 
   const confirmDeparture = async () => {
     if (departureTag) {
+      const v = vehicles.find((x) => x.tag === departureTag);
+      // Store previous state for undo
+      setLastDeparture({
+        tag: v.tag,
+        status: v.status,
+        bay: v.bay,
+        requested: v.requested,
+        requestedAt: v.requestedAt,
+      });
+
       await updateVehicle(departureTag, { 
         status: "departed", 
         bay: "", 
         requested: false, 
         requestedAt: null 
       });
-      showToast("Vehicle marked as departed.");
+      showToast("Vehicle marked as departed.", {
+        action: {
+          label: "Undo",
+          onClick: undoDeparture,
+        },
+      });
     }
     setDepartureModalOpen(false);
     setDepartureTag(null);
+  };
+
+  const undoDeparture = async () => {
+    if (lastDeparture) {
+      await updateVehicle(lastDeparture.tag, {
+        status: lastDeparture.status,
+        bay: lastDeparture.bay,
+        requested: lastDeparture.requested,
+        requestedAt: lastDeparture.requestedAt,
+      });
+      showToast("Departure undone.");
+      setLastDeparture(null);
+    }
   };
 
   const declineDeparture = async () => {
@@ -893,4 +922,86 @@ function ScheduleInline({ v, onSet, onClear }) {
       )}
     </div>
   );
+}
+
+/* ...existing code... */
+export function showToast(message, options = {}) {
+  const event = new CustomEvent("show-toast", {
+    detail: { message, ...options },
+  });
+  window.dispatchEvent(event);
+}
+
+export default function Toast() {
+  const [visible, setVisible] = useState(false);
+  const [message, setMessage] = useState("");
+  const [action, setAction] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      setMessage(e.detail.message);
+      setAction(e.detail.action || null);
+      setVisible(true);
+      setTimeout(() => {
+        setVisible(false);
+        setAction(null);
+      }, 3000);
+    };
+    window.addEventListener("show-toast", handler);
+    return () => window.removeEventListener("show-toast", handler);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="toast">
+      <span>{message}</span>
+      {action && (
+        <button
+          className="toast-action"
+          onClick={() => {
+            action.onClick();
+            setVisible(false);
+            setAction(null);
+          }}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ...existing code... */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-action {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.toast-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
 }
