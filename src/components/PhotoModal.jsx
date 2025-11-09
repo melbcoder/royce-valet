@@ -178,7 +178,9 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {vehicle && (
           <div style={{ padding: 12, background: "#f8f8f8", borderRadius: 8 }}>
-            <strong>{vehicle.guestName}</strong> • {vehicle.color} {vehicle.make} • {vehicle.license}
+            <strong>{vehicle.guestName}</strong>
+            <br />
+            {vehicle.color} {vehicle.make} • {vehicle.license}
           </div>
         )}
 
@@ -287,7 +289,7 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
 
         {!hasAnyPhotos && !hasNewPhotos && (
           <p style={{ fontSize: 12, opacity: 0.6, textAlign: "center" }}>
-            Tip: Capture all four angles for complete vehicle documentation
+            Capture all four angles for complete vehicle documentation
           </p>
         )}
       </div>
