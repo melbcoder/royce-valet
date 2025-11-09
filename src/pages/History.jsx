@@ -64,7 +64,6 @@ export default function History() {
                   <th>Guest</th>
                   <th>Room</th>
                   <th>Vehicle</th>
-                  <th>Bay</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -75,12 +74,7 @@ export default function History() {
                     <td>{v.tag}</td>
                     <td>{v.guestName}</td>
                     <td>{v.roomNumber}</td>
-                    <td>
-                      {v.color} {v.make}
-                      <br />
-                      {v.license}
-                    </td>
-                    <td>{v.bay}</td>
+                    <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                     <td>
                       {date === todayStr && (
                         <button
