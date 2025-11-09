@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
-  subscribeHistory,
-  reinstateVehicle,
+  subscribeActiveVehicles,
+  updateVehicle,
 } from "../services/valetFirestore";
 
 export default function History() {
@@ -9,8 +9,10 @@ export default function History() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const unsub = subscribeHistory((list) => {
-      setHistory(list);
+    const unsub = subscribeActiveVehicles((list) => {
+      // Filter only departed vehicles
+      const departed = list.filter((v) => v.status === "departed");
+      setHistory(departed);
     });
     return unsub;
   }, []);
@@ -25,12 +27,12 @@ export default function History() {
     );
   });
 
-  // group by departure date (archivedAt)
+  // group by departure date (using updatedAt as proxy for when departed status was set)
   const grouped = {};
   filtered.forEach((v) => {
-    const d = v.archivedAt?.toDate
-      ? v.archivedAt.toDate().toLocaleDateString()
-      : "";
+    const d = v.updatedAt?.toDate
+      ? v.updatedAt.toDate().toLocaleDateString()
+      : new Date().toLocaleDateString();
     if (!grouped[d]) grouped[d] = [];
     grouped[d].push(v);
   });
@@ -83,7 +85,7 @@ export default function History() {
                       {date === todayStr && (
                         <button
                           className="btn secondary"
-                          onClick={() => reinstateVehicle(v._id, v)}
+                          onClick={() => updateVehicle(v.tag, { status: "out" })}
                         >
                           Reinstate
                         </button>
