@@ -136,8 +136,15 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
   };
 
   const handleUpload = async () => {
-    if (!vehicleTag) return;
+    if (!vehicleTag) {
+      console.error("No vehicleTag provided");
+      showToast("Error: No vehicle tag");
+      return;
+    }
 
+    console.log("Starting upload for vehicle:", vehicleTag);
+    console.log("Photos to upload:", Object.entries(photos).filter(([k, v]) => v !== null));
+    
     setUploading(true);
     try {
       const uploadPromises = [];
@@ -146,13 +153,21 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       for (const angle of PHOTO_ANGLES) {
         const file = photos[angle.key];
         if (file) {
-          console.log(`Uploading ${angle.key} photo...`);
+          console.log(`Preparing to upload ${angle.key} photo, size: ${file.size} bytes`);
           const photoRef = ref(storage, `vehicles/${vehicleTag}/${angle.key}.jpg`);
+          console.log(`Storage path: vehicles/${vehicleTag}/${angle.key}.jpg`);
+          
           uploadPromises.push(
-            uploadBytes(photoRef, file).then(() => {
-              uploadCount++;
-              console.log(`${angle.key} uploaded successfully`);
-            })
+            uploadBytes(photoRef, file)
+              .then((snapshot) => {
+                uploadCount++;
+                console.log(`${angle.key} uploaded successfully`, snapshot);
+                return snapshot;
+              })
+              .catch((err) => {
+                console.error(`Failed to upload ${angle.key}:`, err);
+                throw err;
+              })
           );
         }
       }
@@ -163,9 +178,12 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
         return;
       }
 
-      await Promise.all(uploadPromises);
+      console.log(`Uploading ${uploadPromises.length} photos...`);
+      const results = await Promise.all(uploadPromises);
+      console.log("All uploads complete:", results);
 
       // Update vehicle record with photo timestamp
+      console.log("Updating vehicle record...");
       await updateVehicle(vehicleTag, {
         photosUpdatedAt: Date.now(),
       });
@@ -174,6 +192,7 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       showToast(`${uploadCount} photo(s) uploaded successfully.`);
       
       // Reload photos to show saved versions
+      console.log("Reloading photos from storage...");
       await loadExistingPhotos();
       
       // Clear the new photos state
@@ -181,6 +200,8 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       
     } catch (error) {
       console.error("Upload error:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
       showToast(`Failed to upload photos: ${error.message}`);
     } finally {
       setUploading(false);
