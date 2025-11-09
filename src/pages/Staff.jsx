@@ -95,6 +95,10 @@ export default function Staff() {
   const [departureModalOpen, setDepartureModalOpen] = useState(false);
   const [departureTag, setDepartureTag] = useState(null);
 
+  // Photo modal
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoTag, setPhotoTag] = useState(null);
+
   // notification count & chime
   const unseenCount = useRef(0);
   const [badgeCount, setBadgeCount] = useState(0);
@@ -808,6 +812,17 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
+
+      {/* Photo Upload Modal */}
+      <PhotoModal
+        open={photoModalOpen}
+        onClose={() => {
+          setPhotoModalOpen(false);
+          setPhotoTag(null);
+        }}
+        vehicleTag={photoTag}
+        vehicle={vehicles.find(v => v.tag === photoTag)}
+      />
     </div>
   );
 }
