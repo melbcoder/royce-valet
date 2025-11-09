@@ -328,13 +328,19 @@ export default function Staff() {
 
   const confirmDeparture = async () => {
     if (departureTag) {
-      await updateVehicle(departureTag, { 
+      const tag = departureTag;
+      await updateVehicle(tag, { 
         status: "departed", 
         bay: "", 
         requested: false, 
         requestedAt: null 
       });
-      showToast("Vehicle marked as departed.", v.markOut);
+      showToast("Vehicle marked as departed.", async () => {
+        // Undo: set status back to "out"
+        await updateVehicle(tag, { 
+          status: "out"
+        });
+      });
     }
     setDepartureModalOpen(false);
     setDepartureTag(null);
