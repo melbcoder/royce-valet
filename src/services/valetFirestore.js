@@ -15,6 +15,9 @@ import { getStorage } from "firebase/storage";
 
 import { db } from "../firebase";
 
+// Get storage from the existing Firebase app (imported from firebase.js)
+export const storage = getStorage();
+
 // Firestore collections
 const vehiclesRef = collection(db, "vehicles");
 const historyRef = collection(db, "history");
@@ -150,16 +153,3 @@ export function subscribeHistory(callback) {
     callback(list);
   });
 }
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD-YourAPIKey",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "your-messaging-sender-id",
-  appId: "1:your-app-id:web:your-web-app-id",
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const storage = getStorage(app);
