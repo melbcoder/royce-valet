@@ -13,6 +13,7 @@ import {
 } from "../services/valetFirestore";
 import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
+import PhotoModal from "../components/PhotoModal";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
