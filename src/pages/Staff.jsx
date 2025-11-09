@@ -422,6 +422,11 @@ export default function Staff() {
     showToast("Request cancelled.");
   };
 
+  const openPhotos = (tag) => {
+    setPhotoTag(tag);
+    setPhotoModalOpen(true);
+  };
+
   // ---------- UI ----------
   return (
     <div className="page pad">
