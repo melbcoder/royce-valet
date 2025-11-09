@@ -226,12 +226,6 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
                 >
                   Replace
                 </button>
-                <button
-                  className="btn secondary"
-                  onClick={() => handleDeletePhoto(activeAngle)}
-                >
-                  Delete
-                </button>
               </div>
             </div>
           ) : (
