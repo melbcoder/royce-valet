@@ -792,7 +792,7 @@ export default function Staff() {
             <button className="btn primary" onClick={confirmDeparture}>
               Yes, Mark Departed
             </button>
-            <button className="btn secondary" onClick={() => handOver(v.tag)}>
+            <button className="btn secondary" onClick={declineDeparture}>
               No
             </button>
           </div>
