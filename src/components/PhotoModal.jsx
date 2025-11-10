@@ -296,7 +296,7 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
                   className="btn primary"
                   onClick={() => fileInputRefs.current[activeAngle]?.click()}
                 >
-                  📷 Take Photo
+                  Add Photo
                 </button>
               </div>
             </div>
