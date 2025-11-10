@@ -89,41 +89,6 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
     reader.readAsDataURL(file);
   };
 
-  const handleCapture = async (angle) => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } // Use back camera on mobile
-      });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.play();
-
-      // Create a canvas to capture the frame
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-
-      // Wait for video to be ready
-      video.onloadedmetadata = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
-
-        // Convert canvas to blob
-        canvas.toBlob((blob) => {
-          const file = new File([blob], `${angle}.jpg`, { type: "image/jpeg" });
-          setPhotos((prev) => ({ ...prev, [angle]: file }));
-          setPreviews((prev) => ({ ...prev, [angle]: canvas.toDataURL() }));
-
-          // Stop the stream
-          stream.getTracks().forEach((track) => track.stop());
-        }, "image/jpeg", 0.9);
-      };
-    } catch (error) {
-      console.error("Camera error:", error);
-      showToast("Camera access denied or unavailable.");
-    }
-  };
-
   const handleRemovePhoto = (angle) => {
     setPhotos((prev) => ({ ...prev, [angle]: null }));
     // Don't remove preview if it's from server - only clear if it's a new photo
@@ -328,18 +293,10 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
                   id={`file-${activeAngle}`}
                 />
                 <button
-                  className="btn secondary"
-                  onClick={() =>
-                    fileInputRefs.current[activeAngle]?.click()
-                  }
+                  className="btn primary"
+                  onClick={() => fileInputRefs.current[activeAngle]?.click()}
                 >
-                  Choose File
-                </button>
-                <button
-                  className="btn secondary"
-                  onClick={() => handleCapture(activeAngle)}
-                >
-                  Take Photo
+                  📷 Take Photo
                 </button>
               </div>
             </div>
