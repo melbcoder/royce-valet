@@ -122,7 +122,7 @@ export default function History() {
               <tbody>
                 {grouped[date].map((v) => (
                   <tr key={v._id}>
-                    <td>{v.tag}</td>
+                    <td>{"#" + v.tag}</td>
                     <td>{v.guestName}</td>
                     <td>{v.roomNumber}</td>
                     <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
