@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import {
   subscribeActiveVehicles,
   updateVehicle,
+  deleteVehicle,
 } from "../services/valetFirestore";
+import { showToast } from "../components/Toast";
+import PhotoModal from "../components/PhotoModal";
 
 // Reusable Photo Icon Component
 const CameraIcon = () => (
@@ -12,15 +15,58 @@ const CameraIcon = () => (
 export default function History() {
   const [history, setHistory] = useState([]);
   const [search, setSearch] = useState("");
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [photoTag, setPhotoTag] = useState(null);
 
   useEffect(() => {
     const unsub = subscribeActiveVehicles((list) => {
       // Filter only departed vehicles
       const departed = list.filter((v) => v.status === "departed");
       setHistory(departed);
+
+      // Check for vehicles older than 7 days and remove them
+      cleanupOldVehicles(departed);
     });
     return unsub;
   }, []);
+
+  const cleanupOldVehicles = async (departedVehicles) => {
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    let removedCount = 0;
+
+    for (const vehicle of departedVehicles) {
+      // Get the departure timestamp (updatedAt is when status was changed to departed)
+      let departureTime;
+      
+      if (vehicle.updatedAt?.toDate) {
+        departureTime = vehicle.updatedAt.toDate().getTime();
+      } else if (vehicle.updatedAt) {
+        departureTime = vehicle.updatedAt;
+      } else {
+        continue; // Skip if no timestamp
+      }
+
+      // If older than 7 days, delete
+      if (departureTime < sevenDaysAgo) {
+        try {
+          console.log(`Deleting vehicle ${vehicle.tag} (departed ${new Date(departureTime).toLocaleDateString()})`);
+          await deleteVehicle(vehicle.tag);
+          removedCount++;
+        } catch (error) {
+          console.error(`Failed to delete vehicle ${vehicle.tag}:`, error);
+        }
+      }
+    }
+
+    if (removedCount > 0) {
+      showToast(`Removed ${removedCount} vehicle(s) older than 7 days from database.`);
+    }
+  };
+
+  const openPhotos = (tag) => {
+    setPhotoTag(tag);
+    setPhotoModalOpen(true);
+  };
 
   // filter by search (guest or tag)
   const filtered = history.filter((v) => {
@@ -80,7 +126,7 @@ export default function History() {
                     <td>{v.guestName}</td>
                     <td>{v.roomNumber}</td>
                     <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
-                    <td>
+                    <td style={{ display: "flex", gap: 6 }}>
                       {date === todayStr && (
                         <button
                           className="btn secondary"
@@ -101,6 +147,17 @@ export default function History() {
             </table>
           </div>
         ))}
+
+      {/* Photo Modal */}
+      <PhotoModal
+        open={photoModalOpen}
+        onClose={() => {
+          setPhotoModalOpen(false);
+          setPhotoTag(null);
+        }}
+        vehicleTag={photoTag}
+        vehicle={history.find(v => v.tag === photoTag)}
+      />
     </section>
   );
 }

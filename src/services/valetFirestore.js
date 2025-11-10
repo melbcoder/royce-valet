@@ -128,6 +128,11 @@ export async function reinstateVehicle(histId, veh) {
   await deleteDoc(doc(historyRef, histId));
 }
 
+// Delete vehicle from database
+export async function deleteVehicle(tag) {
+  await deleteDoc(doc(vehiclesRef, tag));
+}
+
 // Subscribe: staff active view
 export function subscribeActiveVehicles(callback) {
   return onSnapshot(vehiclesRef, (snapshot) => {
