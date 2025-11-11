@@ -99,7 +99,6 @@ export default function Staff() {
     color: "",
     guestName: "",
     roomNumber: "",
-    transmission: "auto", // default to auto
   });
   const [parkErrors, setParkErrors] = useState({
     bay: false,
@@ -309,7 +308,6 @@ export default function Staff() {
       color: v.color || "",
       guestName: v.guestName || "",
       roomNumber: v.roomNumber || "",
-      transmission: v.transmission || "auto",
     });
     setParkErrors({
       bay: false,
@@ -338,16 +336,15 @@ export default function Staff() {
     await parkAgain(
       parkForTag,
       parkForm.bay ?? "",
-      parkForm.license.toUpperCase() ?? "",
+      parkForm.license.toUpperCase() ?? "", // Capitalize license plate
       parkForm.make ?? "",
       parkForm.color ?? ""
     );
     
-    // Update guest name, room number, and transmission
+    // Update guest name and room number
     await updateVehicle(parkForTag, {
       guestName: parkForm.guestName,
       roomNumber: parkForm.roomNumber,
-      transmission: parkForm.transmission,
     });
     
     setParkOpen(false);
@@ -531,17 +528,7 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>
-                    {v.color + " " + v.make + " • " + (v.license || "—")}
-                    {v.transmission === "manual" && (
-                      <img 
-                        src="/transmission.png" 
-                        alt="Manual" 
-                        style={{ width: "16px", height: "16px", marginLeft: "6px", verticalAlign: "middle" }} 
-                        title="Manual transmission"
-                      />
-                    )}
-                  </td>
+                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
                   <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
@@ -984,34 +971,6 @@ export default function Staff() {
             value={parkForm.color}
             onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} 
           />
-
-          <div>
-            <label style={{ fontSize: 14, marginBottom: 8, display: "block" }}>
-              Transmission
-            </label>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="transmission"
-                  value="auto"
-                  checked={parkForm.transmission === "auto"}
-                  onChange={(e) => setParkForm({ ...parkForm, transmission: e.target.value })}
-                />
-                Auto
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input
-                  type="radio"
-                  name="transmission"
-                  value="manual"
-                  checked={parkForm.transmission === "manual"}
-                  onChange={(e) => setParkForm({ ...parkForm, transmission: e.target.value })}
-                />
-                Manual
-              </label>
-            </div>
-          </div>
 
           <div>
             <input 
