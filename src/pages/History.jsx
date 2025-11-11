@@ -112,10 +112,10 @@ export default function History() {
               <thead>
                 <tr>
                   <th style={{ width: "80px" }}>Tag</th>
-                  <th style={{ width: "150px" }}>Guest</th>
+                  <th style={{ width: "200px" }}>Guest</th>
                   <th style={{ width: "100px" }}>Room</th>
-                  <th style={{ width: "200px" }}>Vehicle</th>
-                  <th style={{ width: "150px" }}>Actions</th>
+                  <th style={{ width: "250px" }}>Vehicle</th>
+                  <th style={{ width: "200px" }}>Actions</th>
                 </tr>
               </thead>
 
