@@ -90,6 +90,8 @@ export default function Staff() {
     license: "",
     make: "",
     color: "",
+    guestName: "",
+    roomNumber: "",
   });
 
   // Departure confirmation modal
@@ -272,6 +274,8 @@ export default function Staff() {
       license: v.license || "",
       make: v.make || "",
       color: v.color || "",
+      guestName: v.guestName || "",
+      roomNumber: v.roomNumber || "",
     });
     setParkOpen(true);
   };
@@ -281,6 +285,11 @@ export default function Staff() {
       alert("Bay number is required.");
       return;
     }
+    if (!String(parkForm.license).trim()) {
+      alert("License plate is required.");
+      return;
+    }
+    
     await parkAgain(
       parkForTag,
       parkForm.bay ?? "",
@@ -288,6 +297,20 @@ export default function Staff() {
       parkForm.make ?? "",
       parkForm.color ?? ""
     );
+    
+    // Update guest name and room number if changed
+    const updates = {};
+    if (parkForm.guestName !== undefined && parkForm.guestName !== "") {
+      updates.guestName = parkForm.guestName;
+    }
+    if (parkForm.roomNumber !== undefined && parkForm.roomNumber !== "") {
+      updates.roomNumber = parkForm.roomNumber;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      await updateVehicle(parkForTag, updates);
+    }
+    
     setParkOpen(false);
     showToast("Vehicle parked.");
   };
