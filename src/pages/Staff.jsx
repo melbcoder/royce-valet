@@ -81,6 +81,13 @@ export default function Staff() {
     phone: "",
     departureDate: "",
   });
+  const [newVehicleErrors, setNewVehicleErrors] = useState({
+    tag: false,
+    guestName: false,
+    roomNumber: false,
+    phone: false,
+    departureDate: false,
+  });
 
   // Park modal
   const [parkOpen, setParkOpen] = useState(false);
@@ -251,10 +258,22 @@ export default function Staff() {
   // ---------- actions ----------
   const handleCreate = async () => {
     const { tag, guestName, roomNumber, phone, departureDate } = newVehicle;
-    if (!tag || !guestName || !roomNumber || !phone || !departureDate) {
-      alert("Please complete Tag, Guest, Room, Phone and Departure Date.");
+    
+    const errors = {
+      tag: !String(tag).trim(),
+      guestName: !String(guestName).trim(),
+      roomNumber: !String(roomNumber).trim(),
+      phone: !String(phone).trim(),
+      departureDate: !String(departureDate).trim(),
+    };
+
+    setNewVehicleErrors(errors);
+
+    // If any errors, don't proceed
+    if (Object.values(errors).some(e => e)) {
       return;
     }
+
     await createVehicle({
       tag,
       guestName,
@@ -268,6 +287,13 @@ export default function Staff() {
       roomNumber: "",
       phone: "",
       departureDate: "",
+    });
+    setNewVehicleErrors({
+      tag: false,
+      guestName: false,
+      roomNumber: false,
+      phone: false,
+      departureDate: false,
     });
     setNewOpen(false);
     showToast("Vehicle created.");
@@ -799,17 +825,94 @@ export default function Staff() {
       {/* Create Vehicle */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
         <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <input placeholder="Tag Number" value={newVehicle.tag}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, tag: e.target.value })} />
-          <input placeholder="Guest Name" value={newVehicle.guestName}
-                 onChange={(e) => setNewVehicle({ ...newVehicle, guestName: e.target.value })} />
-          <input placeholder="Room Number" value={newVehicle.roomNumber}
-                 onChange={(e) => setNewVehicle({ ...newVehicle, roomNumber: e.target.value })} />
-          <input placeholder="Phone" value={newVehicle.phone}
-                 onChange={(e) => setNewVehicle({ ...newVehicle, phone: e.target.value })} />
-          <label style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>Departure Date</label>
-          <input type="date" value={newVehicle.departureDate}
-                 onChange={(e) => setNewVehicle({ ...newVehicle, departureDate: e.target.value })} />
+          <div>
+            <input 
+              placeholder="Tag Number (required)" 
+              value={newVehicle.tag}
+              onChange={(e) => {
+                setNewVehicle({ ...newVehicle, tag: e.target.value });
+                if (newVehicleErrors.tag) setNewVehicleErrors({ ...newVehicleErrors, tag: false });
+              }}
+              style={{ borderColor: newVehicleErrors.tag ? "#ff4444" : undefined }}
+            />
+            {newVehicleErrors.tag && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *this field is required
+              </div>
+            )}
+          </div>
+
+          <div>
+            <input 
+              placeholder="Guest Name (required)" 
+              value={newVehicle.guestName}
+              onChange={(e) => {
+                setNewVehicle({ ...newVehicle, guestName: e.target.value });
+                if (newVehicleErrors.guestName) setNewVehicleErrors({ ...newVehicleErrors, guestName: false });
+              }}
+              style={{ borderColor: newVehicleErrors.guestName ? "#ff4444" : undefined }}
+            />
+            {newVehicleErrors.guestName && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *this field is required
+              </div>
+            )}
+          </div>
+
+          <div>
+            <input 
+              placeholder="Room Number (required)" 
+              value={newVehicle.roomNumber}
+              onChange={(e) => {
+                setNewVehicle({ ...newVehicle, roomNumber: e.target.value });
+                if (newVehicleErrors.roomNumber) setNewVehicleErrors({ ...newVehicleErrors, roomNumber: false });
+              }}
+              style={{ borderColor: newVehicleErrors.roomNumber ? "#ff4444" : undefined }}
+            />
+            {newVehicleErrors.roomNumber && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *this field is required
+              </div>
+            )}
+          </div>
+
+          <div>
+            <input 
+              placeholder="Phone (required)" 
+              value={newVehicle.phone}
+              onChange={(e) => {
+                setNewVehicle({ ...newVehicle, phone: e.target.value });
+                if (newVehicleErrors.phone) setNewVehicleErrors({ ...newVehicleErrors, phone: false });
+              }}
+              style={{ borderColor: newVehicleErrors.phone ? "#ff4444" : undefined }}
+            />
+            {newVehicleErrors.phone && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *this field is required
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: "block" }}>
+              Departure Date (required)
+            </label>
+            <input 
+              type="date" 
+              value={newVehicle.departureDate}
+              onChange={(e) => {
+                setNewVehicle({ ...newVehicle, departureDate: e.target.value });
+                if (newVehicleErrors.departureDate) setNewVehicleErrors({ ...newVehicleErrors, departureDate: false });
+              }}
+              style={{ borderColor: newVehicleErrors.departureDate ? "#ff4444" : undefined }}
+            />
+            {newVehicleErrors.departureDate && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *this field is required
+              </div>
+            )}
+          </div>
+
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={handleCreate}>Create Vehicle</button>
             <button className="btn secondary" onClick={() => setNewOpen(false)}>Cancel</button>
@@ -832,7 +935,7 @@ export default function Staff() {
             />
             {parkErrors.bay && (
               <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
-                *This field is required
+                *this field is required
               </div>
             )}
           </div>
@@ -852,7 +955,7 @@ export default function Staff() {
             />
             {parkErrors.license && (
               <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
-                *This field is required
+                *this field is required
               </div>
             )}
           </div>
@@ -881,7 +984,7 @@ export default function Staff() {
             />
             {parkErrors.guestName && (
               <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
-                *This field is required
+                *this field is required
               </div>
             )}
           </div>
@@ -898,7 +1001,7 @@ export default function Staff() {
             />
             {parkErrors.roomNumber && (
               <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
-                *This field is required
+                *this field is required
               </div>
             )}
           </div>
