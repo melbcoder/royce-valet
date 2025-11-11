@@ -111,11 +111,11 @@ export default function History() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Tag</th>
-                  <th>Guest</th>
-                  <th>Room</th>
-                  <th>Vehicle</th>
-                  <th>Actions</th>
+                  <th style={{ width: "80px" }}>Tag</th>
+                  <th style={{ width: "150px" }}>Guest</th>
+                  <th style={{ width: "100px" }}>Room</th>
+                  <th style={{ width: "200px" }}>Vehicle</th>
+                  <th style={{ width: "150px" }}>Actions</th>
                 </tr>
               </thead>
 
