@@ -289,27 +289,28 @@ export default function Staff() {
       alert("License plate is required.");
       return;
     }
+    if (!String(parkForm.guestName).trim()) {
+      alert("Guest name is required.");
+      return;
+    }
+    if (!String(parkForm.roomNumber).trim()) {
+      alert("Room number is required.");
+      return;
+    }
     
     await parkAgain(
       parkForTag,
       parkForm.bay ?? "",
-      parkForm.license ?? "",
+      parkForm.license.toUpperCase() ?? "", // Capitalize license plate
       parkForm.make ?? "",
       parkForm.color ?? ""
     );
     
-    // Update guest name and room number if changed
-    const updates = {};
-    if (parkForm.guestName !== undefined && parkForm.guestName !== "") {
-      updates.guestName = parkForm.guestName;
-    }
-    if (parkForm.roomNumber !== undefined && parkForm.roomNumber !== "") {
-      updates.roomNumber = parkForm.roomNumber;
-    }
-    
-    if (Object.keys(updates).length > 0) {
-      await updateVehicle(parkForTag, updates);
-    }
+    // Update guest name and room number
+    await updateVehicle(parkForTag, {
+      guestName: parkForm.guestName,
+      roomNumber: parkForm.roomNumber,
+    });
     
     setParkOpen(false);
     showToast("Vehicle parked.");
@@ -812,15 +813,19 @@ export default function Staff() {
         <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <input placeholder="Bay (required)" value={parkForm.bay}
                  onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
-          <input placeholder="License Plate (required)" value={parkForm.license}
-                 onChange={(e) => setParkForm({ ...parkForm, license: e.target.value })} />
+          <input 
+            placeholder="License Plate (required)" 
+            value={parkForm.license}
+            onChange={(e) => setParkForm({ ...parkForm, license: e.target.value.toUpperCase() })}
+            style={{ textTransform: "uppercase" }}
+          />
           <input placeholder="Make" value={parkForm.make}
                  onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
           <input placeholder="Color" value={parkForm.color}
                  onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} />
-          <input placeholder="Guest Name" value={parkForm.guestName}
+          <input placeholder="Guest Name (required)" value={parkForm.guestName}
                  onChange={(e) => setParkForm({ ...parkForm, guestName: e.target.value })} />
-          <input placeholder="Room Number" value={parkForm.roomNumber}
+          <input placeholder="Room Number (required)" value={parkForm.roomNumber}
                  onChange={(e) => setParkForm({ ...parkForm, roomNumber: e.target.value })} />
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={confirmPark}>Save</button>
