@@ -531,7 +531,17 @@ export default function Staff() {
                   <td>{"#" + v.tag}</td>
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
-                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
+                  <td>
+                    {v.color + " " + v.make + " • " + (v.license || "—")}
+                    {v.transmission === "manual" && (
+                      <img 
+                        src="/transmission.png" 
+                        alt="Manual" 
+                        style={{ width: "16px", height: "16px", marginLeft: "6px", verticalAlign: "middle" }} 
+                        title="Manual transmission"
+                      />
+                    )}
+                  </td>
                   <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
