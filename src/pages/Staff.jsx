@@ -93,6 +93,12 @@ export default function Staff() {
     guestName: "",
     roomNumber: "",
   });
+  const [parkErrors, setParkErrors] = useState({
+    bay: false,
+    license: false,
+    guestName: false,
+    roomNumber: false,
+  });
 
   // Departure confirmation modal
   const [departureModalOpen, setDepartureModalOpen] = useState(false);
@@ -277,24 +283,27 @@ export default function Staff() {
       guestName: v.guestName || "",
       roomNumber: v.roomNumber || "",
     });
+    setParkErrors({
+      bay: false,
+      license: false,
+      guestName: false,
+      roomNumber: false,
+    });
     setParkOpen(true);
   };
 
   const confirmPark = async () => {
-    if (!String(parkForm.bay).trim()) {
-      alert("Bay number is required.");
-      return;
-    }
-    if (!String(parkForm.license).trim()) {
-      alert("License plate is required.");
-      return;
-    }
-    if (!String(parkForm.guestName).trim()) {
-      alert("Guest name is required.");
-      return;
-    }
-    if (!String(parkForm.roomNumber).trim()) {
-      alert("Room number is required.");
+    const errors = {
+      bay: !String(parkForm.bay).trim(),
+      license: !String(parkForm.license).trim(),
+      guestName: !String(parkForm.guestName).trim(),
+      roomNumber: !String(parkForm.roomNumber).trim(),
+    };
+
+    setParkErrors(errors);
+
+    // If any errors, don't proceed
+    if (Object.values(errors).some(e => e)) {
       return;
     }
     
@@ -811,22 +820,89 @@ export default function Staff() {
       {/* Park Modal */}
       <Modal open={parkOpen} onClose={() => setParkOpen(false)} title="Return & Park">
         <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <input placeholder="Bay (required)" value={parkForm.bay}
-                 onChange={(e) => setParkForm({ ...parkForm, bay: e.target.value })} />
+          <div>
+            <input 
+              placeholder="Bay (required)" 
+              value={parkForm.bay}
+              onChange={(e) => {
+                setParkForm({ ...parkForm, bay: e.target.value });
+                if (parkErrors.bay) setParkErrors({ ...parkErrors, bay: false });
+              }}
+              style={{ borderColor: parkErrors.bay ? "#ff4444" : undefined }}
+            />
+            {parkErrors.bay && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *This field is required
+              </div>
+            )}
+          </div>
+
+          <div>
+            <input 
+              placeholder="License Plate (required)" 
+              value={parkForm.license}
+              onChange={(e) => {
+                setParkForm({ ...parkForm, license: e.target.value.toUpperCase() });
+                if (parkErrors.license) setParkErrors({ ...parkErrors, license: false });
+              }}
+              style={{ 
+                textTransform: "uppercase",
+                borderColor: parkErrors.license ? "#ff4444" : undefined
+              }}
+            />
+            {parkErrors.license && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *This field is required
+              </div>
+            )}
+          </div>
+
           <input 
-            placeholder="License Plate (required)" 
-            value={parkForm.license}
-            onChange={(e) => setParkForm({ ...parkForm, license: e.target.value.toUpperCase() })}
-            style={{ textTransform: "uppercase" }}
+            placeholder="Make" 
+            value={parkForm.make}
+            onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} 
           />
-          <input placeholder="Make" value={parkForm.make}
-                 onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
-          <input placeholder="Color" value={parkForm.color}
-                 onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} />
-          <input placeholder="Guest Name (required)" value={parkForm.guestName}
-                 onChange={(e) => setParkForm({ ...parkForm, guestName: e.target.value })} />
-          <input placeholder="Room Number (required)" value={parkForm.roomNumber}
-                 onChange={(e) => setParkForm({ ...parkForm, roomNumber: e.target.value })} />
+
+          <input 
+            placeholder="Color" 
+            value={parkForm.color}
+            onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} 
+          />
+
+          <div>
+            <input 
+              placeholder="Guest Name (required)" 
+              value={parkForm.guestName}
+              onChange={(e) => {
+                setParkForm({ ...parkForm, guestName: e.target.value });
+                if (parkErrors.guestName) setParkErrors({ ...parkErrors, guestName: false });
+              }}
+              style={{ borderColor: parkErrors.guestName ? "#ff4444" : undefined }}
+            />
+            {parkErrors.guestName && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *This field is required
+              </div>
+            )}
+          </div>
+
+          <div>
+            <input 
+              placeholder="Room Number (required)" 
+              value={parkForm.roomNumber}
+              onChange={(e) => {
+                setParkForm({ ...parkForm, roomNumber: e.target.value });
+                if (parkErrors.roomNumber) setParkErrors({ ...parkErrors, roomNumber: false });
+              }}
+              style={{ borderColor: parkErrors.roomNumber ? "#ff4444" : undefined }}
+            />
+            {parkErrors.roomNumber && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *This field is required
+              </div>
+            )}
+          </div>
+
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={confirmPark}>Save</button>
             <button className="btn secondary" onClick={() => setParkOpen(false)}>Cancel</button>
