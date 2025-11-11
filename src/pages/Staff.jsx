@@ -795,6 +795,10 @@ export default function Staff() {
                  onChange={(e) => setParkForm({ ...parkForm, make: e.target.value })} />
           <input placeholder="Color" value={parkForm.color}
                  onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} />
+          <input placeholder="Guest Name" value={parkForm.guestName}
+                 onChange={(e) => setParkForm({ ...parkForm, guestName: e.target.value })} />
+          <input placeholder="Room Number" value={parkForm.roomNumber}
+                 onChange={(e) => setParkForm({ ...parkForm, roomNumber: e.target.value })} />
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={confirmPark}>Save</button>
             <button className="btn secondary" onClick={() => setParkOpen(false)}>Cancel</button>
