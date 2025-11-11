@@ -99,6 +99,7 @@ export default function Staff() {
     color: "",
     guestName: "",
     roomNumber: "",
+    transmission: "auto", // default to auto
   });
   const [parkErrors, setParkErrors] = useState({
     bay: false,
@@ -308,6 +309,7 @@ export default function Staff() {
       color: v.color || "",
       guestName: v.guestName || "",
       roomNumber: v.roomNumber || "",
+      transmission: v.transmission || "auto",
     });
     setParkErrors({
       bay: false,
@@ -336,15 +338,16 @@ export default function Staff() {
     await parkAgain(
       parkForTag,
       parkForm.bay ?? "",
-      parkForm.license.toUpperCase() ?? "", // Capitalize license plate
+      parkForm.license.toUpperCase() ?? "",
       parkForm.make ?? "",
       parkForm.color ?? ""
     );
     
-    // Update guest name and room number
+    // Update guest name, room number, and transmission
     await updateVehicle(parkForTag, {
       guestName: parkForm.guestName,
       roomNumber: parkForm.roomNumber,
+      transmission: parkForm.transmission,
     });
     
     setParkOpen(false);
@@ -971,6 +974,34 @@ export default function Staff() {
             value={parkForm.color}
             onChange={(e) => setParkForm({ ...parkForm, color: e.target.value })} 
           />
+
+          <div>
+            <label style={{ fontSize: 14, marginBottom: 8, display: "block" }}>
+              Transmission
+            </label>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="transmission"
+                  value="auto"
+                  checked={parkForm.transmission === "auto"}
+                  onChange={(e) => setParkForm({ ...parkForm, transmission: e.target.value })}
+                />
+                Auto
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="transmission"
+                  value="manual"
+                  checked={parkForm.transmission === "manual"}
+                  onChange={(e) => setParkForm({ ...parkForm, transmission: e.target.value })}
+                />
+                Manual
+              </label>
+            </div>
+          </div>
 
           <div>
             <input 
