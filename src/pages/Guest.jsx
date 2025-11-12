@@ -69,7 +69,7 @@ export default function Guest(){
           marginBottom: '16px',
           border: '1px solid #e0e0e0'
         }}>
-          <p style={{ fontSize: '1.1em', lineHeight: '1.6', margin: 0 }}>
+          <p style={{ fontSize: '1.0em', lineHeight: '1.6', margin: 0 }}>
             Thank you for staying at The Royce. We hope you enjoyed your visit and look forward to welcoming you back in the near future.
           </p>
           <p style={{ marginTop: 12, marginBottom: 0, color: 'var(--muted)' }}>
