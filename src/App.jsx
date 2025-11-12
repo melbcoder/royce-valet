@@ -6,16 +6,14 @@ import History from './pages/History';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
-import Toast from './components/Toast';
-import Settings from './components/Settings'
-import ToastHost from './components/Toast'
+import ToastHost from './components/Toast';
+import Settings from './components/Settings';
 
 export default function App(){
   const [settingsOpen, setSettingsOpen] = useState(false)
   return (
     <Router>
-      <Toast />
-      <Nav />
+      <ToastHost />
       <div>
         <div className="topbar">
           <div className="inner container">
@@ -24,6 +22,7 @@ export default function App(){
               <span style={{fontFamily:'Playfair Display, serif', fontSize:18, letterSpacing:'.04em'}}>Valet</span>
             </div>
             <div className="row">
+              <Nav />
               <button className="tag" onClick={()=>setSettingsOpen(true)} title="Settings" style={{background:'#fff', cursor:'pointer'}}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"></circle>
@@ -35,7 +34,6 @@ export default function App(){
           </div>
         </div>
         <main className="container" style={{paddingTop:24, paddingBottom:40}}>
-          <ToastHost />
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />

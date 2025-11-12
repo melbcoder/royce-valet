@@ -12,34 +12,23 @@ export default function Nav() {
     navigate('/login');
   };
 
+  if (!isAuthenticated) return null;
+
   return (
-    <nav style={{ 
-      padding: '16px 24px', 
-      background: '#fff', 
-      borderBottom: '1px solid #e0e0e0',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}>
-      <div style={{ display: 'flex', gap: 16 }}>
-        {isAuthenticated && (
-          <>
-            <NavLink to="/staff" style={linkStyle}>Staff</NavLink>
-            <NavLink to="/history" style={linkStyle}>History</NavLink>
-          </>
-        )}
-      </div>
+    <>
+      <NavLink to="/staff" style={linkStyle}>Staff</NavLink>
+      <NavLink to="/history" style={linkStyle}>History</NavLink>
       
-      {isAuthenticated && isStaffOrHistory && (
+      {isStaffOrHistory && (
         <button 
           onClick={handleLogout}
           className="btn secondary"
-          style={{ padding: '8px 16px', fontSize: '14px' }}
+          style={{ padding: '8px 16px', fontSize: '14px', marginLeft: '8px' }}
         >
           Logout
         </button>
       )}
-    </nav>
+    </>
   );
 }
 
@@ -49,5 +38,6 @@ const linkStyle = {
   fontWeight: 500,
   padding: '8px 12px',
   borderRadius: '6px',
-  transition: 'background 0.2s'
+  transition: 'background 0.2s',
+  marginRight: '8px'
 };
