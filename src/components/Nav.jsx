@@ -16,8 +16,36 @@ export default function Nav() {
 
   return (
     <>
-      <NavLink to="/staff" style={linkStyle}>Staff</NavLink>
-      <NavLink to="/history" style={linkStyle}>History</NavLink>
+      <NavLink 
+        to="/staff" 
+        style={({ isActive }) => ({
+          textDecoration: 'none',
+          color: isActive ? '#000' : '#333',
+          fontWeight: isActive ? 600 : 500,
+          padding: '8px 12px',
+          borderRadius: '6px',
+          transition: 'background 0.2s',
+          marginRight: '8px',
+          background: isActive ? '#f0f0f0' : 'transparent'
+        })}
+      >
+        Staff
+      </NavLink>
+      <NavLink 
+        to="/history" 
+        style={({ isActive }) => ({
+          textDecoration: 'none',
+          color: isActive ? '#000' : '#333',
+          fontWeight: isActive ? 600 : 500,
+          padding: '8px 12px',
+          borderRadius: '6px',
+          transition: 'background 0.2s',
+          marginRight: '8px',
+          background: isActive ? '#f0f0f0' : 'transparent'
+        })}
+      >
+        History
+      </NavLink>
       
       {isStaffOrHistory && (
         <button 
@@ -31,13 +59,3 @@ export default function Nav() {
     </>
   );
 }
-
-const linkStyle = {
-  textDecoration: 'none',
-  color: '#333',
-  fontWeight: 500,
-  padding: '8px 12px',
-  borderRadius: '6px',
-  transition: 'background 0.2s',
-  marginRight: '8px'
-};
