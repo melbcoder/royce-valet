@@ -10,11 +10,10 @@ import {
   query,
   where,
   serverTimestamp,
-  runTransaction,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-import { db } from "./firebase";
+import { db } from "../firebase";
 
 // Get storage from the existing Firebase app (imported from firebase.js)
 export const storage = getStorage();
@@ -83,29 +82,13 @@ export async function cancelRequest(tag) {
     targetStatus = vehicle.prevStatus || 'parked';
   }
   
-  // Decrement badge counter if request was active
-  const updates = {
+  await updateDoc(docRef, {
     requested: false,
     requestedAt: null,
     status: targetStatus,
     prevStatus: null,
     updatedAt: serverTimestamp(),
-  };
-
-  // If there was an active request, decrement the badge
-  if (vehicle.requested) {
-    const badgeRef = doc(db, 'meta', 'badge');
-    await runTransaction(db, async (transaction) => {
-      const badgeSnap = await transaction.get(badgeRef);
-      const currentCount = badgeSnap.exists() ? (badgeSnap.data().count || 0) : 0;
-      const newCount = Math.max(0, currentCount - 1);
-      
-      transaction.set(badgeRef, { count: newCount }, { merge: true });
-      transaction.update(docRef, updates);
-    });
-  } else {
-    await updateDoc(docRef, updates);
-  }
+  });
 }
 
 // Staff: vehicle ready at driveway
