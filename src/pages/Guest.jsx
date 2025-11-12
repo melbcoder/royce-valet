@@ -61,22 +61,7 @@ export default function Guest(){
 
       {status === 'out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
 
-      {isDeparted && (
-        <div style={{ 
-          background: '#f8f9fa', 
-          padding: '16px', 
-          borderRadius: '8px', 
-          marginBottom: '16px',
-          border: '1px solid #e0e0e0'
-        }}>
-          <p style={{ fontSize: '1.0em', lineHeight: '1.6', margin: 0 }}>
-            Thank you for staying at The Royce. We hope you enjoyed your visit and look forward to welcoming you back in the near future.
-          </p>
-          <p style={{ marginTop: 12, marginBottom: 0, color: 'var(--muted)' }}>
-            Safe travels!
-          </p>
-        </div>
-      )}
+      
 
       <div className="grid cols-2">
         <div className="field"><label>Guest</label><div>{v.guestName}</div></div>
@@ -95,6 +80,23 @@ export default function Guest(){
           </div>
         )}
       </div>
+
+      {isDeparted && (
+        <div style={{ 
+          background: '#f8f9fa', 
+          padding: '16px', 
+          borderRadius: '8px', 
+          marginBottom: '16px',
+          border: '1px solid #e0e0e0'
+        }}>
+          <p style={{ fontSize: '1.0em', lineHeight: '1.6', margin: 0 }}>
+            Thank you for staying at The Royce. We hope you enjoyed your visit and look forward to welcoming you back in the near future.
+          </p>
+          <p style={{ marginTop: 12, marginBottom: 0, color: 'var(--muted)' }}>
+            Safe travels!
+          </p>
+        </div>
+      )}
 
       {!isDeparted && (
         <>
