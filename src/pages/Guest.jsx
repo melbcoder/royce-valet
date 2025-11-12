@@ -4,7 +4,7 @@ import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, 
 
 const StatusBadge = ({ status }) => {
   const s = String(status || '').toLowerCase() || 'parked'
-  const label = s === 'out' ? 'Out & About' : (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
+  const label = s === 'out' ? 'Out & About' : (s === 'departed' ? 'Departed' : (s ? s.charAt(0).toUpperCase() + s.slice(1) : ''))
   return <span className={`status-pill status-${s}`}>{label}</span>
 }
 
@@ -48,7 +48,7 @@ export default function Guest(){
     alert('Pickup scheduled. We will move your request into the queue ~10 minutes prior.')
   }
 
-  const canRequest = status !== 'out'
+  const canRequest = status !== 'out' && status !== 'departed'
   const isDeparted = status === 'departed'
 
   return (

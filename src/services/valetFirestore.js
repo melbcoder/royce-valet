@@ -66,9 +66,28 @@ export async function requestVehicle(tag) {
 
 // Guest: cancel request
 export async function cancelRequest(tag) {
-  await updateVehicle(tag, {
+  const docRef = doc(vehiclesRef, tag);
+  const docSnap = await getDoc(docRef);
+  
+  if (!docSnap.exists()) {
+    throw new Error('Vehicle not found');
+  }
+  
+  const vehicle = docSnap.data();
+  
+  // If status is 'requested', revert to prevStatus (or 'parked' as fallback)
+  // Otherwise, keep current status
+  let targetStatus = vehicle.status;
+  if (vehicle.status === 'requested') {
+    targetStatus = vehicle.prevStatus || 'parked';
+  }
+  
+  await updateDoc(docRef, {
     requested: false,
-    scheduledAt: null,
+    requestedAt: null,
+    status: targetStatus,
+    prevStatus: null,
+    updatedAt: serverTimestamp(),
   });
 }
 
