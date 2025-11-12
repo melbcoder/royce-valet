@@ -21,11 +21,12 @@ export default function Login() {
   };
 
   return (
-    <div className="container" style={{ 
+    <div style={{ 
       display: 'flex', 
       justifyContent: 'center', 
       alignItems: 'center', 
-      minHeight: '100vh' 
+      minHeight: 'calc(100vh - 200px)',
+      padding: '20px'
     }}>
       <section className="card pad" style={{ maxWidth: '400px', width: '100%' }}>
         <h1 style={{ textAlign: 'center', marginBottom: 24 }}>Staff Login</h1>
