@@ -86,8 +86,10 @@ export default function Guest(){
           background: '#f8f9fa', 
           padding: '16px', 
           borderRadius: '8px', 
+          marginTop: '24px',
           marginBottom: '16px',
-          border: '1px solid #e0e0e0'
+          border: '1px solid #e0e0e0',
+          textAlign: 'center'
         }}>
           <p style={{ fontSize: '1.0em', lineHeight: '1.6', margin: 0 }}>
             Thank you for staying at The Royce. We hope you enjoyed your visit and look forward to welcoming you back in the near future.
