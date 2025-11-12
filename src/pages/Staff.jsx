@@ -949,7 +949,6 @@ export default function Staff() {
                 if (parkErrors.license) setParkErrors({ ...parkErrors, license: false });
               }}
               style={{ 
-                textTransform: "uppercase",
                 borderColor: parkErrors.license ? "#ff4444" : undefined
               }}
             />
