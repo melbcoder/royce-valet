@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authenticateUser } from '../services/valetFirestore';
+import { authenticateUser, checkUsersExist, initializeDefaultAdmin } from '../services/valetFirestore';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isFirstSetup, setIsFirstSetup] = useState(false);
   const navigate = useNavigate();
+
+  // Check if this is first-time setup
+  useEffect(() => {
+    async function checkSetup() {
+      const usersExist = await checkUsersExist();
+      setIsFirstSetup(!usersExist);
+    }
+    checkSetup();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,6 +25,18 @@ export default function Login() {
     setLoading(true);
     
     try {
+      // If no users exist and default credentials are used, create default admin
+      if (isFirstSetup && username === 'admin' && password === 'admin123') {
+        await initializeDefaultAdmin();
+        const user = await authenticateUser(username, password);
+        if (user) {
+          sessionStorage.setItem('staffAuthenticated', 'true');
+          sessionStorage.setItem('currentUser', JSON.stringify(user));
+          navigate('/staff');
+          return;
+        }
+      }
+
       const user = await authenticateUser(username, password);
       
       if (user) {
@@ -44,6 +66,22 @@ export default function Login() {
     }}>
       <section className="card pad" style={{ maxWidth: '400px', width: '100%' }}>
         <h1 style={{ textAlign: 'center', marginBottom: 24 }}>Staff Login</h1>
+        
+        {isFirstSetup && (
+          <div style={{ 
+            background: '#e3f2fd', 
+            padding: '12px', 
+            borderRadius: '4px', 
+            marginBottom: '16px',
+            fontSize: '14px',
+            border: '1px solid #2196F3'
+          }}>
+            <strong>First-time setup:</strong><br />
+            Username: <code>admin</code><br />
+            Password: <code>admin123</code><br />
+            <small style={{ color: '#666' }}>Please change this password after logging in!</small>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>

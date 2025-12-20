@@ -10,6 +10,7 @@ import {
   query,
   where,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -180,6 +181,24 @@ export function subscribeHistory(callback) {
 }
 
 // ===== USER MANAGEMENT =====
+
+// Check if any users exist
+export async function checkUsersExist() {
+  const snapshot = await getDocs(usersRef);
+  return !snapshot.empty;
+}
+
+// Initialize default admin user
+export async function initializeDefaultAdmin() {
+  const userId = `user-${Date.now()}`;
+  await setDoc(doc(usersRef, userId), {
+    username: "admin",
+    password: "admin123",
+    role: "admin",
+    createdAt: serverTimestamp(),
+  });
+  return userId;
+}
 
 // Authenticate user
 export async function authenticateUser(username, password) {
