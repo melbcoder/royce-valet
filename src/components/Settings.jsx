@@ -1,14 +1,28 @@
 import React, { useEffect, useState } from 'react'
 import { subscribeUsers, createUser, updateUser, deleteUser } from '../services/valetFirestore'
 
-export default function Settings({open, onClose, currentUser}){
+export default function Settings({open, onClose}){
   const [users, setUsers] = useState([])
   const [showAddUser, setShowAddUser] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [formData, setFormData] = useState({ username: '', password: '', role: 'user' })
   const [error, setError] = useState('')
+  const [currentUser, setCurrentUser] = useState(null)
   
   const isAdmin = currentUser?.role === 'admin'
+
+  // Load current user from sessionStorage when modal opens
+  useEffect(() => {
+    if (!open) return
+    const userStr = sessionStorage.getItem('currentUser')
+    if (userStr) {
+      try {
+        setCurrentUser(JSON.parse(userStr))
+      } catch (err) {
+        console.error('Failed to parse current user:', err)
+      }
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open || !isAdmin) return
