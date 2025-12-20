@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Guest from './pages/Guest';
 import Valet from './pages/Valet';
-import History from './pages/History';
+import ValetHistory from './pages/ValetHistory';
 import Login from './pages/Login';
 import Luggage from './pages/Luggage';
 import Amenities from './pages/Amenities';
@@ -55,7 +55,7 @@ export default function App(){
               path="/history" 
               element={
                 <ProtectedRoute>
-                  <History />
+                  <ValetHistory />
                 </ProtectedRoute>
               } 
             />
