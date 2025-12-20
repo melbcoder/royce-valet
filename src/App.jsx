@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Guest from './pages/Guest';
-import Staff from './pages/Staff';
+import Valet from './pages/Valet';
 import History from './pages/History';
 import Login from './pages/Login';
 import Luggage from './pages/Luggage';
@@ -47,7 +47,7 @@ export default function App(){
               path="/staff" 
               element={
                 <ProtectedRoute>
-                  <Staff />
+                  <Valet />
                 </ProtectedRoute>
               } 
             />

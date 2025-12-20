@@ -495,7 +495,7 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
           <button className="btn secondary" onClick={() => navigate('/history')}>
             View History
           </button>
