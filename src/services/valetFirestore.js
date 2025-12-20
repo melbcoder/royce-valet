@@ -202,7 +202,7 @@ export async function initializeDefaultAdmin() {
 
 // Authenticate user
 export async function authenticateUser(username, password) {
-  const q = query(usersRef, where("username", "==", username));
+  const q = query(usersRef, where("username", "==", username.toLowerCase()));
   const snapshot = await new Promise((resolve) => {
     const unsubscribe = onSnapshot(q, (snap) => {
       unsubscribe();
@@ -234,7 +234,7 @@ export async function authenticateUser(username, password) {
 export async function createUser(userData) {
   const userId = `user-${Date.now()}`;
   await setDoc(doc(usersRef, userId), {
-    username: userData.username,
+    username: userData.username.toLowerCase(),
     password: userData.password,
     role: userData.role || "user", // 'admin' or 'user'
     createdAt: serverTimestamp(),
@@ -244,6 +244,9 @@ export async function createUser(userData) {
 
 // Update user
 export async function updateUser(userId, updates) {
+  if (updates.username) {
+    updates.username = updates.username.toLowerCase();
+  }
   await updateDoc(doc(usersRef, userId), updates);
 }
 
