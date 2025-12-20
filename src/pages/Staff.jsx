@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   createVehicle,
   subscribeActiveVehicles,
@@ -70,6 +71,8 @@ const CameraIcon = () => (
 );
 
 export default function Staff() {
+  const navigate = useNavigate();
+  
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
   const [filterStatus, setFilterStatus] = useState(""); // active table filter
@@ -492,9 +495,14 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: "auto" }}>
-          Add Vehicle
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn secondary" onClick={() => navigate('/history')}>
+            View History
+          </button>
+          <button className="btn primary" onClick={() => setNewOpen(true)}>
+            Add Vehicle
+          </button>
+        </div>
       </div>
 
       {/* Request Queue */}

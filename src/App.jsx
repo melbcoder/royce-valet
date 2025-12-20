@@ -6,6 +6,8 @@ import History from './pages/History';
 import Login from './pages/Login';
 import Luggage from './pages/Luggage';
 import Amenities from './pages/Amenities';
+import LuggageHistory from './pages/LuggageHistory';
+import AmenitiesHistory from './pages/AmenitiesHistory';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
@@ -70,6 +72,22 @@ export default function App(){
               element={
                 <ProtectedRoute>
                   <Amenities />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/luggage-history" 
+              element={
+                <ProtectedRoute>
+                  <LuggageHistory />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/amenities-history" 
+              element={
+                <ProtectedRoute>
+                  <AmenitiesHistory />
                 </ProtectedRoute>
               } 
             />

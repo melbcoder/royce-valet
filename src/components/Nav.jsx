@@ -5,7 +5,7 @@ export default function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAuthenticated = sessionStorage.getItem('staffAuthenticated') === 'true';
-  const isStaffPage = ['/staff', '/history', '/luggage', '/amenities'].includes(location.pathname);
+  const isStaffPage = ['/staff', '/history', '/luggage', '/amenities', '/luggage-history', '/amenities-history'].includes(location.pathname);
 
   const handleLogout = () => {
     sessionStorage.removeItem('staffAuthenticated');
@@ -35,9 +35,6 @@ export default function Nav() {
       </NavLink>
       <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
         Amenities
-      </NavLink>
-      <NavLink to="/history" style={({ isActive }) => navLinkStyle(isActive)}>
-        History
       </NavLink>
       
       {isStaffPage && (
