@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Guest from './pages/Guest';
 import Staff from './pages/Staff';
@@ -11,6 +11,20 @@ import Settings from './components/Settings';
 
 export default function App(){
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Load current user from sessionStorage on mount
+  useEffect(() => {
+    const userStr = sessionStorage.getItem('currentUser')
+    if (userStr) {
+      try {
+        setCurrentUser(JSON.parse(userStr))
+      } catch (err) {
+        console.error('Failed to parse current user:', err)
+      }
+    }
+  }, [])
+
   return (
     <Router>
       <ToastHost />
@@ -57,7 +71,7 @@ export default function App(){
           </Routes>
           <div style={{position:'fixed', right:12, bottom:10, opacity:.5, fontSize:12, pointerEvents:'none'}}>Version 1.8.5</div>
         </main>
-        <Settings open={settingsOpen} onClose={()=>setSettingsOpen(false)} />
+        <Settings open={settingsOpen} onClose={()=>setSettingsOpen(false)} currentUser={currentUser} />
       </div>
     </Router>
   )

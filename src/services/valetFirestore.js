@@ -21,6 +21,7 @@ export const storage = getStorage();
 // Firestore collections
 const vehiclesRef = collection(db, "vehicles");
 const historyRef = collection(db, "history");
+const usersRef = collection(db, "users");
 
 // Create / check-in vehicle
 export async function createVehicle(data) {
@@ -173,6 +174,71 @@ export function subscribeHistory(callback) {
     const list = snapshot.docs.map((d) => ({
       ...d.data(),
       _id: d.id, // store document ID for reinstating
+    }));
+    callback(list);
+  });
+}
+
+// ===== USER MANAGEMENT =====
+
+// Authenticate user
+export async function authenticateUser(username, password) {
+  const q = query(usersRef, where("username", "==", username));
+  const snapshot = await new Promise((resolve) => {
+    const unsubscribe = onSnapshot(q, (snap) => {
+      unsubscribe();
+      resolve(snap);
+    });
+  });
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const userDoc = snapshot.docs[0];
+  const userData = userDoc.data();
+
+  // Simple password check (in production, use proper hashing)
+  if (userData.password === password) {
+    return {
+      id: userDoc.id,
+      username: userData.username,
+      role: userData.role,
+      createdAt: userData.createdAt,
+    };
+  }
+
+  return null;
+}
+
+// Create new user
+export async function createUser(userData) {
+  const userId = `user-${Date.now()}`;
+  await setDoc(doc(usersRef, userId), {
+    username: userData.username,
+    password: userData.password,
+    role: userData.role || "user", // 'admin' or 'user'
+    createdAt: serverTimestamp(),
+  });
+  return userId;
+}
+
+// Update user
+export async function updateUser(userId, updates) {
+  await updateDoc(doc(usersRef, userId), updates);
+}
+
+// Delete user
+export async function deleteUser(userId) {
+  await deleteDoc(doc(usersRef, userId));
+}
+
+// Subscribe to all users (admin only)
+export function subscribeUsers(callback) {
+  return onSnapshot(usersRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
     }));
     callback(list);
   });

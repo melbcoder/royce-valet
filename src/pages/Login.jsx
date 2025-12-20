@@ -1,22 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { authenticateUser } from '../services/valetFirestore';
 
 export default function Login() {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     
-    // Check password (you can change this password)
-    if (password === 'royce2024') {
-      // Store authentication in sessionStorage
-      sessionStorage.setItem('staffAuthenticated', 'true');
-      navigate('/staff');
-    } else {
-      setError(true);
-      setPassword('');
+    try {
+      const user = await authenticateUser(username, password);
+      
+      if (user) {
+        // Store authentication and user info in sessionStorage
+        sessionStorage.setItem('staffAuthenticated', 'true');
+        sessionStorage.setItem('currentUser', JSON.stringify(user));
+        navigate('/staff');
+      } else {
+        setError('Invalid username or password');
+        setPassword('');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An error occurred during login');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -34,22 +48,34 @@ export default function Login() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
             <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                setError('');
+              }}
+              style={{ width: '100%', marginBottom: 12 }}
+              autoFocus
+              disabled={loading}
+            />
+            <input
               type="password"
-              placeholder="Enter staff password"
+              placeholder="Password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setError(false);
+                setError('');
               }}
               style={{ 
                 borderColor: error ? '#ff4444' : undefined,
                 width: '100%'
               }}
-              autoFocus
+              disabled={loading}
             />
             {error && (
               <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>
-                Incorrect password. Please try again.
+                {error}
               </div>
             )}
           </div>
@@ -58,8 +84,9 @@ export default function Login() {
             type="submit" 
             className="btn primary" 
             style={{ width: '100%' }}
+            disabled={loading || !username || !password}
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
       </section>
