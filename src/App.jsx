@@ -24,7 +24,6 @@ export default function App(){
           <div className="inner container">
             <div className="brand">
               <img src="/royce-logo.jpg" alt="The Royce" />
-              <span style={{fontFamily:'Playfair Display, serif', fontSize:18, letterSpacing:'.04em'}}>Valet</span>
             </div>
             <div className="row">
               <Nav />
