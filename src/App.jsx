@@ -4,6 +4,8 @@ import Guest from './pages/Guest';
 import Staff from './pages/Staff';
 import History from './pages/History';
 import Login from './pages/Login';
+import Luggage from './pages/Luggage';
+import Amenities from './pages/Amenities';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
@@ -52,6 +54,22 @@ export default function App(){
               element={
                 <ProtectedRoute>
                   <History />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/luggage" 
+              element={
+                <ProtectedRoute>
+                  <Luggage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/amenities" 
+              element={
+                <ProtectedRoute>
+                  <Amenities />
                 </ProtectedRoute>
               } 
             />

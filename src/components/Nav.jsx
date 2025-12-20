@@ -5,7 +5,7 @@ export default function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAuthenticated = sessionStorage.getItem('staffAuthenticated') === 'true';
-  const isStaffOrHistory = location.pathname === '/staff' || location.pathname === '/history';
+  const isStaffPage = ['/staff', '/history', '/luggage', '/amenities'].includes(location.pathname);
 
   const handleLogout = () => {
     sessionStorage.removeItem('staffAuthenticated');
@@ -14,40 +14,33 @@ export default function Nav() {
 
   if (!isAuthenticated) return null;
 
+  const navLinkStyle = (isActive) => ({
+    textDecoration: 'none',
+    color: isActive ? '#000' : '#333',
+    fontWeight: isActive ? 600 : 500,
+    padding: '8px 12px',
+    borderRadius: '6px',
+    transition: 'background 0.2s',
+    marginRight: '8px',
+    background: isActive ? '#f0f0f0' : 'transparent'
+  });
+
   return (
     <>
-      <NavLink 
-        to="/staff" 
-        style={({ isActive }) => ({
-          textDecoration: 'none',
-          color: isActive ? '#000' : '#333',
-          fontWeight: isActive ? 600 : 500,
-          padding: '8px 12px',
-          borderRadius: '6px',
-          transition: 'background 0.2s',
-          marginRight: '8px',
-          background: isActive ? '#f0f0f0' : 'transparent'
-        })}
-      >
-        Staff
+      <NavLink to="/staff" style={({ isActive }) => navLinkStyle(isActive)}>
+        Valet
       </NavLink>
-      <NavLink 
-        to="/history" 
-        style={({ isActive }) => ({
-          textDecoration: 'none',
-          color: isActive ? '#000' : '#333',
-          fontWeight: isActive ? 600 : 500,
-          padding: '8px 12px',
-          borderRadius: '6px',
-          transition: 'background 0.2s',
-          marginRight: '8px',
-          background: isActive ? '#f0f0f0' : 'transparent'
-        })}
-      >
+      <NavLink to="/luggage" style={({ isActive }) => navLinkStyle(isActive)}>
+        Luggage
+      </NavLink>
+      <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
+        Amenities
+      </NavLink>
+      <NavLink to="/history" style={({ isActive }) => navLinkStyle(isActive)}>
         History
       </NavLink>
       
-      {isStaffOrHistory && (
+      {isStaffPage && (
         <button 
           onClick={handleLogout}
           className="btn secondary"
