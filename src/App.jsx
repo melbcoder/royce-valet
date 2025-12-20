@@ -43,7 +43,7 @@ export default function App(){
             <Route path="/login" element={<Login />} />
             <Route path="/guest/:tag" element={<Guest />} />
             <Route 
-              path="/staff" 
+              path="/valet" 
               element={
                 <ProtectedRoute>
                   <Valet />
@@ -51,7 +51,7 @@ export default function App(){
               } 
             />
             <Route 
-              path="/history" 
+              path="/valet-history" 
               element={
                 <ProtectedRoute>
                   <ValetHistory />

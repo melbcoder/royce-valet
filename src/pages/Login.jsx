@@ -32,7 +32,7 @@ export default function Login() {
         if (user) {
           sessionStorage.setItem('staffAuthenticated', 'true');
           sessionStorage.setItem('currentUser', JSON.stringify(user));
-          navigate('/staff');
+          navigate('/valet');
           return;
         }
       }
@@ -43,7 +43,7 @@ export default function Login() {
         // Store authentication and user info in sessionStorage
         sessionStorage.setItem('staffAuthenticated', 'true');
         sessionStorage.setItem('currentUser', JSON.stringify(user));
-        navigate('/staff');
+        navigate('/valet');
       } else {
         setError('Invalid username or password');
         setPassword('');
