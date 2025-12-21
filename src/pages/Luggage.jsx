@@ -235,15 +235,27 @@ export default function Luggage() {
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>
-                    <select
-                      value={item.roomStatus || 'occupied'}
-                      onChange={(e) => updateLuggage(item.id, { roomStatus: e.target.value })}
-                      style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
-                    >
-                      <option value="occupied">Occupied</option>
-                      <option value="dirty">Dirty</option>
-                      <option value="clean">Clean</option>
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        backgroundColor: 
+                          item.roomStatus === 'clean' ? '#7fff7f' :
+                          item.roomStatus === 'dirty' ? '#ff7f7f' :
+                          '#f4c97a',
+                        display: 'inline-block'
+                      }} />
+                      <select
+                        value={item.roomStatus || 'occupied'}
+                        onChange={(e) => updateLuggage(item.id, { roomStatus: e.target.value })}
+                        style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
+                      >
+                        <option value="occupied">Occupied</option>
+                        <option value="dirty">Dirty</option>
+                        <option value="clean">Clean</option>
+                      </select>
+                    </div>
                   </td>
                   <td>{item.phone}</td>
                   <td>{item.numberOfBags}</td>
