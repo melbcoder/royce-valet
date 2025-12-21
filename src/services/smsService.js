@@ -67,7 +67,7 @@ export async function sendVehicleReadySMS(phone, tag) {
 }
 
 export async function sendRoomReadySMS(phone, roomNumber) {
-  const message = `Welcome to The Royce Hotel! Your room #${roomNumber} is ready and your luggage has been delivered. Enjoy your stay!`;
+  const message = `Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.`;
 
   try {
     const response = await fetch('/api/send-sms', {
