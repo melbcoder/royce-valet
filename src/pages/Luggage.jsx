@@ -27,7 +27,7 @@ export default function Luggage() {
     tags: [],
     guestName: '',
     roomNumber: '',
-    roomStatus: 'occupied',
+    roomStatus: '',
     phone: '',
     numberOfBags: '',
     notes: '',
@@ -102,7 +102,7 @@ export default function Luggage() {
         tags: [],
         guestName: '',
         roomNumber: '',
-        roomStatus: 'occupied',
+        roomStatus: '',
         phone: '',
         numberOfBags: '',
         notes: '',
@@ -243,14 +243,16 @@ export default function Luggage() {
                         backgroundColor: 
                           item.roomStatus === 'clean' ? '#7fff7f' :
                           item.roomStatus === 'dirty' ? '#ff7f7f' :
-                          '#f4c97a',
+                          item.roomStatus === 'occupied' ? '#f4c97a' :
+                          '#ddd',
                         display: 'inline-block'
                       }} />
                       <select
-                        value={item.roomStatus || 'occupied'}
+                        value={item.roomStatus || ''}
                         onChange={(e) => updateLuggage(item.id, { roomStatus: e.target.value })}
                         style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
                       >
+                        <option value="">Select status</option>
                         <option value="occupied">Occupied</option>
                         <option value="dirty">Dirty</option>
                         <option value="clean">Clean</option>
@@ -437,6 +439,7 @@ export default function Luggage() {
               onChange={(e) => setNewLuggage({ ...newLuggage, roomStatus: e.target.value })}
               style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid #ccc' }}
             >
+              <option value="">Select status</option>
               <option value="occupied">Occupied</option>
               <option value="dirty">Dirty</option>
               <option value="clean">Clean</option>
@@ -569,10 +572,11 @@ export default function Luggage() {
             <div>
               <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Status</label>
               <select
-                value={editingItem.roomStatus || 'occupied'}
+                value={editingItem.roomStatus || ''}
                 onChange={(e) => handleUpdate('roomStatus', e.target.value)}
                 style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid #ccc' }}
               >
+                <option value="">Select status</option>
                 <option value="occupied">Occupied</option>
                 <option value="dirty">Dirty</option>
                 <option value="clean">Clean</option>
