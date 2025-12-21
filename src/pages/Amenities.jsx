@@ -8,7 +8,7 @@ export default function Amenities() {
     <div className="page pad">
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Amenities</h2>
-        <button className="btn secondary" onClick={() => navigate('/amenities-history')}>
+        <button className="btn secondary" onClick={() => navigate('/amenities-history')} style={{ marginLeft: 'auto' }}>
           View History
         </button>
       </div>
