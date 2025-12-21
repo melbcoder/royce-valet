@@ -137,13 +137,11 @@ export default function Luggage() {
   const deliveredItems = luggageItems.filter(item => item.status === 'delivered');
 
   return (
-    <div>
+    <div className="page pad">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h2>Luggage Storage</h2>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div className="row space-between" style={{ marginBottom: 16 }}>
+        <h2>Luggage Storage</h2>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
           <button className="btn secondary" onClick={() => navigate('/luggage-history')}>
             View History
           </button>
@@ -154,7 +152,7 @@ export default function Luggage() {
       </div>
 
       {/* Stored Luggage */}
-      <section className="card pad" style={{ marginBottom: 24 }}>
+      <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>In Storage ({storedItems.length})</h3>
         <div className="table-wrap">
           <table className="table">

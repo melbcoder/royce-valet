@@ -5,17 +5,15 @@ export default function Amenities() {
   const navigate = useNavigate();
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h2>Amenities</h2>
-        </div>
+    <div className="page pad">
+      <div className="row space-between" style={{ marginBottom: 16 }}>
+        <h2>Amenities</h2>
         <button className="btn secondary" onClick={() => navigate('/amenities-history')}>
           View History
         </button>
       </div>
 
-      <section className="card pad" style={{ marginBottom: 24 }}>
+      <section className="card pad" style={{ marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Coming Soon</h2>
         <p>The amenities and concierge services system is under development.</p>
         <p>Features will include:</p>
