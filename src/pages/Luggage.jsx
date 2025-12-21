@@ -24,7 +24,7 @@ export default function Luggage() {
   const [itemToDelete, setItemToDelete] = useState(null);
   
   const [newLuggage, setNewLuggage] = useState({
-    tags: '',
+    tags: [],
     guestName: '',
     roomNumber: '',
     phone: '',
@@ -33,6 +33,8 @@ export default function Luggage() {
   });
 
   const [errors, setErrors] = useState({});
+  const [tagInput, setTagInput] = useState('');
+  const [editTagInput, setEditTagInput] = useState('');
 
   // Subscribe to active luggage
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function Luggage() {
     console.log('handleCreate called', newLuggage);
     
     const validationErrors = {
-      tags: !String(newLuggage.tags).trim(),
+      tags: newLuggage.tags.length === 0,
       guestName: !String(newLuggage.guestName).trim(),
       roomNumber: !String(newLuggage.roomNumber).trim(),
       phone: !String(newLuggage.phone).trim(),
@@ -84,9 +86,7 @@ export default function Luggage() {
     }
 
     try {
-      // Split tags by comma and trim whitespace
-      const tagsArray = newLuggage.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      console.log('Creating luggage with tags:', tagsArray);
+      console.log('Creating luggage with tags:', newLuggage.tags);
 
       // Format phone number to international format
       const formattedPhone = formatPhoneNumber(newLuggage.phone);
@@ -94,18 +94,18 @@ export default function Luggage() {
       await createLuggage({
         ...newLuggage,
         phone: formattedPhone,
-        tags: tagsArray,
-        numberOfBags: parseInt(newLuggage.numberOfBags) || tagsArray.length,
+        numberOfBags: parseInt(newLuggage.numberOfBags) || newLuggage.tags.length,
       });
 
       setNewLuggage({
-        tags: '',
+        tags: [],
         guestName: '',
         roomNumber: '',
         phone: '',
         numberOfBags: '',
         notes: '',
       });
+      setTagInput('');
       setErrors({});
       setNewOpen(false);
       showToast('Luggage item created.');
@@ -117,6 +117,7 @@ export default function Luggage() {
 
   const openEdit = (item) => {
     setEditingItem(item);
+    setEditTagInput('');
     setEditOpen(true);
   };
 
@@ -304,18 +305,77 @@ export default function Luggage() {
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Luggage">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <input
-              placeholder="Tag Numbers (required, comma-separated)"
-              value={newLuggage.tags}
-              onChange={(e) => {
-                setNewLuggage({ ...newLuggage, tags: e.target.value });
-                if (errors.tags) setErrors({ ...errors, tags: false });
-              }}
-              style={{ width: '100%', borderColor: errors.tags ? '#ff4444' : undefined }}
-            />
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Tag Numbers (required)</label>
+            <div style={{ 
+              border: `1px solid ${errors.tags ? '#ff4444' : '#ccc'}`, 
+              borderRadius: 4, 
+              padding: 8, 
+              minHeight: 40,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+              alignItems: 'center'
+            }}>
+              {newLuggage.tags.map((tag, index) => (
+                <span key={index} style={{
+                  background: '#e8f5e9',
+                  color: '#2e7d32',
+                  padding: '4px 8px',
+                  borderRadius: 12,
+                  fontSize: 14,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}>
+                  {tag}
+                  <button
+                    onClick={() => {
+                      const newTags = newLuggage.tags.filter((_, i) => i !== index);
+                      setNewLuggage({ ...newLuggage, tags: newTags });
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2e7d32',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                      lineHeight: 1
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <input
+                placeholder="Type tag number and press space"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' && tagInput.trim()) {
+                    e.preventDefault();
+                    setNewLuggage({ ...newLuggage, tags: [...newLuggage.tags, tagInput.trim()] });
+                    setTagInput('');
+                    if (errors.tags) setErrors({ ...errors, tags: false });
+                  } else if (e.key === 'Backspace' && !tagInput && newLuggage.tags.length > 0) {
+                    const newTags = [...newLuggage.tags];
+                    newTags.pop();
+                    setNewLuggage({ ...newLuggage, tags: newTags });
+                  }
+                }}
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  flex: 1,
+                  minWidth: 120,
+                  fontSize: 14
+                }}
+              />
+            </div>
             {errors.tags && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
             <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-              Enter multiple tag numbers separated by commas
+              Press space after each tag number
             </div>
           </div>
 
@@ -347,7 +407,7 @@ export default function Luggage() {
 
           <div>
             <input
-              placeholder="Phone (required, format: +61400000000)"
+              placeholder="Phone (required)"
               value={newLuggage.phone}
               onChange={(e) => {
                 setNewLuggage({ ...newLuggage, phone: e.target.value });
@@ -386,16 +446,77 @@ export default function Luggage() {
         <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Luggage">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Tag Numbers (comma-separated)</label>
-              <input
-                defaultValue={editingItem.tags?.join(', ') || ''}
-                onBlur={(e) => {
-                  const tagsArray = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
-                  handleUpdate('tags', tagsArray);
-                }}
-                style={{ width: '100%' }}
-                placeholder="101, 102, 103"
-              />
+              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Tag Numbers</label>
+              <div style={{ 
+                border: '1px solid #ccc', 
+                borderRadius: 4, 
+                padding: 8, 
+                minHeight: 40,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 6,
+                alignItems: 'center'
+              }}>
+                {(editingItem.tags || []).map((tag, index) => (
+                  <span key={index} style={{
+                    background: '#e8f5e9',
+                    color: '#2e7d32',
+                    padding: '4px 8px',
+                    borderRadius: 12,
+                    fontSize: 14,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}>
+                    {tag}
+                    <button
+                      onClick={() => {
+                        const newTags = editingItem.tags.filter((_, i) => i !== index);
+                        setEditingItem({ ...editingItem, tags: newTags });
+                        handleUpdate('tags', newTags);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#2e7d32',
+                        cursor: 'pointer',
+                        padding: 0,
+                        fontSize: 16,
+                        fontWeight: 'bold',
+                        lineHeight: 1
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  placeholder="Type tag number and press space"
+                  value={editTagInput}
+                  onChange={(e) => setEditTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === ' ' && editTagInput.trim()) {
+                      e.preventDefault();
+                      const newTags = [...(editingItem.tags || []), editTagInput.trim()];
+                      setEditingItem({ ...editingItem, tags: newTags });
+                      handleUpdate('tags', newTags);
+                      setEditTagInput('');
+                    } else if (e.key === 'Backspace' && !editTagInput && editingItem.tags?.length > 0) {
+                      const newTags = [...editingItem.tags];
+                      newTags.pop();
+                      setEditingItem({ ...editingItem, tags: newTags });
+                      handleUpdate('tags', newTags);
+                    }
+                  }}
+                  style={{
+                    border: 'none',
+                    outline: 'none',
+                    flex: 1,
+                    minWidth: 120,
+                    fontSize: 14
+                  }}
+                />
+              </div>
             </div>
 
             <div>
