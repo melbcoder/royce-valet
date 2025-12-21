@@ -10,6 +10,7 @@ import {
 import { sendRoomReadySMS } from '../services/smsService';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { formatPhoneNumber } from '../utils/phoneFormatter';
 
 export default function Luggage() {
   const navigate = useNavigate();
@@ -87,8 +88,12 @@ export default function Luggage() {
       const tagsArray = newLuggage.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
       console.log('Creating luggage with tags:', tagsArray);
 
+      // Format phone number to international format
+      const formattedPhone = formatPhoneNumber(newLuggage.phone);
+
       await createLuggage({
         ...newLuggage,
+        phone: formattedPhone,
         tags: tagsArray,
         numberOfBags: parseInt(newLuggage.numberOfBags) || tagsArray.length,
       });

@@ -16,6 +16,7 @@ import { sendWelcomeSMS } from "../services/smsService";
 import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
+import { formatPhoneNumber } from "../utils/phoneFormatter";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -278,17 +279,20 @@ export default function Staff() {
       return;
     }
 
+    // Format phone number to international format
+    const formattedPhone = formatPhoneNumber(phone);
+
     await createVehicle({
       tag,
       guestName,
       roomNumber,
-      phone,
+      phone: formattedPhone,
       departureDate,
     });
     
     // Send welcome SMS with guest link
     try {
-      await sendWelcomeSMS(phone, tag);
+      await sendWelcomeSMS(formattedPhone, tag);
       showToast("Vehicle created and guest notified via SMS.");
     } catch (error) {
       console.error("Failed to send SMS:", error);
