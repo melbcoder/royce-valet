@@ -17,6 +17,8 @@ export default function Luggage() {
   const [newOpen, setNewOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [notifyModalOpen, setNotifyModalOpen] = useState(false);
+  const [itemToNotify, setItemToNotify] = useState(null);
   
   const [newLuggage, setNewLuggage] = useState({
     tags: '',
@@ -119,23 +121,34 @@ export default function Luggage() {
   const handleDeliver = async (item) => {
     await markLuggageDelivered(item.id);
     
-    // Ask if user wants to notify the guest
-    const shouldNotify = confirm('Would you like to send an SMS notification to the guest?');
-    
-    if (shouldNotify) {
+    // Show modal to ask if user wants to notify the guest
+    setItemToNotify(item);
+    setNotifyModalOpen(true);
+  };
+
+  const confirmNotification = async () => {
+    if (itemToNotify) {
       try {
-        await sendRoomReadySMS(item.phone, item.roomNumber);
-        await updateLuggage(item.id, { notified: true });
+        await sendRoomReadySMS(itemToNotify.phone, itemToNotify.roomNumber);
+        await updateLuggage(itemToNotify.id, { notified: true });
         showToast('Luggage delivered and guest notified via SMS.');
       } catch (error) {
         console.error('Failed to send SMS:', error);
-        await updateLuggage(item.id, { notified: false });
+        await updateLuggage(itemToNotify.id, { notified: false });
         showToast('Luggage delivered (SMS notification failed to send).');
       }
-    } else {
-      await updateLuggage(item.id, { notified: false });
+    }
+    setNotifyModalOpen(false);
+    setItemToNotify(null);
+  };
+
+  const declineNotification = async () => {
+    if (itemToNotify) {
+      await updateLuggage(itemToNotify.id, { notified: false });
       showToast('Luggage delivered (no notification sent).');
     }
+    setNotifyModalOpen(false);
+    setItemToNotify(null);
   };
 
   const handleNotify = async (item) => {
@@ -399,6 +412,23 @@ export default function Luggage() {
           </div>
         </Modal>
       )}
+
+      {/* Notification Confirmation Modal */}
+      <Modal open={notifyModalOpen} onClose={() => setNotifyModalOpen(false)} title="Send SMS Notification">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ marginBottom: 16 }}>
+            Would you like to send an SMS notification to the guest that their room is ready?
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn primary" onClick={confirmNotification}>
+              Yes, Send SMS
+            </button>
+            <button className="btn secondary" onClick={declineNotification}>
+              No
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
