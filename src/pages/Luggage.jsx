@@ -38,6 +38,29 @@ export default function Luggage() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
+  // Auto-delete all luggage at midnight
+  useEffect(() => {
+    let currentDate = new Date().toDateString();
+    
+    const checkMidnight = setInterval(async () => {
+      const newDate = new Date().toDateString();
+      
+      // If the date has changed, delete all luggage
+      if (newDate !== currentDate) {
+        console.log('New day detected, deleting all luggage items...');
+        
+        // Delete all luggage items
+        const deletePromises = luggageItems.map(item => deleteLuggage(item.id));
+        await Promise.all(deletePromises);
+        
+        currentDate = newDate;
+        showToast('New day - all luggage records cleared.');
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(checkMidnight);
+  }, [luggageItems]);
+
   const handleCreate = async () => {
     console.log('handleCreate called', newLuggage);
     
@@ -141,14 +164,9 @@ export default function Luggage() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Luggage Storage</h2>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button className="btn secondary" onClick={() => navigate('/luggage-history')}>
-            View History
-          </button>
-          <button className="btn primary" onClick={() => setNewOpen(true)}>
-            Add Luggage
-          </button>
-        </div>
+        <button className="btn primary" onClick={() => setNewOpen(true)}>
+          Add Luggage
+        </button>
       </div>
 
       {/* Stored Luggage */}
