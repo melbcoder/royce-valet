@@ -191,7 +191,7 @@ export default function Luggage() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Luggage Storage</h2>
-        <button className="btn primary" onClick={() => setNewOpen(true)}>
+        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: 'auto' }}>
           Add Luggage
         </button>
       </div>
