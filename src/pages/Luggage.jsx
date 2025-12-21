@@ -305,7 +305,6 @@ export default function Luggage() {
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Luggage">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Tag Numbers (required)</label>
             <div style={{ 
               border: `1px solid ${errors.tags ? '#ff4444' : '#ccc'}`, 
               borderRadius: 4, 
@@ -349,7 +348,7 @@ export default function Luggage() {
                 </span>
               ))}
               <input
-                placeholder="Type tag number and press space"
+                placeholder="Tag Numbers (required)"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
