@@ -23,6 +23,8 @@ export const storage = getStorage();
 const vehiclesRef = collection(db, "vehicles");
 const historyRef = collection(db, "history");
 const usersRef = collection(db, "users");
+const luggageRef = collection(db, "luggage");
+const luggageHistoryRef = collection(db, "luggageHistory");
 
 // Create / check-in vehicle
 export async function createVehicle(data) {
@@ -265,3 +267,72 @@ export function subscribeUsers(callback) {
     callback(list);
   });
 }
+
+// ===== LUGGAGE MANAGEMENT =====
+
+// Create luggage item
+export async function createLuggage(data) {
+  const item = {
+    tag: data.tag,
+    guestName: data.guestName,
+    roomNumber: data.roomNumber,
+    phone: data.phone,
+    arrivalDate: data.arrivalDate,
+    numberOfBags: data.numberOfBags || 0,
+    status: "stored", // stored, delivered
+    location: data.location || "",
+    notes: data.notes || "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(doc(luggageRef, data.tag), item);
+}
+
+// Update luggage item
+export async function updateLuggage(tag, updates) {
+  await updateDoc(doc(luggageRef, tag), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Mark luggage as delivered to room
+export async function markLuggageDelivered(tag) {
+  await updateLuggage(tag, { status: "delivered", deliveredAt: serverTimestamp() });
+}
+
+// Archive luggage item
+export async function archiveLuggage(tag, item) {
+  await setDoc(doc(luggageHistoryRef, `${tag}-${Date.now()}`), {
+    ...item,
+    archivedAt: serverTimestamp(),
+  });
+
+  await deleteDoc(doc(luggageRef, tag));
+}
+
+// Delete luggage item
+export async function deleteLuggage(tag) {
+  await deleteDoc(doc(luggageRef, tag));
+}
+
+// Subscribe to active luggage
+export function subscribeActiveLuggage(callback) {
+  return onSnapshot(luggageRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => d.data());
+    callback(list);
+  });
+}
+
+// Subscribe to luggage history
+export function subscribeLuggageHistory(callback) {
+  return onSnapshot(luggageHistoryRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({
+      ...d.data(),
+      _id: d.id,
+    }));
+    callback(list);
+  });
+}
+
