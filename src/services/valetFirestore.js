@@ -273,54 +273,55 @@ export function subscribeUsers(callback) {
 // Create luggage item
 export async function createLuggage(data) {
   const item = {
-    tag: data.tag,
+    tags: data.tags || [], // Array of tag numbers
     guestName: data.guestName,
     roomNumber: data.roomNumber,
     phone: data.phone,
-    arrivalDate: data.arrivalDate,
     numberOfBags: data.numberOfBags || 0,
     status: "stored", // stored, delivered
-    location: data.location || "",
     notes: data.notes || "",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
-  await setDoc(doc(luggageRef, data.tag), item);
+  // Use guest name + timestamp as document ID since we may have multiple tags
+  const docId = `${data.guestName.replace(/\s+/g, '-')}-${Date.now()}`;
+  await setDoc(doc(luggageRef, docId), item);
+  return docId;
 }
 
 // Update luggage item
-export async function updateLuggage(tag, updates) {
-  await updateDoc(doc(luggageRef, tag), {
+export async function updateLuggage(id, updates) {
+  await updateDoc(doc(luggageRef, id), {
     ...updates,
     updatedAt: serverTimestamp(),
   });
 }
 
 // Mark luggage as delivered to room
-export async function markLuggageDelivered(tag) {
-  await updateLuggage(tag, { status: "delivered", deliveredAt: serverTimestamp() });
+export async function markLuggageDelivered(id) {
+  await updateLuggage(id, { status: "delivered", deliveredAt: serverTimestamp() });
 }
 
 // Archive luggage item
-export async function archiveLuggage(tag, item) {
-  await setDoc(doc(luggageHistoryRef, `${tag}-${Date.now()}`), {
+export async function archiveLuggage(id, item) {
+  await setDoc(doc(luggageHistoryRef, `${id}-${Date.now()}`), {
     ...item,
     archivedAt: serverTimestamp(),
   });
 
-  await deleteDoc(doc(luggageRef, tag));
+  await deleteDoc(doc(luggageRef, id));
 }
 
 // Delete luggage item
-export async function deleteLuggage(tag) {
-  await deleteDoc(doc(luggageRef, tag));
+export async function deleteLuggage(id) {
+  await deleteDoc(doc(luggageRef, id));
 }
 
 // Subscribe to active luggage
 export function subscribeActiveLuggage(callback) {
   return onSnapshot(luggageRef, (snapshot) => {
-    const list = snapshot.docs.map((d) => d.data());
+    const list = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
     callback(list);
   });
 }

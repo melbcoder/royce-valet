@@ -19,13 +19,11 @@ export default function Luggage() {
   const [editingItem, setEditingItem] = useState(null);
   
   const [newLuggage, setNewLuggage] = useState({
-    tag: '',
+    tags: '',
     guestName: '',
     roomNumber: '',
     phone: '',
-    arrivalDate: '',
     numberOfBags: '',
-    location: '',
     notes: '',
   });
 
@@ -34,7 +32,7 @@ export default function Luggage() {
   // Subscribe to active luggage
   useEffect(() => {
     const unsubscribe = subscribeActiveLuggage((list) => {
-      const sorted = [...list].sort((a, b) => String(a.tag).localeCompare(String(b.tag)));
+      const sorted = [...list].sort((a, b) => String(a.guestName).localeCompare(String(b.guestName)));
       setLuggageItems(sorted);
     });
     return () => unsubscribe && unsubscribe();
@@ -42,11 +40,10 @@ export default function Luggage() {
 
   const handleCreate = async () => {
     const validationErrors = {
-      tag: !String(newLuggage.tag).trim(),
+      tags: !String(newLuggage.tags).trim(),
       guestName: !String(newLuggage.guestName).trim(),
       roomNumber: !String(newLuggage.roomNumber).trim(),
       phone: !String(newLuggage.phone).trim(),
-      arrivalDate: !String(newLuggage.arrivalDate).trim(),
     };
 
     setErrors(validationErrors);
@@ -55,19 +52,21 @@ export default function Luggage() {
       return;
     }
 
+    // Split tags by comma and trim whitespace
+    const tagsArray = newLuggage.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+
     await createLuggage({
       ...newLuggage,
-      numberOfBags: parseInt(newLuggage.numberOfBags) || 0,
+      tags: tagsArray,
+      numberOfBags: parseInt(newLuggage.numberOfBags) || tagsArray.length,
     });
 
     setNewLuggage({
-      tag: '',
+      tags: '',
       guestName: '',
       roomNumber: '',
       phone: '',
-      arrivalDate: '',
       numberOfBags: '',
-      location: '',
       notes: '',
     });
     setErrors({});
@@ -81,12 +80,12 @@ export default function Luggage() {
   };
 
   const handleUpdate = async (field, value) => {
-    await updateLuggage(editingItem.tag, { [field]: value });
+    await updateLuggage(editingItem.id, { [field]: value });
     showToast('Luggage updated.');
   };
 
   const handleDeliver = async (item) => {
-    await markLuggageDelivered(item.tag);
+    await markLuggageDelivered(item.id);
     
     // Send SMS notification
     try {
@@ -98,9 +97,9 @@ export default function Luggage() {
     }
   };
 
-  const handleDelete = async (tag) => {
+  const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this luggage item?')) {
-      await deleteLuggage(tag);
+      await deleteLuggage(id);
       showToast('Luggage item deleted.');
     }
   };
@@ -133,13 +132,11 @@ export default function Luggage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Tag</th>
+                <th>Tags</th>
                 <th>Guest Name</th>
                 <th>Room</th>
                 <th>Phone</th>
-                <th>Arrival Date</th>
                 <th>Bags</th>
-                <th>Location</th>
                 <th>Notes</th>
                 <th>Actions</th>
               </tr>
@@ -147,20 +144,18 @@ export default function Luggage() {
             <tbody>
               {storedItems.length === 0 && (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
                     No luggage in storage
                   </td>
                 </tr>
               )}
               {storedItems.map((item) => (
-                <tr key={item.tag}>
-                  <td>#{item.tag}</td>
+                <tr key={item.id}>
+                  <td>{item.tags?.join(', ') || '—'}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>{item.phone}</td>
-                  <td>{item.arrivalDate}</td>
                   <td>{item.numberOfBags}</td>
-                  <td>{item.location || '—'}</td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => openEdit(item)}>
@@ -169,7 +164,7 @@ export default function Luggage() {
                     <button className="btn primary" onClick={() => handleDeliver(item)}>
                       Deliver
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.tag)} style={{ color: '#ff4444' }}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ color: '#ff4444' }}>
                       Delete
                     </button>
                   </td>
@@ -187,7 +182,7 @@ export default function Luggage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Tag</th>
+                <th>Tags</th>
                 <th>Guest Name</th>
                 <th>Room</th>
                 <th>Bags</th>
@@ -204,14 +199,14 @@ export default function Luggage() {
                 </tr>
               )}
               {deliveredItems.map((item) => (
-                <tr key={item.tag}>
-                  <td>#{item.tag}</td>
+                <tr key={item.id}>
+                  <td>{item.tags?.join(', ') || '—'}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>{item.numberOfBags}</td>
                   <td>{item.deliveredAt ? new Date(item.deliveredAt.seconds * 1000).toLocaleString() : '—'}</td>
                   <td>
-                    <button className="btn secondary" onClick={() => handleDelete(item.tag)} style={{ color: '#ff4444' }}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ color: '#ff4444' }}>
                       Delete
                     </button>
                   </td>
@@ -227,15 +222,18 @@ export default function Luggage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <input
-              placeholder="Tag Number (required)"
-              value={newLuggage.tag}
+              placeholder="Tag Numbers (required, comma-separated: 101, 102, 103)"
+              value={newLuggage.tags}
               onChange={(e) => {
-                setNewLuggage({ ...newLuggage, tag: e.target.value });
-                if (errors.tag) setErrors({ ...errors, tag: false });
+                setNewLuggage({ ...newLuggage, tags: e.target.value });
+                if (errors.tags) setErrors({ ...errors, tags: false });
               }}
-              style={{ width: '100%', borderColor: errors.tag ? '#ff4444' : undefined }}
+              style={{ width: '100%', borderColor: errors.tags ? '#ff4444' : undefined }}
             />
-            {errors.tag && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            {errors.tags && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+              Enter multiple tag numbers separated by commas
+            </div>
           </div>
 
           <div>
@@ -266,7 +264,7 @@ export default function Luggage() {
 
           <div>
             <input
-              placeholder="Phone (required, format: +1234567890)"
+              placeholder="Phone (required, format: +61400000000)"
               value={newLuggage.phone}
               onChange={(e) => {
                 setNewLuggage({ ...newLuggage, phone: e.target.value });
@@ -277,36 +275,13 @@ export default function Luggage() {
             {errors.phone && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
           </div>
 
-          <div>
-            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>
-              Arrival Date (required)
-            </label>
-            <input
-              type="date"
-              value={newLuggage.arrivalDate}
-              onChange={(e) => {
-                setNewLuggage({ ...newLuggage, arrivalDate: e.target.value });
-                if (errors.arrivalDate) setErrors({ ...errors, arrivalDate: false });
-              }}
-              style={{ width: '100%', borderColor: errors.arrivalDate ? '#ff4444' : undefined }}
-            />
-            {errors.arrivalDate && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
-          </div>
-
           <input
             type="number"
-            placeholder="Number of Bags"
+            placeholder="Number of Bags (optional, will default to number of tags)"
             value={newLuggage.numberOfBags}
             onChange={(e) => setNewLuggage({ ...newLuggage, numberOfBags: e.target.value })}
             style={{ width: '100%' }}
             min="0"
-          />
-
-          <input
-            placeholder="Storage Location (optional)"
-            value={newLuggage.location}
-            onChange={(e) => setNewLuggage({ ...newLuggage, location: e.target.value })}
-            style={{ width: '100%' }}
           />
 
           <textarea
@@ -327,15 +302,6 @@ export default function Luggage() {
       {editingItem && (
         <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Luggage">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Storage Location</label>
-              <input
-                defaultValue={editingItem.location}
-                onBlur={(e) => handleUpdate('location', e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </div>
-
             <div>
               <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Number of Bags</label>
               <input
