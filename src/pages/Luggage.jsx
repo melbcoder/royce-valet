@@ -19,6 +19,8 @@ export default function Luggage() {
   const [editingItem, setEditingItem] = useState(null);
   const [notifyModalOpen, setNotifyModalOpen] = useState(false);
   const [itemToNotify, setItemToNotify] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
   
   const [newLuggage, setNewLuggage] = useState({
     tags: '',
@@ -162,11 +164,23 @@ export default function Luggage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (confirm('Are you sure you want to delete this luggage item?')) {
-      await deleteLuggage(id);
+  const handleDelete = (id) => {
+    setItemToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      await deleteLuggage(itemToDelete);
       showToast('Luggage item deleted.');
     }
+    setDeleteModalOpen(false);
+    setItemToDelete(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteModalOpen(false);
+    setItemToDelete(null);
   };
 
   const storedItems = luggageItems.filter(item => item.status === 'stored');
@@ -286,7 +300,7 @@ export default function Luggage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <input
-              placeholder="Tag Numbers (required, comma-separated: 101, 102, 103)"
+              placeholder="Tag Numbers (required, comma-separated)"
               value={newLuggage.tags}
               onChange={(e) => {
                 setNewLuggage({ ...newLuggage, tags: e.target.value });
@@ -341,7 +355,7 @@ export default function Luggage() {
 
           <input
             type="number"
-            placeholder="Number of Bags (optional, will default to number of tags)"
+            placeholder="Number of Bags (optional)"
             value={newLuggage.numberOfBags}
             onChange={(e) => setNewLuggage({ ...newLuggage, numberOfBags: e.target.value })}
             style={{ width: '100%' }}
@@ -425,6 +439,23 @@ export default function Luggage() {
             </button>
             <button className="btn secondary" onClick={declineNotification}>
               No
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="Confirm Delete">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <p style={{ marginBottom: 16 }}>
+            Are you sure you want to delete this luggage item? This action cannot be undone.
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn primary" onClick={confirmDelete}>
+              Yes, Delete
+            </button>
+            <button className="btn secondary" onClick={cancelDelete}>
+              Cancel
             </button>
           </div>
         </div>
