@@ -167,14 +167,14 @@ export default function Luggage() {
                   <td>{item.numberOfBags}</td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn secondary" onClick={() => openEdit(item)} style={{ padding: '6px 10px' }}>
-                      <img src="/edit.png" alt="Edit" style={{ width: 18, height: 18 }} />
+                    <button className="btn secondary" onClick={() => openEdit(item)}>
+                      <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn primary" onClick={() => handleDeliver(item)} style={{ padding: '6px 10px' }}>
-                      <img src="/tick.png" alt="Deliver" style={{ width: 18, height: 18 }} />
+                    <button className="btn secondary" onClick={() => handleDeliver(item)}>
+                      <img src="/tick.png" alt="Deliver" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ padding: '6px 10px', background: '#ff4444', borderColor: '#ff4444' }}>
-                      <img src="/bin.png" alt="Delete" style={{ width: 18, height: 18 }} />
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
                 </tr>
@@ -215,8 +215,8 @@ export default function Luggage() {
                   <td>{item.numberOfBags}</td>
                   <td>{item.deliveredAt ? new Date(item.deliveredAt.seconds * 1000).toLocaleString() : '—'}</td>
                   <td>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ padding: '6px 10px', background: '#ff4444', borderColor: '#ff4444' }}>
-                      <img src="/bin.png" alt="Delete" style={{ width: 18, height: 18 }} />
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
                 </tr>
