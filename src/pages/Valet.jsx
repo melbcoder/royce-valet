@@ -12,6 +12,7 @@ import {
   scheduleRequest,
   clearSchedule,
 } from "../services/valetFirestore";
+import { sendWelcomeSMS } from "../services/smsService";
 import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
@@ -284,6 +285,16 @@ export default function Staff() {
       phone,
       departureDate,
     });
+    
+    // Send welcome SMS with guest link
+    try {
+      await sendWelcomeSMS(phone, tag);
+      showToast("Vehicle created and guest notified via SMS.");
+    } catch (error) {
+      console.error("Failed to send SMS:", error);
+      showToast("Vehicle created (SMS failed to send).");
+    }
+    
     setNewVehicle({
       tag: "",
       guestName: "",
@@ -299,7 +310,6 @@ export default function Staff() {
       departureDate: false,
     });
     setNewOpen(false);
-    showToast("Vehicle created.");
   };
 
   const openPark = (v) => {
