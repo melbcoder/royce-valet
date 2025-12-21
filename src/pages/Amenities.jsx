@@ -8,8 +8,7 @@ export default function Amenities() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{ marginBottom: 8 }}>Amenities</h1>
-          <p style={{ color: '#666', margin: 0 }}>Manage arrival amenities</p>
+          <h2 style={{ marginBottom: 8 }}>Amenities</h2>
         </div>
         <button className="btn secondary" onClick={() => navigate('/amenities-history')}>
           View History
