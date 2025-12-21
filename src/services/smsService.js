@@ -6,6 +6,9 @@ export async function sendWelcomeSMS(phone, tag) {
   
   const message = `Welcome to The Royce Hotel! Your valet tag is #${tag}. Track and request your vehicle here: ${guestLink}`;
 
+  console.log('Attempting to send SMS to:', phone);
+  console.log('Message:', message);
+
   try {
     const response = await fetch('/api/send-sms', {
       method: 'POST',
@@ -18,7 +21,10 @@ export async function sendWelcomeSMS(phone, tag) {
       }),
     });
 
+    console.log('Response status:', response.status);
+    
     const data = await response.json();
+    console.log('Response data:', data);
 
     if (!response.ok) {
       throw new Error(data.error || 'Failed to send SMS');
