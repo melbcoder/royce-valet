@@ -141,7 +141,7 @@ export default function Luggage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h2 style={{ marginBottom: 8 }}>Luggage Storage</h2>
+          <h2>Luggage Storage</h2>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn secondary" onClick={() => navigate('/luggage-history')}>
