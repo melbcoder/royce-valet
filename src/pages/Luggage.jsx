@@ -167,14 +167,14 @@ export default function Luggage() {
                   <td>{item.numberOfBags}</td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn secondary" onClick={() => openEdit(item)}>
-                      Edit
+                    <button className="btn secondary" onClick={() => openEdit(item)} style={{ padding: '6px 10px' }}>
+                      <img src="/edit.png" alt="Edit" style={{ width: 18, height: 18 }} />
                     </button>
-                    <button className="btn primary" onClick={() => handleDeliver(item)}>
-                      Deliver
+                    <button className="btn primary" onClick={() => handleDeliver(item)} style={{ padding: '6px 10px' }}>
+                      <img src="/tick.png" alt="Deliver" style={{ width: 18, height: 18 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ color: '#ff4444' }}>
-                      Delete
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ padding: '6px 10px', background: '#ff4444', borderColor: '#ff4444' }}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 18, height: 18 }} />
                     </button>
                   </td>
                 </tr>
@@ -215,8 +215,8 @@ export default function Luggage() {
                   <td>{item.numberOfBags}</td>
                   <td>{item.deliveredAt ? new Date(item.deliveredAt.seconds * 1000).toLocaleString() : '—'}</td>
                   <td>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ color: '#ff4444' }}>
-                      Delete
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} style={{ padding: '6px 10px', background: '#ff4444', borderColor: '#ff4444' }}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 18, height: 18 }} />
                     </button>
                   </td>
                 </tr>
@@ -311,6 +311,28 @@ export default function Luggage() {
       {editingItem && (
         <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Luggage">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Tag Numbers (comma-separated)</label>
+              <input
+                defaultValue={editingItem.tags?.join(', ') || ''}
+                onBlur={(e) => {
+                  const tagsArray = e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag);
+                  handleUpdate('tags', tagsArray);
+                }}
+                style={{ width: '100%' }}
+                placeholder="101, 102, 103"
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Number</label>
+              <input
+                defaultValue={editingItem.roomNumber}
+                onBlur={(e) => handleUpdate('roomNumber', e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </div>
+
             <div>
               <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Number of Bags</label>
               <input
