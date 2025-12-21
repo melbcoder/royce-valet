@@ -39,6 +39,8 @@ export default function Luggage() {
   }, []);
 
   const handleCreate = async () => {
+    console.log('handleCreate called', newLuggage);
+    
     const validationErrors = {
       tags: !String(newLuggage.tags).trim(),
       guestName: !String(newLuggage.guestName).trim(),
@@ -49,29 +51,36 @@ export default function Luggage() {
     setErrors(validationErrors);
 
     if (Object.values(validationErrors).some(e => e)) {
+      console.log('Validation failed', validationErrors);
       return;
     }
 
-    // Split tags by comma and trim whitespace
-    const tagsArray = newLuggage.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+    try {
+      // Split tags by comma and trim whitespace
+      const tagsArray = newLuggage.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      console.log('Creating luggage with tags:', tagsArray);
 
-    await createLuggage({
-      ...newLuggage,
-      tags: tagsArray,
-      numberOfBags: parseInt(newLuggage.numberOfBags) || tagsArray.length,
-    });
+      await createLuggage({
+        ...newLuggage,
+        tags: tagsArray,
+        numberOfBags: parseInt(newLuggage.numberOfBags) || tagsArray.length,
+      });
 
-    setNewLuggage({
-      tags: '',
-      guestName: '',
-      roomNumber: '',
-      phone: '',
-      numberOfBags: '',
-      notes: '',
-    });
-    setErrors({});
-    setNewOpen(false);
-    showToast('Luggage item created.');
+      setNewLuggage({
+        tags: '',
+        guestName: '',
+        roomNumber: '',
+        phone: '',
+        numberOfBags: '',
+        notes: '',
+      });
+      setErrors({});
+      setNewOpen(false);
+      showToast('Luggage item created.');
+    } catch (error) {
+      console.error('Error creating luggage:', error);
+      showToast('Error creating luggage item: ' + error.message);
+    }
   };
 
   const openEdit = (item) => {
