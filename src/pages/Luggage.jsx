@@ -96,13 +96,33 @@ export default function Luggage() {
   const handleDeliver = async (item) => {
     await markLuggageDelivered(item.id);
     
-    // Send SMS notification
+    // Ask if user wants to notify the guest
+    const shouldNotify = confirm('Would you like to send an SMS notification to the guest?');
+    
+    if (shouldNotify) {
+      try {
+        await sendRoomReadySMS(item.phone, item.roomNumber);
+        await updateLuggage(item.id, { notified: true });
+        showToast('Luggage delivered and guest notified via SMS.');
+      } catch (error) {
+        console.error('Failed to send SMS:', error);
+        await updateLuggage(item.id, { notified: false });
+        showToast('Luggage delivered (SMS notification failed to send).');
+      }
+    } else {
+      await updateLuggage(item.id, { notified: false });
+      showToast('Luggage delivered (no notification sent).');
+    }
+  };
+
+  const handleNotify = async (item) => {
     try {
       await sendRoomReadySMS(item.phone, item.roomNumber);
-      showToast('Luggage delivered and guest notified via SMS.');
+      await updateLuggage(item.id, { notified: true });
+      showToast('Guest notified via SMS.');
     } catch (error) {
       console.error('Failed to send SMS:', error);
-      showToast('Luggage delivered (SMS failed to send).');
+      showToast('Failed to send SMS notification.');
     }
   };
 
@@ -196,13 +216,14 @@ export default function Luggage() {
                 <th>Room</th>
                 <th>Bags</th>
                 <th>Delivered At</th>
+                <th>Notified</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {deliveredItems.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
                     No luggage delivered today
                   </td>
                 </tr>
@@ -214,7 +235,13 @@ export default function Luggage() {
                   <td>{item.roomNumber}</td>
                   <td>{item.numberOfBags}</td>
                   <td>{item.deliveredAt ? new Date(item.deliveredAt.seconds * 1000).toLocaleString() : '—'}</td>
-                  <td>
+                  <td>{item.notified ? 'Yes' : 'No'}</td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    {!item.notified && (
+                      <button className="btn secondary" onClick={() => handleNotify(item)}>
+                        <img src="/chat.png" alt="Notify" style={{ width: 20, height: 20 }} />
+                      </button>
+                    )}
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
