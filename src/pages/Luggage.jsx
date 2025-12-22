@@ -131,6 +131,12 @@ export default function Luggage() {
   const handleDeliver = async (item) => {
     await markLuggageDelivered(item.id);
     
+    // If guest was already notified, skip the modal
+    if (item.notified) {
+      showToast('Luggage delivered (guest already notified).');
+      return;
+    }
+    
     // Show modal to ask if user wants to notify the guest
     setItemToNotify(item);
     setNotifyModalOpen(true);
