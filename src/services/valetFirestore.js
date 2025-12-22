@@ -222,19 +222,24 @@ export async function authenticateUser(username, password) {
   
   try {
     // Firebase Auth requires email format, so we append domain
-    const email = `${username.toLowerCase()}@royce-valet.internal`;
+    const email = `${username.toLowerCase().trim()}@royce-valet.internal`;
+    console.log('Attempting Firebase Auth with email:', email);
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log('Firebase Auth successful for UID:', userCredential.user.uid);
     
     // Get user data from Firestore
-    const q = query(usersRef, where("username", "==", username.toLowerCase()));
+    const q = query(usersRef, where("username", "==", username.toLowerCase().trim()));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
+      console.error('User authenticated in Firebase Auth but not found in Firestore');
       return null;
     }
     
     const userDoc = snapshot.docs[0];
     const userData = userDoc.data();
+    console.log('User data retrieved from Firestore:', { id: userDoc.id, username: userData.username });
     
     return {
       id: userDoc.id,
@@ -245,7 +250,8 @@ export async function authenticateUser(username, password) {
     };
   } catch (error) {
     console.error('Authentication error:', error);
-    return null;
+    // Re-throw the error so Login component can display the specific error message
+    throw error;
   }
 }
 
@@ -256,17 +262,22 @@ export async function createUser(userData) {
   
   try {
     // Firebase Auth requires email format, so we append domain
-    const email = `${userData.username.toLowerCase()}@royce-valet.internal`;
+    const normalizedUsername = userData.username.toLowerCase().trim();
+    const email = `${normalizedUsername}@royce-valet.internal`;
+    console.log('Creating user with email:', email);
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, userData.password);
+    console.log('Firebase Auth user created with UID:', userCredential.user.uid);
     
     // Store user data in Firestore
     const userId = `user-${Date.now()}`;
     await setDoc(doc(usersRef, userId), {
       uid: userCredential.user.uid,
-      username: userData.username.toLowerCase(),
+      username: normalizedUsername,
       role: userData.role || "user",
       createdAt: serverTimestamp(),
     });
+    console.log('Firestore user document created with ID:', userId);
     return userId;
   } catch (error) {
     console.error('Error creating user:', error);

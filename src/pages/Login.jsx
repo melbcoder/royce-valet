@@ -52,7 +52,23 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(`An error occurred during login: ${err.message || 'Unknown error'}`);
+      
+      // Show more specific error messages based on Firebase error codes
+      if (err.code === 'auth/invalid-credential') {
+        setError('Invalid username or password. Please check your credentials and try again.');
+      } else if (err.code === 'auth/user-not-found') {
+        setError('User not found. Please check your username.');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect password. Please try again.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed login attempts. Please try again later.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(`Login error: ${err.message || 'Unknown error'}`);
+      }
+      
+      setPassword('');
     } finally {
       setLoading(false);
     }
