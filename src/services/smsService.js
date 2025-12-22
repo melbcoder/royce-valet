@@ -3,9 +3,9 @@
 export async function sendWelcomeSMS(phone, tag) {
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
   const guestLink = `${appUrl}/guest/${tag}`;
+  const from = 'The Royce';
 
-  const message = `Welcome to The Royce Hotel. Your valet tag is #${tag}. Track and request your vehicle here: ${guestLink}`;
-  // const message = `Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`;
+  const message = `Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`;
 
   console.log('Attempting to send SMS to:', phone);
   console.log('Message:', message);
@@ -19,6 +19,7 @@ export async function sendWelcomeSMS(phone, tag) {
       body: JSON.stringify({
         to: phone,
         message: message,
+        from: 'The Royce',
       }),
     });
 
@@ -50,6 +51,7 @@ export async function sendVehicleReadySMS(phone, tag) {
       body: JSON.stringify({
         to: phone,
         message: message,
+        from: 'The Royce',
       }),
     });
 
@@ -78,6 +80,7 @@ export async function sendRoomReadySMS(phone, roomNumber) {
       body: JSON.stringify({
         to: phone,
         message: message,
+        from: 'The Royce',
       }),
     });
 
