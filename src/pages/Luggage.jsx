@@ -231,7 +231,22 @@ export default function Luggage() {
               )}
               {storedItems.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.tags?.join(', ') || '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {item.tags?.length > 0 ? item.tags.map((tag, idx) => (
+                        <span key={idx} style={{
+                          backgroundColor: '#e8f5e9',
+                          color: '#2e7d32',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
+                          {tag}
+                        </span>
+                      )) : '—'}
+                    </div>
+                  </td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>
@@ -311,7 +326,22 @@ export default function Luggage() {
               )}
               {deliveredItems.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.tags?.join(', ') || '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {item.tags?.length > 0 ? item.tags.map((tag, idx) => (
+                        <span key={idx} style={{
+                          backgroundColor: '#e8f5e9',
+                          color: '#2e7d32',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
+                          {tag}
+                        </span>
+                      )) : '—'}
+                    </div>
+                  </td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>{item.numberOfBags}</td>
