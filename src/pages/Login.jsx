@@ -37,7 +37,9 @@ export default function Login() {
         }
       }
 
+      console.log('Attempting to authenticate user:', username);
       const user = await authenticateUser(username, password);
+      console.log('Authentication result:', user ? 'Success' : 'Failed');
       
       if (user) {
         // Store authentication and user info in sessionStorage
@@ -45,12 +47,12 @@ export default function Login() {
         sessionStorage.setItem('currentUser', JSON.stringify(user));
         navigate('/valet');
       } else {
-        setError('Invalid username or password');
+        setError('Invalid username or password. Please check your credentials and try again.');
         setPassword('');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('An error occurred during login');
+      setError(`An error occurred during login: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
