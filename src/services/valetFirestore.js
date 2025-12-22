@@ -276,6 +276,7 @@ export async function createLuggage(data) {
     tags: data.tags || [], // Array of tag numbers
     guestName: data.guestName,
     roomNumber: data.roomNumber,
+    roomStatus: data.roomStatus || "",
     phone: data.phone,
     numberOfBags: data.numberOfBags || 0,
     status: "stored", // stored, delivered

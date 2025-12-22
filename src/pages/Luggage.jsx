@@ -391,6 +391,13 @@ export default function Luggage() {
                     setNewLuggage({ ...newLuggage, tags: newTags });
                   }
                 }}
+                onBlur={() => {
+                  if (tagInput.trim()) {
+                    setNewLuggage({ ...newLuggage, tags: [...newLuggage.tags, tagInput.trim()] });
+                    setTagInput('');
+                    if (errors.tags) setErrors({ ...errors, tags: false });
+                  }
+                }}
                 style={{
                   border: 'none',
                   outline: 'none',
@@ -547,6 +554,14 @@ export default function Luggage() {
                       newTags.pop();
                       setEditingItem({ ...editingItem, tags: newTags });
                       handleUpdate('tags', newTags);
+                    }
+                  }}
+                  onBlur={() => {
+                    if (editTagInput.trim()) {
+                      const newTags = [...(editingItem.tags || []), editTagInput.trim()];
+                      setEditingItem({ ...editingItem, tags: newTags });
+                      handleUpdate('tags', newTags);
+                      setEditTagInput('');
                     }
                   }}
                   style={{
