@@ -263,6 +263,11 @@ export default function Luggage() {
                   <td>{item.numberOfBags}</td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
+                    {!item.notified && (
+                      <button className="btn secondary" onClick={() => handleNotify(item)}>
+                        <img src="/chat.png" alt="Message" style={{ width: 20, height: 20 }} />
+                      </button>
+                    )}
                     <button className="btn secondary" onClick={() => openEdit(item)}>
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
