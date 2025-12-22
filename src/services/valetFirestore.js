@@ -192,68 +192,122 @@ export async function checkUsersExist() {
 
 // Initialize default admin user
 export async function initializeDefaultAdmin() {
-  const userId = `user-${Date.now()}`;
-  await setDoc(doc(usersRef, userId), {
-    username: "admin",
-    password: "admin123",
-    role: "admin",
-    createdAt: serverTimestamp(),
-  });
-  return userId;
+  const { createUserWithEmailAndPassword } = await import('firebase/auth');
+  const { auth } = await import('../firebase');
+  
+  try {
+    // Create Firebase Auth account
+    const email = "admin@royce-valet.internal";
+    const userCredential = await createUserWithEmailAndPassword(auth, email, "admin123");
+    
+    // Create Firestore record
+    const userId = `user-${Date.now()}`;
+    await setDoc(doc(usersRef, userId), {
+      uid: userCredential.user.uid,
+      username: "admin",
+      role: "admin",
+      createdAt: serverTimestamp(),
+    });
+    return userId;
+  } catch (error) {
+    console.error('Error creating default admin:', error);
+    throw error;
+  }
 }
 
-// Authenticate user
+// Authenticate user with Firebase Auth
 export async function authenticateUser(username, password) {
-  const q = query(usersRef, where("username", "==", username.toLowerCase()));
-  const snapshot = await new Promise((resolve) => {
-    const unsubscribe = onSnapshot(q, (snap) => {
-      unsubscribe();
-      resolve(snap);
-    });
-  });
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  const userDoc = snapshot.docs[0];
-  const userData = userDoc.data();
-
-  // Simple password check (in production, use proper hashing)
-  if (userData.password === password) {
+  const { signInWithEmailAndPassword } = await import('firebase/auth');
+  const { auth } = await import('../firebase');
+  
+  try {
+    // Firebase Auth requires email format, so we append domain
+    const email = `${username.toLowerCase()}@royce-valet.internal`;
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Get user data from Firestore
+    const q = query(usersRef, where("username", "==", username.toLowerCase()));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      return null;
+    }
+    
+    const userDoc = snapshot.docs[0];
+    const userData = userDoc.data();
+    
     return {
       id: userDoc.id,
+      uid: userCredential.user.uid,
       username: userData.username,
       role: userData.role,
       createdAt: userData.createdAt,
     };
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return null;
   }
-
-  return null;
 }
 
-// Create new user
+// Create new user with Firebase Auth
 export async function createUser(userData) {
-  const userId = `user-${Date.now()}`;
-  await setDoc(doc(usersRef, userId), {
-    username: userData.username.toLowerCase(),
-    password: userData.password,
-    role: userData.role || "user", // 'admin' or 'user'
-    createdAt: serverTimestamp(),
-  });
-  return userId;
+  const { createUserWithEmailAndPassword } = await import('firebase/auth');
+  const { auth } = await import('../firebase');
+  
+  try {
+    // Firebase Auth requires email format, so we append domain
+    const email = `${userData.username.toLowerCase()}@royce-valet.internal`;
+    const userCredential = await createUserWithEmailAndPassword(auth, email, userData.password);
+    
+    // Store user data in Firestore
+    const userId = `user-${Date.now()}`;
+    await setDoc(doc(usersRef, userId), {
+      uid: userCredential.user.uid,
+      username: userData.username.toLowerCase(),
+      role: userData.role || "user",
+      createdAt: serverTimestamp(),
+    });
+    return userId;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    throw error;
+  }
 }
 
 // Update user
 export async function updateUser(userId, updates) {
+  const { updatePassword } = await import('firebase/auth');
+  const { auth } = await import('../firebase');
+  
+  // If password is being updated, update Firebase Auth
+  if (updates.password) {
+    try {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        await updatePassword(currentUser, updates.password);
+      }
+    } catch (error) {
+      console.error('Error updating password:', error);
+      throw error;
+    }
+    // Don't store password in Firestore
+    delete updates.password;
+  }
+  
   if (updates.username) {
     updates.username = updates.username.toLowerCase();
   }
-  await updateDoc(doc(usersRef, userId), updates);
+  
+  // Only update Firestore if there are remaining fields
+  if (Object.keys(updates).length > 0) {
+    await updateDoc(doc(usersRef, userId), updates);
+  }
 }
 
-// Delete user
+// Delete user (Firestore only - Firebase Auth deletion requires current user context)
 export async function deleteUser(userId) {
+  // Note: Firebase Auth user deletion should be handled separately
+  // and requires the user to be signed in or admin SDK on backend
   await deleteDoc(doc(usersRef, userId));
 }
 

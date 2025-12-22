@@ -44,6 +44,12 @@ export default function Settings({open, onClose}){
   }
 
   function handleLogout() {
+    // Sign out from Firebase Auth
+    import('../firebase').then(({ auth }) => {
+      import('firebase/auth').then(({ signOut }) => {
+        signOut(auth).catch(err => console.error('Sign out error:', err))
+      })
+    })
     sessionStorage.clear()
     location.href = '/login'
   }
@@ -52,19 +58,26 @@ export default function Settings({open, onClose}){
     e.preventDefault()
     setError('')
 
-    if (!formData.username || !formData.password) {
-      setError('Username and password are required')
+    if (!formData.username) {
+      setError('Username is required')
+      return
+    }
+
+    // Password required only when creating new user
+    if (!editingUser && !formData.password) {
+      setError('Password is required for new users')
       return
     }
 
     try {
       if (editingUser) {
+        // Only update role for existing users (password changes done through "Change Password")
         await updateUser(editingUser.id, {
           username: formData.username,
-          password: formData.password,
           role: formData.role
         })
       } else {
+        // Create new user with password
         await createUser(formData)
       }
       
@@ -73,7 +86,11 @@ export default function Settings({open, onClose}){
       setEditingUser(null)
     } catch (err) {
       console.error('Error saving user:', err)
-      setError('Failed to save user')
+      if (err.code === 'auth/email-already-in-use') {
+        setError('Username already exists')
+      } else {
+        setError('Failed to save user')
+      }
     }
   }
 
@@ -81,7 +98,7 @@ export default function Settings({open, onClose}){
     setEditingUser(user)
     setFormData({
       username: user.username,
-      password: user.password,
+      password: '', // Don't populate password for edit
       role: user.role
     })
     setShowAddUser(true)
@@ -115,11 +132,6 @@ export default function Settings({open, onClose}){
       return
     }
 
-    if (changePasswordData.currentPassword !== currentUser.password) {
-      setPasswordError('Current password is incorrect')
-      return
-    }
-
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
       setPasswordError('New passwords do not match')
       return
@@ -131,12 +143,15 @@ export default function Settings({open, onClose}){
     }
 
     try {
-      await updateUser(currentUser.id, { password: changePasswordData.newPassword })
+      // Re-authenticate user before changing password (Firebase Auth requirement)
+      const { signInWithEmailAndPassword } = await import('firebase/auth')
+      const { auth } = await import('../firebase')
       
-      // Update current user in sessionStorage
-      const updatedUser = { ...currentUser, password: changePasswordData.newPassword }
-      sessionStorage.setItem('currentUser', JSON.stringify(updatedUser))
-      setCurrentUser(updatedUser)
+      const email = `${currentUser.username}@royce-valet.internal`
+      await signInWithEmailAndPassword(auth, email, changePasswordData.currentPassword)
+      
+      // Update password through Firebase Auth
+      await updateUser(currentUser.id, { password: changePasswordData.newPassword })
       
       setChangePasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setPasswordSuccess(true)
@@ -144,7 +159,11 @@ export default function Settings({open, onClose}){
       setTimeout(() => setPasswordSuccess(false), 3000)
     } catch (err) {
       console.error('Error changing password:', err)
-      setPasswordError('Failed to change password')
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setPasswordError('Current password is incorrect')
+      } else {
+        setPasswordError('Failed to change password')
+      }
     }
   }
 
@@ -244,17 +263,28 @@ export default function Settings({open, onClose}){
                       onChange={(e) => setFormData({...formData, username: e.target.value})}
                       style={{width: '100%'}}
                       autoFocus
+                      disabled={!!editingUser}
                     />
+                    {editingUser && (
+                      <small style={{color: '#666', fontSize: 12}}>Username cannot be changed</small>
+                    )}
                   </div>
-                  <div style={{marginBottom: 12}}>
-                    <input
-                      type="text"
-                      placeholder="Password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
-                      style={{width: '100%'}}
-                    />
-                  </div>
+                  {!editingUser && (
+                    <div style={{marginBottom: 12}}>
+                      <input
+                        type="password"
+                        placeholder="Password (min 6 characters)"
+                        value={formData.password}
+                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                        style={{width: '100%'}}
+                      />
+                    </div>
+                  )}
+                  {editingUser && (
+                    <div style={{marginBottom: 12, padding: 8, background: '#fff3cd', borderRadius: 4, fontSize: 12}}>
+                      Password changes must be done by the user through "Change Password"
+                    </div>
+                  )}
                   <div style={{marginBottom: 12}}>
                     <select
                       value={formData.role}
