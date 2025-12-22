@@ -8,6 +8,9 @@ export default function Settings({open, onClose}){
   const [formData, setFormData] = useState({ username: '', password: '', role: 'user' })
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
+  const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
   
   const isAdmin = currentUser?.role === 'admin'
 
@@ -102,6 +105,49 @@ export default function Settings({open, onClose}){
     setError('')
   }
 
+  async function handleChangePassword(e) {
+    e.preventDefault()
+    setPasswordError('')
+    setPasswordSuccess(false)
+
+    if (!changePasswordData.currentPassword || !changePasswordData.newPassword || !changePasswordData.confirmPassword) {
+      setPasswordError('All fields are required')
+      return
+    }
+
+    if (changePasswordData.currentPassword !== currentUser.password) {
+      setPasswordError('Current password is incorrect')
+      return
+    }
+
+    if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
+      setPasswordError('New passwords do not match')
+      return
+    }
+
+    if (changePasswordData.newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters')
+      return
+    }
+
+    try {
+      await updateUser(currentUser.id, { password: changePasswordData.newPassword })
+      
+      // Update current user in sessionStorage
+      const updatedUser = { ...currentUser, password: changePasswordData.newPassword }
+      sessionStorage.setItem('currentUser', JSON.stringify(updatedUser))
+      setCurrentUser(updatedUser)
+      
+      setChangePasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setPasswordSuccess(true)
+      
+      setTimeout(() => setPasswordSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error changing password:', err)
+      setPasswordError('Failed to change password')
+    }
+  }
+
   return (
     <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000}} onClick={onClose}>
       <div className="card pad" style={{width:'min(700px, 94vw)', maxHeight:'90vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
@@ -127,6 +173,51 @@ export default function Settings({open, onClose}){
               }}>{currentUser.role}</span>
             </div>
             <button className="btn secondary" onClick={handleLogout}>Logout</button>
+          </div>
+        )}
+
+        {/* Change Password Section */}
+        {currentUser && (
+          <div style={{marginBottom: 24, padding: 16, border: '1px solid #ddd', borderRadius: 4}}>
+            <h2 style={{marginTop: 0}}>Change Password</h2>
+            <form onSubmit={handleChangePassword}>
+              <div style={{marginBottom: 12}}>
+                <input
+                  type="password"
+                  placeholder="Current Password"
+                  value={changePasswordData.currentPassword}
+                  onChange={(e) => setChangePasswordData({...changePasswordData, currentPassword: e.target.value})}
+                  style={{width: '100%'}}
+                />
+              </div>
+              <div style={{marginBottom: 12}}>
+                <input
+                  type="password"
+                  placeholder="New Password"
+                  value={changePasswordData.newPassword}
+                  onChange={(e) => setChangePasswordData({...changePasswordData, newPassword: e.target.value})}
+                  style={{width: '100%'}}
+                />
+              </div>
+              <div style={{marginBottom: 12}}>
+                <input
+                  type="password"
+                  placeholder="Confirm New Password"
+                  value={changePasswordData.confirmPassword}
+                  onChange={(e) => setChangePasswordData({...changePasswordData, confirmPassword: e.target.value})}
+                  style={{width: '100%'}}
+                />
+              </div>
+              {passwordError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{passwordError}</div>
+              )}
+              {passwordSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginBottom: 12}}>Password changed successfully!</div>
+              )}
+              <button type="submit" className="btn primary">
+                Change Password
+              </button>
+            </form>
           </div>
         )}
 
