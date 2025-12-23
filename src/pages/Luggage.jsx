@@ -46,23 +46,48 @@ export default function Luggage() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Auto-delete all luggage at midnight
+  // Auto-delete all luggage at midnight and on page load
   useEffect(() => {
+    const deleteAllLuggage = async () => {
+      if (luggageItems.length === 0) return;
+      
+      console.log('Deleting all luggage items...');
+      
+      // Delete all luggage items
+      const deletePromises = luggageItems.map(item => deleteLuggage(item.id));
+      await Promise.all(deletePromises);
+      
+      showToast('All luggage records cleared.');
+    };
+
+    // Check if we need to delete on page load
+    // This handles the case where the page wasn't open at midnight
+    const checkAndDeleteOldLuggage = async () => {
+      const lastClearDate = localStorage.getItem('lastLuggageClearDate');
+      const today = new Date().toDateString();
+      
+      if (lastClearDate !== today && luggageItems.length > 0) {
+        console.log('New day detected on page load, clearing luggage...');
+        await deleteAllLuggage();
+        localStorage.setItem('lastLuggageClearDate', today);
+      } else if (!lastClearDate) {
+        // First time running, set today's date
+        localStorage.setItem('lastLuggageClearDate', today);
+      }
+    };
+
+    checkAndDeleteOldLuggage();
+
+    // Also check every minute for midnight rollover
     let currentDate = new Date().toDateString();
-    
     const checkMidnight = setInterval(async () => {
       const newDate = new Date().toDateString();
       
-      // If the date has changed, delete all luggage
       if (newDate !== currentDate) {
         console.log('New day detected, deleting all luggage items...');
-        
-        // Delete all luggage items
-        const deletePromises = luggageItems.map(item => deleteLuggage(item.id));
-        await Promise.all(deletePromises);
-        
+        await deleteAllLuggage();
+        localStorage.setItem('lastLuggageClearDate', newDate);
         currentDate = newDate;
-        showToast('New day - all luggage records cleared.');
       }
     }, 60000); // Check every minute
     
