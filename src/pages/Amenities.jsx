@@ -42,24 +42,28 @@ export default function Amenities() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Auto-archive today's amenities at midnight
+  // Auto-archive old amenities at midnight
   useEffect(() => {
     let currentDate = new Date().toDateString();
     
     const checkMidnight = setInterval(async () => {
       const newDate = new Date().toDateString();
       
-      // If the date has changed, archive yesterday's amenities
+      // If the date has changed, archive old amenities
       if (newDate !== currentDate) {
-        console.log('New day detected, archiving previous day amenities...');
+        console.log('New day detected, archiving old amenities...');
         
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        // Get today and tomorrow in local time (consistent with rest of app)
+        const now = new Date();
+        const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         
-        // Archive all items from yesterday or earlier
+        const tomorrowDate = new Date();
+        tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+        const tomorrowLocal = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+        
+        // Archive all items that are NOT today or tomorrow
         const itemsToArchive = amenityItems.filter(item => {
-          return item.deliveryDate && item.deliveryDate <= yesterdayStr;
+          return item.deliveryDate && item.deliveryDate !== todayLocal && item.deliveryDate !== tomorrowLocal;
         });
         
         for (const item of itemsToArchive) {
