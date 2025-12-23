@@ -25,6 +25,8 @@ const historyRef = collection(db, "history");
 const usersRef = collection(db, "users");
 const luggageRef = collection(db, "luggage");
 const luggageHistoryRef = collection(db, "luggageHistory");
+const amenitiesRef = collection(db, "amenities");
+const amenitiesHistoryRef = collection(db, "amenitiesHistory");
 
 // Create / check-in vehicle
 export async function createVehicle(data) {
@@ -402,4 +404,73 @@ export function subscribeLuggageHistory(callback) {
     callback(list);
   });
 }
+
+// ===== AMENITIES MANAGEMENT =====
+
+// Create amenity item
+export async function createAmenity(data) {
+  const item = {
+    description: data.description,
+    guestName: data.guestName,
+    roomNumber: data.roomNumber,
+    roomStatus: data.roomStatus || "",
+    status: "outstanding", // outstanding, delivered
+    notes: data.notes || "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  // Use guest name + timestamp as document ID
+  const docId = `${data.guestName.replace(/\s+/g, '-')}-${Date.now()}`;
+  await setDoc(doc(amenitiesRef, docId), item);
+  return docId;
+}
+
+// Update amenity item
+export async function updateAmenity(id, updates) {
+  await updateDoc(doc(amenitiesRef, id), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Mark amenity as delivered to room
+export async function markAmenityDelivered(id) {
+  await updateAmenity(id, { status: "delivered", deliveredAt: serverTimestamp() });
+}
+
+// Archive amenity item
+export async function archiveAmenity(id, item) {
+  await setDoc(doc(amenitiesHistoryRef, `${id}-${Date.now()}`), {
+    ...item,
+    archivedAt: serverTimestamp(),
+  });
+
+  await deleteDoc(doc(amenitiesRef, id));
+}
+
+// Delete amenity item
+export async function deleteAmenity(id) {
+  await deleteDoc(doc(amenitiesRef, id));
+}
+
+// Subscribe to active amenities
+export function subscribeActiveAmenities(callback) {
+  return onSnapshot(amenitiesRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
+    callback(list);
+  });
+}
+
+// Subscribe to amenities history
+export function subscribeAmenitiesHistory(callback) {
+  return onSnapshot(amenitiesHistoryRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({
+      ...d.data(),
+      _id: d.id,
+    }));
+    callback(list);
+  });
+}
+
 
