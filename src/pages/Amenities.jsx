@@ -229,10 +229,15 @@ export default function Amenities() {
             const parsedDate = new Date(dateStr);
             
             if (!isNaN(parsedDate.getTime())) {
-              deliveryDate = parsedDate.toISOString().split('T')[0];
+              // Get the date in local timezone to avoid timezone offset issues
+              const year = parsedDate.getFullYear();
+              const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+              const day = String(parsedDate.getDate()).padStart(2, '0');
+              deliveryDate = `${year}-${month}-${day}`;
               
               // Check if date is today or tomorrow
               if (deliveryDate !== today && deliveryDate !== tomorrowStr) {
+                console.log(`Skipping amenity with date ${deliveryDate} (today: ${today}, tomorrow: ${tomorrowStr})`);
                 skippedCount++;
                 continue; // Skip this amenity
               }
