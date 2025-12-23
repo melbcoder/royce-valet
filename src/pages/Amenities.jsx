@@ -498,40 +498,37 @@ export default function Amenities() {
       <Modal open={newOpen} onClose={() => { setNewOpen(false); setErrors({}); }}>
         <h2>Add Amenity</h2>
         <label>
-          Description *
           <input
             value={newAmenity.description}
             onChange={(e) => setNewAmenity({ ...newAmenity, description: e.target.value })}
-            placeholder="e.g., Amenity- Bandini Prosecco"
+            placeholder="Amenity Description*"
             style={{ borderColor: errors.description ? '#ff4444' : undefined }}
           />
           {errors.description && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
         </label>
 
         <label>
-          Guest Name *
           <input
             value={newAmenity.guestName}
             onChange={(e) => setNewAmenity({ ...newAmenity, guestName: e.target.value })}
-            placeholder="e.g., EWINGTON Daniel"
+            placeholder="Guest Name*"
             style={{ borderColor: errors.guestName ? '#ff4444' : undefined }}
           />
           {errors.guestName && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
         </label>
 
         <label>
-          Room Number *
           <input
             value={newAmenity.roomNumber}
             onChange={(e) => setNewAmenity({ ...newAmenity, roomNumber: e.target.value })}
-            placeholder="e.g., 619"
+            placeholder="Room Number*"
             style={{ borderColor: errors.roomNumber ? '#ff4444' : undefined }}
           />
           {errors.roomNumber && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
         </label>
 
         <label>
-          Delivery Date *
+          Delivery Date*
           <input
             type="date"
             value={newAmenity.deliveryDate}
@@ -539,28 +536,6 @@ export default function Amenities() {
             style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
           />
           {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-        </label>
-
-        <label>          Delivery Date *
-          <input
-            type="date"
-            value={newAmenity.deliveryDate}
-            onChange={(e) => setNewAmenity({ ...newAmenity, deliveryDate: e.target.value })}
-            style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
-          />
-          {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-        </label>
-
-        <label>          Room Status
-          <select
-            value={newAmenity.roomStatus}
-            onChange={(e) => setNewAmenity({ ...newAmenity, roomStatus: e.target.value })}
-          >
-            <option value="">Select status</option>
-            <option value="occupied">Occupied</option>
-            <option value="dirty">Dirty</option>
-            <option value="clean">Clean</option>
-          </select>
         </label>
 
         <label>
@@ -589,7 +564,6 @@ export default function Amenities() {
         {editingItem && (
           <>
             <label>
-              Description *
               <input
                 value={editingItem.description}
                 onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
@@ -599,7 +573,6 @@ export default function Amenities() {
             </label>
 
             <label>
-              Guest Name *
               <input
                 value={editingItem.guestName}
                 onChange={(e) => setEditingItem({ ...editingItem, guestName: e.target.value })}
@@ -609,7 +582,6 @@ export default function Amenities() {
             </label>
 
             <label>
-              Room Number *
               <input
                 value={editingItem.roomNumber}
                 onChange={(e) => setEditingItem({ ...editingItem, roomNumber: e.target.value })}
@@ -619,7 +591,7 @@ export default function Amenities() {
             </label>
 
             <label>
-              Delivery Date *
+              Delivery Date*
               <input
                 type="date"
                 value={editingItem.deliveryDate}
@@ -627,28 +599,6 @@ export default function Amenities() {
                 style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
               />
               {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-            </label>
-
-            <label>              Delivery Date *
-              <input
-                type="date"
-                value={editingItem.deliveryDate}
-                onChange={(e) => setEditingItem({ ...editingItem, deliveryDate: e.target.value })}
-                style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
-              />
-              {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-            </label>
-
-            <label>              Room Status
-              <select
-                value={editingItem.roomStatus}
-                onChange={(e) => setEditingItem({ ...editingItem, roomStatus: e.target.value })}
-              >
-                <option value="">Select status</option>
-                <option value="occupied">Occupied</option>
-                <option value="dirty">Dirty</option>
-                <option value="clean">Clean</option>
-              </select>
             </label>
 
             <label>
