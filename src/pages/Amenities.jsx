@@ -237,7 +237,7 @@ export default function Amenities() {
     <div className="page pad">
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Amenities</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
           <button className="btn secondary" onClick={() => fileInputRef.current?.click()}>
             Upload CSV
           </button>
@@ -390,7 +390,7 @@ export default function Amenities() {
       </section>
 
       {/* Add Amenity Modal */}
-      <Modal isOpen={newOpen} onClose={() => { setNewOpen(false); setErrors({}); }}>
+      <Modal open={newOpen} onClose={() => { setNewOpen(false); setErrors({}); }}>
         <h2>Add Amenity</h2>
         <label>
           Description *
@@ -459,7 +459,7 @@ export default function Amenities() {
       </Modal>
 
       {/* Edit Amenity Modal */}
-      <Modal isOpen={editOpen} onClose={() => { setEditOpen(false); setEditingItem(null); setErrors({}); }}>
+      <Modal open={editOpen} onClose={() => { setEditOpen(false); setEditingItem(null); setErrors({}); }}>
         <h2>Edit Amenity</h2>
         {editingItem && (
           <>
@@ -528,7 +528,7 @@ export default function Amenities() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={deleteModalOpen} onClose={cancelDelete}>
+      <Modal open={deleteModalOpen} onClose={cancelDelete}>
         <h2>Delete Amenity</h2>
         <p>Are you sure you want to delete this amenity item?</p>
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
