@@ -498,7 +498,7 @@ export default function Amenities() {
       <Modal open={newOpen} onClose={() => { setNewOpen(false); setErrors({}); }}>
         <h2>Add Amenity</h2>
         
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <input
             value={newAmenity.description}
             onChange={(e) => setNewAmenity({ ...newAmenity, description: e.target.value })}
@@ -508,7 +508,7 @@ export default function Amenities() {
           {errors.description && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
         </div>
 
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <input
             value={newAmenity.guestName}
             onChange={(e) => setNewAmenity({ ...newAmenity, guestName: e.target.value })}
@@ -518,7 +518,7 @@ export default function Amenities() {
           {errors.guestName && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
         </div>
 
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <input
             value={newAmenity.roomNumber}
             onChange={(e) => setNewAmenity({ ...newAmenity, roomNumber: e.target.value })}
@@ -528,7 +528,7 @@ export default function Amenities() {
           {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
         </div>
 
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Delivery Date*</label>
           <input
             type="date"
@@ -539,7 +539,7 @@ export default function Amenities() {
           {errors.deliveryDate && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
         </div>
 
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <textarea
             value={newAmenity.notes}
             onChange={(e) => setNewAmenity({ ...newAmenity, notes: e.target.value })}
@@ -564,7 +564,7 @@ export default function Amenities() {
         <h2>Edit Amenity</h2>
         {editingItem && (
           <>
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <input
                 value={editingItem.description}
                 onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
@@ -574,7 +574,7 @@ export default function Amenities() {
               {errors.description && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
             </div>
 
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <input
                 value={editingItem.guestName}
                 onChange={(e) => setEditingItem({ ...editingItem, guestName: e.target.value })}
@@ -584,7 +584,7 @@ export default function Amenities() {
               {errors.guestName && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
             </div>
 
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <input
                 value={editingItem.roomNumber}
                 onChange={(e) => setEditingItem({ ...editingItem, roomNumber: e.target.value })}
@@ -594,7 +594,7 @@ export default function Amenities() {
               {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
             </div>
 
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Delivery Date*</label>
               <input
                 type="date"
@@ -605,7 +605,7 @@ export default function Amenities() {
               {errors.deliveryDate && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
             </div>
 
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Status</label>
               <select
                 value={editingItem.roomStatus}
@@ -619,7 +619,7 @@ export default function Amenities() {
               </select>
             </div>
 
-            <div>
+            <div style={{ marginBottom: 16 }}>
               <textarea
                 value={editingItem.notes}
                 onChange={(e) => setEditingItem({ ...editingItem, notes: e.target.value })}
