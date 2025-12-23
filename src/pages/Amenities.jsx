@@ -218,7 +218,31 @@ export default function Amenities() {
 
         const description = values[descIndex] || '';
         const roomNumber = values[roomIndex] || '';
-        const guestName = values[nameIndex] || '';
+        let guestName = values[nameIndex] || '';
+        
+        // Swap name format from "SURNAME FirstName" to "FirstName SURNAME"
+        if (guestName) {
+          const nameParts = guestName.split(' ');
+          if (nameParts.length >= 2) {
+            // Find the index where uppercase ends (surname) and mixed/lowercase begins (first name)
+            let surnameEndIndex = 0;
+            for (let i = 0; i < nameParts.length; i++) {
+              const part = nameParts[i];
+              // Check if this part is all uppercase (and not an initial like "&")
+              if (part === part.toUpperCase() && part.length > 1 && /[A-Z]/.test(part)) {
+                surnameEndIndex = i;
+              } else {
+                break;
+              }
+            }
+            
+            if (surnameEndIndex > 0 && surnameEndIndex < nameParts.length - 1) {
+              const surname = nameParts.slice(0, surnameEndIndex + 1).join(' ');
+              const firstName = nameParts.slice(surnameEndIndex + 1).join(' ');
+              guestName = `${firstName} ${surname}`;
+            }
+          }
+        }
         
         // Parse date from CSV if available
         let deliveryDate = tomorrowStr; // default to tomorrow
