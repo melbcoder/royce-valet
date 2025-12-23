@@ -497,56 +497,57 @@ export default function Amenities() {
       {/* Add Amenity Modal */}
       <Modal open={newOpen} onClose={() => { setNewOpen(false); setErrors({}); }}>
         <h2>Add Amenity</h2>
-        <label>
+        
+        <div>
           <input
             value={newAmenity.description}
             onChange={(e) => setNewAmenity({ ...newAmenity, description: e.target.value })}
             placeholder="Amenity Description*"
-            style={{ borderColor: errors.description ? '#ff4444' : undefined }}
+            style={{ width: '100%', borderColor: errors.description ? '#ff4444' : undefined }}
           />
-          {errors.description && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-        </label>
+          {errors.description && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+        </div>
 
-        <label>
+        <div>
           <input
             value={newAmenity.guestName}
             onChange={(e) => setNewAmenity({ ...newAmenity, guestName: e.target.value })}
             placeholder="Guest Name*"
-            style={{ borderColor: errors.guestName ? '#ff4444' : undefined }}
+            style={{ width: '100%', borderColor: errors.guestName ? '#ff4444' : undefined }}
           />
-          {errors.guestName && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-        </label>
+          {errors.guestName && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+        </div>
 
-        <label>
+        <div>
           <input
             value={newAmenity.roomNumber}
             onChange={(e) => setNewAmenity({ ...newAmenity, roomNumber: e.target.value })}
             placeholder="Room Number*"
-            style={{ borderColor: errors.roomNumber ? '#ff4444' : undefined }}
+            style={{ width: '100%', borderColor: errors.roomNumber ? '#ff4444' : undefined }}
           />
-          {errors.roomNumber && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-        </label>
+          {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+        </div>
 
-        <label>
-          Delivery Date*
+        <div>
+          <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Delivery Date*</label>
           <input
             type="date"
             value={newAmenity.deliveryDate}
             onChange={(e) => setNewAmenity({ ...newAmenity, deliveryDate: e.target.value })}
-            style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
+            style={{ width: '100%', borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
           />
-          {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-        </label>
+          {errors.deliveryDate && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+        </div>
 
-        <label>
-          Notes
+        <div>
           <textarea
             value={newAmenity.notes}
             onChange={(e) => setNewAmenity({ ...newAmenity, notes: e.target.value })}
             placeholder="Additional notes..."
             rows={3}
+            style={{ width: '100%' }}
           />
-        </label>
+        </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           <button className="btn primary" onClick={handleCreate}>
@@ -563,52 +564,70 @@ export default function Amenities() {
         <h2>Edit Amenity</h2>
         {editingItem && (
           <>
-            <label>
+            <div>
               <input
                 value={editingItem.description}
                 onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
-                style={{ borderColor: errors.description ? '#ff4444' : undefined }}
+                placeholder="Amenity Description*"
+                style={{ width: '100%', borderColor: errors.description ? '#ff4444' : undefined }}
               />
-              {errors.description && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-            </label>
+              {errors.description && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            </div>
 
-            <label>
+            <div>
               <input
                 value={editingItem.guestName}
                 onChange={(e) => setEditingItem({ ...editingItem, guestName: e.target.value })}
-                style={{ borderColor: errors.guestName ? '#ff4444' : undefined }}
+                placeholder="Guest Name*"
+                style={{ width: '100%', borderColor: errors.guestName ? '#ff4444' : undefined }}
               />
-              {errors.guestName && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-            </label>
+              {errors.guestName && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            </div>
 
-            <label>
+            <div>
               <input
                 value={editingItem.roomNumber}
                 onChange={(e) => setEditingItem({ ...editingItem, roomNumber: e.target.value })}
-                style={{ borderColor: errors.roomNumber ? '#ff4444' : undefined }}
+                placeholder="Room Number*"
+                style={{ width: '100%', borderColor: errors.roomNumber ? '#ff4444' : undefined }}
               />
-              {errors.roomNumber && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-            </label>
+              {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            </div>
 
-            <label>
-              Delivery Date*
+            <div>
+              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Delivery Date*</label>
               <input
                 type="date"
                 value={editingItem.deliveryDate}
                 onChange={(e) => setEditingItem({ ...editingItem, deliveryDate: e.target.value })}
-                style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
+                style={{ width: '100%', borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
               />
-              {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
-            </label>
+              {errors.deliveryDate && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            </div>
 
-            <label>
-              Notes
+            <div>
+              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Status</label>
+              <select
+                value={editingItem.roomStatus}
+                onChange={(e) => setEditingItem({ ...editingItem, roomStatus: e.target.value })}
+                style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid #ccc' }}
+              >
+                <option value="">Select status</option>
+                <option value="occupied">Occupied</option>
+                <option value="dirty">Dirty</option>
+                <option value="clean">Clean</option>
+              </select>
+            </div>
+
+            <div>
               <textarea
                 value={editingItem.notes}
                 onChange={(e) => setEditingItem({ ...editingItem, notes: e.target.value })}
+                placeholder="Additional notes..."
                 rows={3}
+                style={{ width: '100%' }}
               />
-            </label>
+            </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button className="btn primary" onClick={handleEdit}>
