@@ -222,25 +222,27 @@ export default function Amenities() {
         
         // Swap name format from "SURNAME FirstName" to "FirstName SURNAME"
         if (guestName) {
-          const nameParts = guestName.split(' ');
-          if (nameParts.length >= 2) {
-            // Find the index where uppercase ends (surname) and mixed/lowercase begins (first name)
-            let surnameEndIndex = 0;
-            for (let i = 0; i < nameParts.length; i++) {
-              const part = nameParts[i];
-              // Check if this part is all uppercase (and not an initial like "&")
-              if (part === part.toUpperCase() && part.length > 1 && /[A-Z]/.test(part)) {
-                surnameEndIndex = i;
-              } else {
-                break;
-              }
-            }
+          const parts = guestName.split(' ');
+          let firstNameStartIndex = -1;
+          
+          // Find where the first name starts (first word that's not all uppercase, excluding '&')
+          for (let i = 0; i < parts.length; i++) {
+            const word = parts[i];
+            // Skip '&' symbols
+            if (word === '&') continue;
             
-            if (surnameEndIndex > 0 && surnameEndIndex < nameParts.length - 1) {
-              const surname = nameParts.slice(0, surnameEndIndex + 1).join(' ');
-              const firstName = nameParts.slice(surnameEndIndex + 1).join(' ');
-              guestName = `${firstName} ${surname}`;
+            // Check if this word has any lowercase letters (indicates first name)
+            if (word !== word.toUpperCase()) {
+              firstNameStartIndex = i;
+              break;
             }
+          }
+          
+          // If we found where first name starts, swap surname and first name
+          if (firstNameStartIndex > 0) {
+            const surname = parts.slice(0, firstNameStartIndex).join(' ');
+            const firstName = parts.slice(firstNameStartIndex).join(' ');
+            guestName = `${firstName} ${surname}`;
           }
         }
         
