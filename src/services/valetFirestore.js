@@ -414,6 +414,7 @@ export async function createAmenity(data) {
     guestName: data.guestName,
     roomNumber: data.roomNumber,
     roomStatus: data.roomStatus || "",
+    deliveryDate: data.deliveryDate || new Date().toISOString().split('T')[0], // YYYY-MM-DD format
     status: "outstanding", // outstanding, delivered
     notes: data.notes || "",
     createdAt: serverTimestamp(),

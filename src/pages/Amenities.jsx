@@ -6,6 +6,7 @@ import {
   updateAmenity,
   markAmenityDelivered,
   deleteAmenity,
+  archiveAmenity,
 } from '../services/valetFirestore';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
@@ -26,6 +27,7 @@ export default function Amenities() {
     guestName: '',
     roomNumber: '',
     roomStatus: '',
+    deliveryDate: '',
     notes: '',
   });
 
@@ -40,23 +42,34 @@ export default function Amenities() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Auto-delete all amenities at midnight
+  // Auto-archive today's amenities at midnight
   useEffect(() => {
     let currentDate = new Date().toDateString();
     
     const checkMidnight = setInterval(async () => {
       const newDate = new Date().toDateString();
       
-      // If the date has changed, delete all amenities
+      // If the date has changed, archive yesterday's amenities
       if (newDate !== currentDate) {
-        console.log('New day detected, deleting all amenity items...');
+        console.log('New day detected, archiving previous day amenities...');
         
-        // Delete all amenity items
-        const deletePromises = amenityItems.map(item => deleteAmenity(item.id));
-        await Promise.all(deletePromises);
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        // Archive all items from yesterday or earlier
+        const itemsToArchive = amenityItems.filter(item => {
+          return item.deliveryDate && item.deliveryDate <= yesterdayStr;
+        });
+        
+        for (const item of itemsToArchive) {
+          await archiveAmenity(item.id, item);
+        }
         
         currentDate = newDate;
-        showToast('New day - all amenity records cleared.');
+        if (itemsToArchive.length > 0) {
+          showToast(`Archived ${itemsToArchive.length} amenity items from previous day(s).`);
+        }
       }
     }, 60000); // Check every minute
     
@@ -84,6 +97,7 @@ export default function Amenities() {
         guestName: '',
         roomNumber: '',
         roomStatus: '',
+        deliveryDate: '',
         notes: '',
       });
       setNewOpen(false);
@@ -120,6 +134,7 @@ export default function Amenities() {
         guestName: editingItem.guestName,
         roomNumber: editingItem.roomNumber,
         roomStatus: editingItem.roomStatus,
+        deliveryDate: editingItem.deliveryDate,
         notes: editingItem.notes,
       });
       setEditOpen(false);
@@ -198,11 +213,17 @@ export default function Amenities() {
         const guestName = values[nameIndex] || '';
 
         if (description && roomNumber && guestName) {
+          // Default to tomorrow's date for CSV uploads
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split('T')[0];
+          
           amenities.push({
             description,
             roomNumber,
             guestName,
             roomStatus: '',
+            deliveryDate: tomorrowStr,
             notes: '',
           });
         }
@@ -230,8 +251,19 @@ export default function Amenities() {
     }
   };
 
-  const outstandingItems = amenityItems.filter(item => item.status === 'outstanding');
-  const deliveredItems = amenityItems.filter(item => item.status === 'delivered');
+  // Get today's and tomorrow's date strings
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  // Filter amenities by date
+  const todayAmenities = amenityItems.filter(item => item.deliveryDate === today);
+  const tomorrowAmenities = amenityItems.filter(item => item.deliveryDate === tomorrowStr);
+  
+  // Further filter today's items by status
+  const todayOutstanding = todayAmenities.filter(item => item.status === 'outstanding');
+  const todayDelivered = todayAmenities.filter(item => item.status === 'delivered');
 
   return (
     <div className="page pad">
@@ -270,13 +302,14 @@ export default function Amenities() {
         </div>
       )}
 
-      {/* Outstanding Amenities */}
+      {/* Today's Outstanding Amenities */}
       <section className="card pad" style={{ marginBottom: 16 }}>
-        <h3>Outstanding ({outstandingItems.length})</h3>
+        <h3>Today's Amenities - Outstanding ({todayOutstanding.length})</h3>
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
+                <th>Date</th>
                 <th>Description</th>
                 <th>Guest Name</th>
                 <th>Room</th>
@@ -286,16 +319,15 @@ export default function Amenities() {
               </tr>
             </thead>
             <tbody>
-              {outstandingItems.length === 0 && (
+              {todayOutstanding.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
-                    No outstanding amenities
+                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
+                    No outstanding amenities for today
                   </td>
                 </tr>
               )}
-              {outstandingItems.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.description}</td>
+              {todayOutstanding.map((item) => (
+                <tr key={item.id}>                  <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>                  <td>{item.description}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>
@@ -342,13 +374,14 @@ export default function Amenities() {
         </div>
       </section>
 
-      {/* Delivered Amenities */}
-      <section className="card pad">
-        <h3>Delivered Today ({deliveredItems.length})</h3>
+      {/* Today's Delivered Amenities */}
+      <section className="card pad" style={{ marginBottom: 16 }}>
+        <h3>Today's Amenities - Delivered ({todayDelivered.length})</h3>
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
+                <th>Date</th>
                 <th>Description</th>
                 <th>Guest Name</th>
                 <th>Room</th>
@@ -357,15 +390,16 @@ export default function Amenities() {
               </tr>
             </thead>
             <tbody>
-              {deliveredItems.length === 0 && (
+              {todayDelivered.length === 0 && (
                 <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
                     No amenities delivered today
                   </td>
                 </tr>
               )}
-              {deliveredItems.map((item) => (
+              {todayDelivered.map((item) => (
                 <tr key={item.id}>
+                  <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
                   <td>{item.description}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
@@ -378,6 +412,77 @@ export default function Amenities() {
                       }) : '—'}
                   </td>
                   <td>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Tomorrow's Amenities */}
+      <section className="card pad">
+        <h3>Tomorrow's Amenities ({tomorrowAmenities.length})</h3>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Guest Name</th>
+                <th>Room</th>
+                <th>Room Status</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tomorrowAmenities.length === 0 && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
+                    No amenities scheduled for tomorrow
+                  </td>
+                </tr>
+              )}
+              {tomorrowAmenities.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                  <td>{item.description}</td>
+                  <td>{item.guestName}</td>
+                  <td>{item.roomNumber}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        backgroundColor: 
+                          item.roomStatus === 'clean' ? '#7fff7f' :
+                          item.roomStatus === 'dirty' ? '#ff7f7f' :
+                          item.roomStatus === 'occupied' ? '#f4c97a' :
+                          '#ddd',
+                        display: 'inline-block'
+                      }} />
+                      <select
+                        value={item.roomStatus || ''}
+                        onChange={(e) => updateAmenity(item.id, { roomStatus: e.target.value })}
+                        style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
+                      >
+                        <option value="">Select status</option>
+                        <option value="occupied">Occupied</option>
+                        <option value="dirty">Dirty</option>
+                        <option value="clean">Clean</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td>{item.notes || '—'}</td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn secondary" onClick={() => openEdit(item)}>
+                      <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
+                    </button>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
@@ -426,7 +531,27 @@ export default function Amenities() {
         </label>
 
         <label>
-          Room Status
+          Delivery Date *
+          <input
+            type="date"
+            value={newAmenity.deliveryDate}
+            onChange={(e) => setNewAmenity({ ...newAmenity, deliveryDate: e.target.value })}
+            style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
+          />
+          {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
+        </label>
+
+        <label>          Delivery Date *
+          <input
+            type="date"
+            value={newAmenity.deliveryDate}
+            onChange={(e) => setNewAmenity({ ...newAmenity, deliveryDate: e.target.value })}
+            style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
+          />
+          {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
+        </label>
+
+        <label>          Room Status
           <select
             value={newAmenity.roomStatus}
             onChange={(e) => setNewAmenity({ ...newAmenity, roomStatus: e.target.value })}
@@ -494,7 +619,27 @@ export default function Amenities() {
             </label>
 
             <label>
-              Room Status
+              Delivery Date *
+              <input
+                type="date"
+                value={editingItem.deliveryDate}
+                onChange={(e) => setEditingItem({ ...editingItem, deliveryDate: e.target.value })}
+                style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
+              />
+              {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
+            </label>
+
+            <label>              Delivery Date *
+              <input
+                type="date"
+                value={editingItem.deliveryDate}
+                onChange={(e) => setEditingItem({ ...editingItem, deliveryDate: e.target.value })}
+                style={{ borderColor: errors.deliveryDate ? '#ff4444' : undefined }}
+              />
+              {errors.deliveryDate && <span style={{ color: '#ff4444', fontSize: 12 }}>Required</span>}
+            </label>
+
+            <label>              Room Status
               <select
                 value={editingItem.roomStatus}
                 onChange={(e) => setEditingItem({ ...editingItem, roomStatus: e.target.value })}
