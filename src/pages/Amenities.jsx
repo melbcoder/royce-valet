@@ -193,6 +193,7 @@ export default function Amenities() {
 
       // Parse CSV
       const headers = lines[0].split(',').map(h => h.trim());
+      const dateIndex = headers.findIndex(h => h.toLowerCase().includes('date'));
       const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
       const roomIndex = headers.findIndex(h => h.toLowerCase().includes('room'));
       const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
@@ -202,7 +203,14 @@ export default function Amenities() {
         return;
       }
 
+      const today = new Date().toISOString().split('T')[0];
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
       const amenities = [];
+      let skippedCount = 0;
+
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',').map(v => v.trim());
         
@@ -211,25 +219,42 @@ export default function Amenities() {
         const description = values[descIndex] || '';
         const roomNumber = values[roomIndex] || '';
         const guestName = values[nameIndex] || '';
+        
+        // Parse date from CSV if available
+        let deliveryDate = tomorrowStr; // default to tomorrow
+        if (dateIndex !== -1 && values[dateIndex]) {
+          try {
+            // Parse date format like "23 Dec 2025"
+            const dateStr = values[dateIndex];
+            const parsedDate = new Date(dateStr);
+            
+            if (!isNaN(parsedDate.getTime())) {
+              deliveryDate = parsedDate.toISOString().split('T')[0];
+              
+              // Check if date is today or tomorrow
+              if (deliveryDate !== today && deliveryDate !== tomorrowStr) {
+                skippedCount++;
+                continue; // Skip this amenity
+              }
+            }
+          } catch (err) {
+            console.error('Error parsing date:', err);
+          }
+        }
 
         if (description && roomNumber && guestName) {
-          // Default to tomorrow's date for CSV uploads
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          const tomorrowStr = tomorrow.toISOString().split('T')[0];
-          
           amenities.push({
             description,
             roomNumber,
             guestName,
             roomStatus: '',
-            deliveryDate: tomorrowStr,
+            deliveryDate,
             notes: '',
           });
         }
       }
 
-      if (amenities.length === 0) {
+      if (amenities.length === 0 && skippedCount === 0) {
         setUploadError('No valid amenity entries found in CSV');
         return;
       }
@@ -239,7 +264,16 @@ export default function Amenities() {
         await createAmenity(amenity);
       }
 
-      showToast(`Successfully imported ${amenities.length} amenity items`);
+      // Show appropriate message
+      if (skippedCount > 0) {
+        if (amenities.length > 0) {
+          showToast(`Successfully imported ${amenities.length} amenity items. ${skippedCount} amenity item(s) were not uploaded - please check their date (must be today or tomorrow).`);
+        } else {
+          setUploadError(`${skippedCount} amenity item(s) were not uploaded - please check their date (must be today or tomorrow).`);
+        }
+      } else {
+        showToast(`Successfully imported ${amenities.length} amenity items`);
+      }
       
       // Reset file input
       if (fileInputRef.current) {
