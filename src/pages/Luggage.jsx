@@ -46,52 +46,31 @@ export default function Luggage() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Auto-delete all luggage at midnight and on page load
+  // Auto-delete luggage from previous days on page load
   useEffect(() => {
-    const deleteAllLuggage = async () => {
-      if (luggageItems.length === 0) return;
+    const deleteOldLuggage = async () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
-      console.log('Deleting all luggage items...');
+      // Find items that were created on a different day
+      const oldItems = luggageItems.filter(item => {
+        // If item doesn't have createdDate field (old data), it's considered old
+        if (!item.createdDate) return true;
+        return item.createdDate !== today;
+      });
       
-      // Delete all luggage items
-      const deletePromises = luggageItems.map(item => deleteLuggage(item.id));
-      await Promise.all(deletePromises);
-      
-      showToast('All luggage records cleared.');
-    };
-
-    // Check if we need to delete on page load
-    // This handles the case where the page wasn't open at midnight
-    const checkAndDeleteOldLuggage = async () => {
-      const lastClearDate = localStorage.getItem('lastLuggageClearDate');
-      const today = new Date().toDateString();
-      
-      if (lastClearDate !== today && luggageItems.length > 0) {
-        console.log('New day detected on page load, clearing luggage...');
-        await deleteAllLuggage();
-        localStorage.setItem('lastLuggageClearDate', today);
-      } else if (!lastClearDate) {
-        // First time running, set today's date
-        localStorage.setItem('lastLuggageClearDate', today);
+      if (oldItems.length > 0) {
+        console.log(`Deleting ${oldItems.length} luggage items from previous day(s)...`);
+        const deletePromises = oldItems.map(item => deleteLuggage(item.id));
+        await Promise.all(deletePromises);
+        showToast(`Cleared ${oldItems.length} luggage record(s) from previous day(s).`);
       }
     };
 
-    checkAndDeleteOldLuggage();
-
-    // Also check every minute for midnight rollover
-    let currentDate = new Date().toDateString();
-    const checkMidnight = setInterval(async () => {
-      const newDate = new Date().toDateString();
-      
-      if (newDate !== currentDate) {
-        console.log('New day detected, deleting all luggage items...');
-        await deleteAllLuggage();
-        localStorage.setItem('lastLuggageClearDate', newDate);
-        currentDate = newDate;
-      }
-    }, 60000); // Check every minute
-    
-    return () => clearInterval(checkMidnight);
+    // Run when luggage items are loaded or changed
+    if (luggageItems.length > 0) {
+      deleteOldLuggage();
+    }
   }, [luggageItems]);
 
   const handleCreate = async () => {

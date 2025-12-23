@@ -339,6 +339,9 @@ export function subscribeUsers(callback) {
 
 // Create luggage item
 export async function createLuggage(data) {
+  const now = new Date();
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  
   const item = {
     tags: data.tags || [], // Array of tag numbers
     guestName: data.guestName,
@@ -348,6 +351,7 @@ export async function createLuggage(data) {
     numberOfBags: data.numberOfBags || 0,
     status: "stored", // stored, delivered
     notes: data.notes || "",
+    createdDate: todayDate, // YYYY-MM-DD format for easy comparison
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
