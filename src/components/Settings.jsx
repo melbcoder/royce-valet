@@ -14,6 +14,7 @@ export default function Settings({open, onClose}){
   const [passwordSuccess, setPasswordSuccess] = useState(false)
   const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles' })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
+  const [timezoneError, setTimezoneError] = useState('')
   
   const isAdmin = currentUser?.role === 'admin'
 
@@ -126,12 +127,19 @@ export default function Settings({open, onClose}){
 
   async function handleTimezoneChange(timezone) {
     try {
+      setTimezoneError('')
       await updateSettings({ timezone })
       setTimezoneSuccess(true)
       setTimeout(() => setTimezoneSuccess(false), 3000)
     } catch (err) {
       console.error('Error updating timezone:', err)
-      alert('Failed to update timezone')
+      let errorMsg = 'Failed to update timezone. '
+      if (err.code === 'permission-denied') {
+        errorMsg += 'Permission denied - Firestore security rules may need to be updated.'
+      } else if (err.message) {
+        errorMsg += err.message
+      }
+      setTimezoneError(errorMsg)
     }
   }
 
@@ -273,8 +281,11 @@ export default function Settings({open, onClose}){
                 ))}
               </select>
             </div>
+            {timezoneError && (
+              <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{timezoneError}</div>
+            )}
             {timezoneSuccess && (
-              <div style={{color: '#4CAF50', fontSize: 12}}>Time zone updated successfully!</div>
+              <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Time zone updated successfully!</div>
             )}
           </div>
         )}
