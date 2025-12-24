@@ -17,12 +17,12 @@ export default function Nav() {
   const navLinkStyle = (isActive) => ({
     textDecoration: 'none',
     color: isActive ? '#000' : '#333',
-    fontWeight: isActive ? 600 : 500,
+    fontWeight: isActive ? 'bold' : 500,
     padding: '8px 12px',
     borderRadius: '6px',
     transition: 'background 0.2s',
     marginRight: '8px',
-    background: isActive ? '#f0f0f0' : 'transparent'
+    background: 'transparent'
   });
 
   return (
