@@ -7,9 +7,11 @@ import {
   markAmenityDelivered,
   deleteAmenity,
   archiveAmenity,
+  getSettings,
 } from '../services/valetFirestore';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
+import { getTodayInTimezone, getTomorrowInTimezone } from '../utils/timezoneUtils';
 
 export default function Amenities() {
   const navigate = useNavigate();
@@ -45,13 +47,11 @@ export default function Amenities() {
   // Auto-archive old amenities at midnight and on page load
   useEffect(() => {
     const archiveOldAmenities = async () => {
-      // Get today and tomorrow in local time (consistent with rest of app)
-      const now = new Date();
-      const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      
-      const tomorrowDate = new Date();
-      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-      const tomorrowLocal = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+      // Get the configured timezone
+      const settings = await getSettings();
+      const timezone = settings.timezone || 'America/Los_Angeles';
+      const todayLocal = getTodayInTimezone(timezone);
+      const tomorrowLocal = getTomorrowInTimezone(timezone);
       
       console.log('Checking for old amenities to archive. Today:', todayLocal, 'Tomorrow:', tomorrowLocal);
       

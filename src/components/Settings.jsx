@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { subscribeUsers, createUser, updateUser, deleteUser } from '../services/valetFirestore'
+import { subscribeUsers, createUser, updateUser, deleteUser, subscribeSettings, updateSettings } from '../services/valetFirestore'
+import { COMMON_TIMEZONES } from '../utils/timezoneUtils'
 
 export default function Settings({open, onClose}){
   const [users, setUsers] = useState([])
@@ -11,6 +12,8 @@ export default function Settings({open, onClose}){
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles' })
+  const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   
   const isAdmin = currentUser?.role === 'admin'
 
@@ -32,6 +35,13 @@ export default function Settings({open, onClose}){
     const unsubscribe = subscribeUsers(setUsers)
     return () => unsubscribe()
   }, [open, isAdmin])
+
+  // Subscribe to settings
+  useEffect(() => {
+    if (!open) return
+    const unsubscribe = subscribeSettings(setSettings)
+    return () => unsubscribe()
+  }, [open])
 
   if(!open) return null
 
@@ -112,6 +122,17 @@ export default function Settings({open, onClose}){
     setShowAddUser(false)
     setEditingUser(null)
     setError('')
+  }
+
+  async function handleTimezoneChange(timezone) {
+    try {
+      await updateSettings({ timezone })
+      setTimezoneSuccess(true)
+      setTimeout(() => setTimezoneSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating timezone:', err)
+      alert('Failed to update timezone')
+    }
   }
 
   async function handleChangePassword(e) {
@@ -229,6 +250,32 @@ export default function Settings({open, onClose}){
                 Change Password
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Timezone Settings (Admin Only) */}
+        {isAdmin && (
+          <div style={{marginBottom: 24, padding: 16, border: '1px solid #ddd', borderRadius: 4}}>
+            <h2 style={{marginTop: 0}}>Time Zone</h2>
+            <p style={{marginBottom: 12, fontSize: 14, color: '#666'}}>
+              Set the time zone for determining when dates change. This affects luggage and amenities archiving.
+            </p>
+            <div style={{marginBottom: 12}}>
+              <select
+                value={settings.timezone}
+                onChange={(e) => handleTimezoneChange(e.target.value)}
+                style={{width: '100%', padding: 8, fontSize: 14}}
+              >
+                {COMMON_TIMEZONES.map(tz => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {timezoneSuccess && (
+              <div style={{color: '#4CAF50', fontSize: 12}}>Time zone updated successfully!</div>
+            )}
           </div>
         )}
 

@@ -27,6 +27,45 @@ const luggageRef = collection(db, "luggage");
 const luggageHistoryRef = collection(db, "luggageHistory");
 const amenitiesRef = collection(db, "amenities");
 const amenitiesHistoryRef = collection(db, "amenitiesHistory");
+const settingsRef = collection(db, "settings");
+
+// ===== SETTINGS MANAGEMENT =====
+
+// Get app settings
+export async function getSettings() {
+  try {
+    const settingsDoc = await getDoc(doc(settingsRef, "app"));
+    if (settingsDoc.exists()) {
+      return settingsDoc.data();
+    }
+    // Return defaults if no settings exist
+    return {
+      timezone: "America/Los_Angeles", // Default to Pacific Time
+    };
+  } catch (error) {
+    console.error("Error getting settings:", error);
+    return { timezone: "America/Los_Angeles" };
+  }
+}
+
+// Update app settings
+export async function updateSettings(updates) {
+  await setDoc(doc(settingsRef, "app"), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+// Subscribe to settings
+export function subscribeSettings(callback) {
+  return onSnapshot(doc(settingsRef, "app"), (snap) => {
+    if (snap.exists()) {
+      callback(snap.data());
+    } else {
+      callback({ timezone: "America/Los_Angeles" });
+    }
+  });
+}
 
 // Create / check-in vehicle
 export async function createVehicle(data) {

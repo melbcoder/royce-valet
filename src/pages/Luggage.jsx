@@ -6,11 +6,13 @@ import {
   updateLuggage,
   markLuggageDelivered,
   deleteLuggage,
+  getSettings,
 } from '../services/valetFirestore';
 import { sendRoomReadySMS } from '../services/smsService';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
+import { getTodayInTimezone } from '../utils/timezoneUtils';
 
 export default function Luggage() {
   const navigate = useNavigate();
@@ -49,8 +51,10 @@ export default function Luggage() {
   // Auto-delete luggage from previous days on page load
   useEffect(() => {
     const deleteOldLuggage = async () => {
-      const now = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      // Get the configured timezone
+      const settings = await getSettings();
+      const timezone = settings.timezone || 'America/Los_Angeles';
+      const today = getTodayInTimezone(timezone);
       
       // Find items that were created on a different day
       const oldItems = luggageItems.filter(item => {
