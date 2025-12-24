@@ -37,7 +37,9 @@ export default function Login() {
         }
       }
 
+      console.log('Attempting to authenticate user:', username);
       const user = await authenticateUser(username, password);
+      console.log('Authentication result:', user ? 'Success' : 'Failed');
       
       if (user) {
         // Store authentication and user info in sessionStorage
@@ -45,12 +47,28 @@ export default function Login() {
         sessionStorage.setItem('currentUser', JSON.stringify(user));
         navigate('/valet');
       } else {
-        setError('Invalid username or password');
+        setError('Invalid username or password. Please check your credentials and try again.');
         setPassword('');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('An error occurred during login');
+      
+      // Show more specific error messages based on Firebase error codes
+      if (err.code === 'auth/invalid-credential') {
+        setError('Invalid username or password. Please check your credentials and try again.');
+      } else if (err.code === 'auth/user-not-found') {
+        setError('User not found. Please check your username.');
+      } else if (err.code === 'auth/wrong-password') {
+        setError('Incorrect password. Please try again.');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed login attempts. Please try again later.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(`Login error: ${err.message || 'Unknown error'}`);
+      }
+      
+      setPassword('');
     } finally {
       setLoading(false);
     }

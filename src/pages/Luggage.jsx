@@ -46,27 +46,31 @@ export default function Luggage() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Auto-delete all luggage at midnight
+  // Auto-delete luggage from previous days on page load
   useEffect(() => {
-    let currentDate = new Date().toDateString();
-    
-    const checkMidnight = setInterval(async () => {
-      const newDate = new Date().toDateString();
+    const deleteOldLuggage = async () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       
-      // If the date has changed, delete all luggage
-      if (newDate !== currentDate) {
-        console.log('New day detected, deleting all luggage items...');
-        
-        // Delete all luggage items
-        const deletePromises = luggageItems.map(item => deleteLuggage(item.id));
+      // Find items that were created on a different day
+      const oldItems = luggageItems.filter(item => {
+        // If item doesn't have createdDate field (old data), it's considered old
+        if (!item.createdDate) return true;
+        return item.createdDate !== today;
+      });
+      
+      if (oldItems.length > 0) {
+        console.log(`Deleting ${oldItems.length} luggage items from previous day(s)...`);
+        const deletePromises = oldItems.map(item => deleteLuggage(item.id));
         await Promise.all(deletePromises);
-        
-        currentDate = newDate;
-        showToast('New day - all luggage records cleared.');
+        showToast(`Cleared ${oldItems.length} luggage record(s) from previous day(s).`);
       }
-    }, 60000); // Check every minute
-    
-    return () => clearInterval(checkMidnight);
+    };
+
+    // Run when luggage items are loaded or changed
+    if (luggageItems.length > 0) {
+      deleteOldLuggage();
+    }
   }, [luggageItems]);
 
   const handleCreate = async () => {

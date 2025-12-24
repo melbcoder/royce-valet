@@ -25,6 +25,8 @@ const historyRef = collection(db, "history");
 const usersRef = collection(db, "users");
 const luggageRef = collection(db, "luggage");
 const luggageHistoryRef = collection(db, "luggageHistory");
+const amenitiesRef = collection(db, "amenities");
+const amenitiesHistoryRef = collection(db, "amenitiesHistory");
 
 // Create / check-in vehicle
 export async function createVehicle(data) {
@@ -222,19 +224,24 @@ export async function authenticateUser(username, password) {
   
   try {
     // Firebase Auth requires email format, so we append domain
-    const email = `${username.toLowerCase()}@royce-valet.internal`;
+    const email = `${username.toLowerCase().trim()}@royce-valet.internal`;
+    console.log('Attempting Firebase Auth with email:', email);
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log('Firebase Auth successful for UID:', userCredential.user.uid);
     
     // Get user data from Firestore
-    const q = query(usersRef, where("username", "==", username.toLowerCase()));
+    const q = query(usersRef, where("username", "==", username.toLowerCase().trim()));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
+      console.error('User authenticated in Firebase Auth but not found in Firestore');
       return null;
     }
     
     const userDoc = snapshot.docs[0];
     const userData = userDoc.data();
+    console.log('User data retrieved from Firestore:', { id: userDoc.id, username: userData.username });
     
     return {
       id: userDoc.id,
@@ -245,7 +252,8 @@ export async function authenticateUser(username, password) {
     };
   } catch (error) {
     console.error('Authentication error:', error);
-    return null;
+    // Re-throw the error so Login component can display the specific error message
+    throw error;
   }
 }
 
@@ -256,17 +264,22 @@ export async function createUser(userData) {
   
   try {
     // Firebase Auth requires email format, so we append domain
-    const email = `${userData.username.toLowerCase()}@royce-valet.internal`;
+    const normalizedUsername = userData.username.toLowerCase().trim();
+    const email = `${normalizedUsername}@royce-valet.internal`;
+    console.log('Creating user with email:', email);
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, userData.password);
+    console.log('Firebase Auth user created with UID:', userCredential.user.uid);
     
     // Store user data in Firestore
     const userId = `user-${Date.now()}`;
     await setDoc(doc(usersRef, userId), {
       uid: userCredential.user.uid,
-      username: userData.username.toLowerCase(),
+      username: normalizedUsername,
       role: userData.role || "user",
       createdAt: serverTimestamp(),
     });
+    console.log('Firestore user document created with ID:', userId);
     return userId;
   } catch (error) {
     console.error('Error creating user:', error);
@@ -326,6 +339,9 @@ export function subscribeUsers(callback) {
 
 // Create luggage item
 export async function createLuggage(data) {
+  const now = new Date();
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  
   const item = {
     tags: data.tags || [], // Array of tag numbers
     guestName: data.guestName,
@@ -335,6 +351,7 @@ export async function createLuggage(data) {
     numberOfBags: data.numberOfBags || 0,
     status: "stored", // stored, delivered
     notes: data.notes || "",
+    createdDate: todayDate, // YYYY-MM-DD format for easy comparison
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -391,4 +408,74 @@ export function subscribeLuggageHistory(callback) {
     callback(list);
   });
 }
+
+// ===== AMENITIES MANAGEMENT =====
+
+// Create amenity item
+export async function createAmenity(data) {
+  const item = {
+    description: data.description,
+    guestName: data.guestName,
+    roomNumber: data.roomNumber,
+    roomStatus: data.roomStatus || "",
+    deliveryDate: data.deliveryDate || new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+    status: "outstanding", // outstanding, delivered
+    notes: data.notes || "",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  // Use guest name + timestamp as document ID
+  const docId = `${data.guestName.replace(/\s+/g, '-')}-${Date.now()}`;
+  await setDoc(doc(amenitiesRef, docId), item);
+  return docId;
+}
+
+// Update amenity item
+export async function updateAmenity(id, updates) {
+  await updateDoc(doc(amenitiesRef, id), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Mark amenity as delivered to room
+export async function markAmenityDelivered(id) {
+  await updateAmenity(id, { status: "delivered", deliveredAt: serverTimestamp() });
+}
+
+// Archive amenity item
+export async function archiveAmenity(id, item) {
+  await setDoc(doc(amenitiesHistoryRef, `${id}-${Date.now()}`), {
+    ...item,
+    archivedAt: serverTimestamp(),
+  });
+
+  await deleteDoc(doc(amenitiesRef, id));
+}
+
+// Delete amenity item
+export async function deleteAmenity(id) {
+  await deleteDoc(doc(amenitiesRef, id));
+}
+
+// Subscribe to active amenities
+export function subscribeActiveAmenities(callback) {
+  return onSnapshot(amenitiesRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
+    callback(list);
+  });
+}
+
+// Subscribe to amenities history
+export function subscribeAmenitiesHistory(callback) {
+  return onSnapshot(amenitiesHistoryRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({
+      ...d.data(),
+      _id: d.id,
+    }));
+    callback(list);
+  });
+}
+
 
