@@ -13,6 +13,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getTodayInTimezone } from "../utils/timezoneUtils";
 
 import { db } from "../firebase";
 
@@ -40,11 +41,11 @@ export async function getSettings() {
     }
     // Return defaults if no settings exist
     return {
-      timezone: "America/Los_Angeles", // Default to Pacific Time
+      timezone: "Australia/Melbourne", // Default to Melbourne, Australia
     };
   } catch (error) {
     console.error("Error getting settings:", error);
-    return { timezone: "America/Los_Angeles" };
+    return { timezone: "Australia/Melbourne" };
   }
 }
 
@@ -62,7 +63,7 @@ export function subscribeSettings(callback) {
     if (snap.exists()) {
       callback(snap.data());
     } else {
-      callback({ timezone: "America/Los_Angeles" });
+      callback({ timezone: "Australia/Melbourne" });
     }
   });
 }
@@ -378,8 +379,10 @@ export function subscribeUsers(callback) {
 
 // Create luggage item
 export async function createLuggage(data) {
-  const now = new Date();
-  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // Get the configured timezone and calculate today's date
+  const settings = await getSettings();
+  const timezone = settings.timezone || 'Australia/Melbourne';
+  const todayDate = getTodayInTimezone(timezone);
   
   const item = {
     tags: data.tags || [], // Array of tag numbers
@@ -452,12 +455,20 @@ export function subscribeLuggageHistory(callback) {
 
 // Create amenity item
 export async function createAmenity(data) {
+  // Get today's date in the configured timezone if no deliveryDate provided
+  let deliveryDate = data.deliveryDate;
+  if (!deliveryDate) {
+    const settings = await getSettings();
+    const timezone = settings.timezone || 'Australia/Melbourne';
+    deliveryDate = getTodayInTimezone(timezone);
+  }
+  
   const item = {
     description: data.description,
     guestName: data.guestName,
     roomNumber: data.roomNumber,
     roomStatus: data.roomStatus || "",
-    deliveryDate: data.deliveryDate || new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+    deliveryDate: deliveryDate, // YYYY-MM-DD format
     status: "outstanding", // outstanding, delivered
     notes: data.notes || "",
     createdAt: serverTimestamp(),
