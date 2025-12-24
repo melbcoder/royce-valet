@@ -363,11 +363,11 @@ export default function Amenities() {
             onChange={handleCSVUpload}
             style={{ display: 'none' }}
           />
-          <button className="btn primary" onClick={() => { setNewOpen(true); setErrors({}); }}>
-            Add Amenity
-          </button>
           <button className="btn secondary" onClick={() => navigate('/amenities-history')}>
             View History
+          </button>
+          <button className="btn primary" onClick={() => { setNewOpen(true); setErrors({}); }}>
+            Add Amenity
           </button>
         </div>
       </div>
