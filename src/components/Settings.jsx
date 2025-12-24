@@ -35,14 +35,6 @@ export default function Settings({open, onClose}){
 
   if(!open) return null
 
-  function clearData(){
-    if(confirm('Clear all demo data? This will erase local vehicles and history.')){
-      localStorage.removeItem('royce-valet-demo-v11')
-      localStorage.removeItem('royce-valet-history')
-      alert('Demo data cleared. Reloading…'); location.reload()
-    }
-  }
-
   function handleLogout() {
     // Sign out from Firebase Auth
     import('../firebase').then(({ auth }) => {
@@ -366,12 +358,6 @@ export default function Settings({open, onClose}){
             </div>
           </div>
         )}
-
-        {/* Demo Data Section */}
-        <div className="field">
-          <label>Demo data</label>
-          <button className="btn secondary" onClick={clearData}>Clear demo data</button>
-        </div>
       </div>
     </div>
   )
