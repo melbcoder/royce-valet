@@ -258,19 +258,17 @@ export async function initializeDefaultAdmin() {
   const { auth } = await import('../firebase');
   
   try {
-    // Create Firebase Auth account
     const email = "admin@royce-valet.internal";
     const userCredential = await createUserWithEmailAndPassword(auth, email, "admin123");
     
-    // Create Firestore record
-    const userId = `user-${Date.now()}`;
-    await setDoc(doc(usersRef, userId), {
+    // Use Firebase Auth UID as document ID for easy rule matching
+    await setDoc(doc(usersRef, userCredential.user.uid), {
       uid: userCredential.user.uid,
       username: "admin",
       role: "admin",
       createdAt: serverTimestamp(),
     });
-    return userId;
+    return userCredential.user.uid;
   } catch (error) {
     console.error('Error creating default admin:', error);
     throw error;
@@ -295,26 +293,20 @@ export async function authenticateUser(username, password) {
     const cleanUsername = sanitizeString(username.toLowerCase().trim(), 50);
     const email = `${cleanUsername}@royce-valet.internal`;
     
-    console.log('Attempting Firebase Auth with email:', email);
-    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log('Firebase Auth successful for UID:', userCredential.user.uid);
     
-    // Get user data from Firestore
-    const q = query(usersRef, where("username", "==", username.toLowerCase().trim()));
-    const snapshot = await getDocs(q);
+    // Get user data using UID as document ID
+    const userDoc = await getDoc(doc(usersRef, userCredential.user.uid));
     
-    if (snapshot.empty) {
+    if (!userDoc.exists()) {
       console.error('User authenticated in Firebase Auth but not found in Firestore');
       return null;
     }
     
-    const userDoc = snapshot.docs[0];
     const userData = userDoc.data();
-    console.log('User data retrieved from Firestore:', { id: userDoc.id, username: userData.username });
     
     return {
-      id: userDoc.id,
+      id: userCredential.user.uid,
       uid: userCredential.user.uid,
       username: userData.username,
       role: userData.role,
@@ -353,21 +345,16 @@ export async function createUser(userData) {
     }
     
     const email = `${normalizedUsername}@royce-valet.internal`;
-    console.log('Creating user with email:', email);
-    
     const userCredential = await createUserWithEmailAndPassword(auth, email, userData.password);
-    console.log('Firebase Auth user created with UID:', userCredential.user.uid);
     
-    // Store user data in Firestore
-    const userId = `user-${Date.now()}`;
-    await setDoc(doc(usersRef, userId), {
+    // Use Firebase Auth UID as document ID
+    await setDoc(doc(usersRef, userCredential.user.uid), {
       uid: userCredential.user.uid,
       username: normalizedUsername,
       role: userData.role || "user",
       createdAt: serverTimestamp(),
     });
-    console.log('Firestore user document created with ID:', userId);
-    return userId;
+    return userCredential.user.uid;
   } catch (error) {
     console.error('Error creating user:', error);
     throw error;
