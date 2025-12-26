@@ -63,6 +63,10 @@ export default function Login() {
     setError('');
     setLoading(true);
     
+    // Add minimum response time to prevent timing attacks
+    const startTime = Date.now();
+    const minResponseTime = 500; // milliseconds
+    
     if (isLockedOut) {
       setError('Account temporarily locked due to too many failed attempts. Please try again later.');
       setLoading(false);
@@ -71,16 +75,23 @@ export default function Login() {
 
     // Input validation
     const cleanUsername = sanitizeInput(username);
-    const cleanPassword = password; // Don't sanitize password, just validate length
+    const cleanPassword = password;
     
-    if (!cleanUsername || cleanUsername.length < 2) {
-      setError('Please enter a valid username (minimum 2 characters).');
+    if (!cleanUsername || cleanUsername.length < 2 || cleanUsername.length > 50) {
+      setError('Please enter a valid username (2-50 characters).');
       setLoading(false);
       return;
     }
     
-    if (!cleanPassword || cleanPassword.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    if (!cleanPassword || cleanPassword.length < 6 || cleanPassword.length > 100) {
+      setError('Password must be 6-100 characters long.');
+      setLoading(false);
+      return;
+    }
+    
+    // Check for suspicious patterns
+    if (/[<>'"]/g.test(cleanUsername)) {
+      setError('Invalid characters in username.');
       setLoading(false);
       return;
     }
@@ -113,30 +124,45 @@ export default function Login() {
         
         // Store authentication and user info in sessionStorage
         sessionStorage.setItem('staffAuthenticated', 'true');
-        sessionStorage.setItem('currentUser', JSON.stringify(user));
+        sessionStorage.setItem('currentUser', JSON.stringify({
+          id: user.id,
+          username: user.username,
+          role: user.role
+          // Don't store sensitive data like uid
+        }));
+        
+        // Ensure minimum response time to prevent timing attacks
+        const elapsed = Date.now() - startTime;
+        if (elapsed < minResponseTime) {
+          await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsed));
+        }
+        
         navigate('/valet');
       } else {
+        await new Promise(resolve => setTimeout(resolve, Math.max(0, minResponseTime - (Date.now() - startTime))));
         handleFailedLogin();
-        setError('Invalid username or password. Please check your credentials and try again.');
+        setError('Invalid credentials. Please try again.');
         setPassword('');
       }
     } catch (err) {
       console.error('Login error:', err);
+      
+      // Ensure minimum response time
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, minResponseTime - (Date.now() - startTime))));
+      
       handleFailedLogin();
       
-      // Show more specific error messages based on Firebase error codes
-      if (err.code === 'auth/invalid-credential') {
-        setError('Invalid username or password. Please check your credentials and try again.');
-      } else if (err.code === 'auth/user-not-found') {
-        setError('User not found. Please check your username.');
-      } else if (err.code === 'auth/wrong-password') {
-        setError('Incorrect password. Please try again.');
+      // Generic error message to prevent user enumeration
+      if (err.code === 'auth/invalid-credential' || 
+          err.code === 'auth/user-not-found' || 
+          err.code === 'auth/wrong-password') {
+        setError('Invalid credentials. Please try again.');
       } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed login attempts. Please try again later.');
+        setError('Too many failed attempts. Please try again later.');
       } else if (err.code === 'auth/network-request-failed') {
-        setError('Network error. Please check your connection and try again.');
+        setError('Network error. Please check your connection.');
       } else {
-        setError(`Login error: ${err.message || 'Unknown error'}`);
+        setError('Login error. Please try again.');
       }
       
       setPassword('');

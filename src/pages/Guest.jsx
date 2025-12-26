@@ -83,22 +83,25 @@ export default function Guest(){
 
   const canRequest = status !== 'out' && status !== 'departed'
   const isDeparted = status === 'departed'
+  
+  // Safe vehicle description
+  const vehicleDesc = [v.color, v.make, v.model].filter(x => !!(x || '').trim()).join(' ') || '—';
 
   return (
     <section className="card pad">
       <h1>Your Vehicle</h1>
       <div className="row" style={{justifyContent:'space-between', marginBottom:12}}>
-        <div className="tag">Tag #{sanitizeText(v.tag)}</div>
+        <div className="tag">Tag #{v.tag}</div>
         <StatusBadge status={v.status} />
       </div>
 
       {status === 'out' && (<p style={{marginTop:6}}><strong>Your vehicle is out &amp; about. Enjoy your drive!</strong></p>)}
 
       <div className="grid cols-2">
-        <div className="field"><label>Guest</label><div dangerouslySetInnerHTML={{__html: sanitizeText(v.guestName)}} /></div>
-        <div className="field"><label>Room Number</label><div dangerouslySetInnerHTML={{__html: sanitizeText(v.roomNumber)}} /></div>
-        <div className="field"><label>Plate</label><div dangerouslySetInnerHTML={{__html: sanitizeText(v.license)}} /> {!v.license && '—'}</div>
-        <div className="field"><label>Vehicle</label><div dangerouslySetInnerHTML={{__html: sanitizeText([v.color, v.make, v.model].filter(x=>!!(x||'').trim()).join(' ') || '—')}} /></div>
+        <div className="field"><label>Guest</label><div>{v.guestName}</div></div>
+        <div className="field"><label>Room Number</label><div>{v.roomNumber}</div></div>
+        <div className="field"><label>Plate</label><div>{v.license || '—'}</div></div>
+        <div className="field"><label>Vehicle</label><div>{vehicleDesc}</div></div>
         
         {!isDeparted && (
           <div className="field"><label>Schedule a pickup time</label>

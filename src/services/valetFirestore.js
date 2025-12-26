@@ -68,20 +68,40 @@ export function subscribeSettings(callback) {
   });
 }
 
+// Security utility functions
+const sanitizeString = (str, maxLength = 500) => {
+  if (!str) return '';
+  return String(str).trim().slice(0, maxLength).replace(/[<>]/g, '');
+};
+
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 254;
+};
+
+const validateTag = (tag) => {
+  return /^[a-zA-Z0-9]{1,20}$/.test(String(tag));
+};
+
 // Create / check-in vehicle
 export async function createVehicle(data) {
+  // Validate and sanitize inputs
+  if (!validateTag(data.tag)) {
+    throw new Error('Invalid tag format');
+  }
+  
   const v = {
-    tag: data.tag,
-    guestName: data.guestName,
-    roomNumber: data.roomNumber,
-    phone: data.phone,
+    tag: sanitizeString(data.tag, 20),
+    guestName: sanitizeString(data.guestName, 200),
+    roomNumber: sanitizeString(data.roomNumber, 50),
+    phone: sanitizeString(data.phone, 20),
     status: "received",
 
     license: "",
     make: "",
     color: "",
     bay: "",
-    departureDate: data.departureDate,
+    departureDate: data.departureDate ? sanitizeString(data.departureDate, 10) : '',
 
     scheduledAt: null,
     requested: false,
@@ -90,7 +110,7 @@ export async function createVehicle(data) {
     updatedAt: serverTimestamp(),
   };
 
-  await setDoc(doc(vehiclesRef, data.tag), v);
+  await setDoc(doc(vehiclesRef, sanitizeString(data.tag, 20)), v);
 }
 
 // Staff: update vehicle
@@ -262,9 +282,19 @@ export async function authenticateUser(username, password) {
   const { signInWithEmailAndPassword } = await import('firebase/auth');
   const { auth } = await import('../firebase');
   
+  // Input validation
+  if (!username || typeof username !== 'string' || username.length > 50) {
+    throw new Error('Invalid username');
+  }
+  
+  if (!password || typeof password !== 'string' || password.length > 100) {
+    throw new Error('Invalid password');
+  }
+  
   try {
-    // Firebase Auth requires email format, so we append domain
-    const email = `${username.toLowerCase().trim()}@royce-valet.internal`;
+    const cleanUsername = sanitizeString(username.toLowerCase().trim(), 50);
+    const email = `${cleanUsername}@royce-valet.internal`;
+    
     console.log('Attempting Firebase Auth with email:', email);
     
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -292,7 +322,6 @@ export async function authenticateUser(username, password) {
     };
   } catch (error) {
     console.error('Authentication error:', error);
-    // Re-throw the error so Login component can display the specific error message
     throw error;
   }
 }
@@ -302,9 +331,27 @@ export async function createUser(userData) {
   const { createUserWithEmailAndPassword } = await import('firebase/auth');
   const { auth } = await import('../firebase');
   
+  // Validate inputs
+  if (!userData.username || typeof userData.username !== 'string') {
+    throw new Error('Invalid username');
+  }
+  
+  if (!userData.password || typeof userData.password !== 'string' || userData.password.length < 6) {
+    throw new Error('Password must be at least 6 characters');
+  }
+  
   try {
-    // Firebase Auth requires email format, so we append domain
-    const normalizedUsername = userData.username.toLowerCase().trim();
+    const normalizedUsername = sanitizeString(userData.username.toLowerCase().trim(), 50);
+    
+    // Additional validation
+    if (normalizedUsername.length < 2) {
+      throw new Error('Username must be at least 2 characters');
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(normalizedUsername)) {
+      throw new Error('Username can only contain letters, numbers, hyphens, and underscores');
+    }
+    
     const email = `${normalizedUsername}@royce-valet.internal`;
     console.log('Creating user with email:', email);
     

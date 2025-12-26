@@ -1,24 +1,48 @@
 // SMS Service - Frontend interface for sending SMS via Twilio
 
-// Rate limiting storage
+// ⚠️ SECURITY WARNING: Client-side rate limiting can be bypassed
+// Implement server-side rate limiting in your /api/send-sms endpoint
+// Example using express-rate-limit:
+// const rateLimit = require('express-rate-limit');
+// const smsLimiter = rateLimit({
+//   windowMs: 60 * 1000, // 1 minute
+//   max: 5, // 5 requests per minute per IP
+//   message: 'Too many SMS requests, please try again later'
+// });
+
+// Rate limiting storage (client-side defense-in-depth)
 const smsRateLimit = new Map();
 const MAX_SMS_PER_MINUTE = 5;
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 
-// Input validation
+// Enhanced input validation
 const validatePhoneNumber = (phone) => {
-  // Basic international phone number validation
+  // E.164 format: +[country code][subscriber number]
   const phoneRegex = /^\+[1-9]\d{1,14}$/;
-  return phoneRegex.test(phone);
+  // Also check for common invalid patterns
+  if (!phoneRegex.test(phone)) return false;
+  // Prevent excessively long numbers
+  if (phone.length > 16) return false;
+  return true;
 };
 
 const validateTag = (tag) => {
-  return /^[a-zA-Z0-9]{1,20}$/.test(String(tag));
+  // Alphanumeric only, 1-20 characters
+  if (typeof tag !== 'string' && typeof tag !== 'number') return false;
+  const tagStr = String(tag);
+  if (tagStr.length > 20 || tagStr.length < 1) return false;
+  return /^[a-zA-Z0-9]+$/.test(tagStr);
 };
 
 const sanitizeMessage = (message) => {
-  // Remove potentially dangerous characters but preserve spaces and punctuation
-  return String(message).replace(/[<>]/g, '').slice(0, 1600); // SMS limit
+  // Remove potentially dangerous characters
+  const sanitized = String(message)
+    .replace(/[<>]/g, '')
+    .replace(/javascript:/gi, '')
+    .replace(/onerror=/gi, '')
+    .replace(/onload=/gi, '')
+    .slice(0, 1600);
+  return sanitized;
 };
 
 const checkRateLimit = (phone) => {
@@ -57,11 +81,13 @@ export async function sendWelcomeSMS(phone, tag) {
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
   
   // Validate app URL
-  if (!appUrl.startsWith('https://') && !appUrl.startsWith('http://localhost')) {
+  if (!appUrl.match(/^https:\/\//i) && !appUrl.match(/^http:\/\/localhost/i)) {
     throw new Error('Invalid app URL configuration');
   }
   
-  const guestLink = `${appUrl}/guest/${encodeURIComponent(tag)}`;
+  // Ensure tag is properly encoded
+  const encodedTag = encodeURIComponent(String(tag));
+  const guestLink = `${appUrl}/guest/${encodedTag}`;
   const from = 'The Royce';
 
   const message = sanitizeMessage(`Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`);
@@ -83,11 +109,12 @@ export async function sendWelcomeSMS(phone, tag) {
 
     console.log('Response status:', response.status);
     
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(data.error || 'Failed to send SMS');
     }
+    
+    const data = await response.json();
 
     return { success: true, messageSid: data.messageSid };
   } catch (error) {

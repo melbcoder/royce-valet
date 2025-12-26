@@ -18,6 +18,13 @@ if (missingVars.length > 0) {
   throw new Error(`Missing Firebase configuration: ${missingVars.join(', ')}`);
 }
 
+// ⚠️ SECURITY NOTE: Firebase configuration
+// While these values are public-facing, ensure you have:
+// 1. Firestore Security Rules configured properly
+// 2. Firebase Authentication rules set up
+// 3. API key restrictions in Firebase Console (HTTP referrers)
+// 4. Never commit .env files to version control
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -34,7 +41,13 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 
 // Configure auth persistence and security settings
-auth.setPersistence = 'session'; // Session-only persistence for security
+if (auth.setPersistence) {
+  // Use local persistence instead of session for better UX
+  // Session storage is cleared when browser closes
+  import('firebase/auth').then(({ browserSessionPersistence }) => {
+    auth.setPersistence(browserSessionPersistence);
+  });
+}
 
 // Development emulator connection (if running locally)
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
