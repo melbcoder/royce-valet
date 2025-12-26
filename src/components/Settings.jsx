@@ -44,6 +44,35 @@ export default function Settings({open, onClose}){
     return () => unsubscribe()
   }, [open])
 
+  // Debug function to check user document
+  useEffect(() => {
+    if (!open || !currentUser) return
+    
+    const checkUserDocument = async () => {
+      try {
+        const { db } = await import('../firebase')
+        const { doc, getDoc } = await import('firebase/firestore')
+        
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid || currentUser.id))
+        
+        if (userDoc.exists()) {
+          console.log('User document found:', {
+            docId: userDoc.id,
+            data: userDoc.data(),
+            currentUserUid: currentUser.uid,
+            currentUserId: currentUser.id
+          })
+        } else {
+          console.error('User document not found for UID:', currentUser.uid || currentUser.id)
+        }
+      } catch (err) {
+        console.error('Error checking user document:', err)
+      }
+    }
+    
+    checkUserDocument()
+  }, [open, currentUser])
+
   if(!open) return null
 
   function handleLogout() {
@@ -128,14 +157,26 @@ export default function Settings({open, onClose}){
   async function handleTimezoneChange(timezone) {
     try {
       setTimezoneError('')
+      
+      // Debug: Check auth state
+      const { auth } = await import('../firebase')
+      console.log('Current auth user:', auth.currentUser?.uid)
+      console.log('Attempting to update timezone to:', timezone)
+      
       await updateSettings({ timezone })
       setTimezoneSuccess(true)
       setTimeout(() => setTimezoneSuccess(false), 3000)
     } catch (err) {
       console.error('Error updating timezone:', err)
+      console.error('Error code:', err.code)
+      console.error('Error message:', err.message)
+      
       let errorMsg = 'Failed to update timezone. '
       if (err.code === 'permission-denied') {
-        errorMsg += 'Permission denied - Firestore security rules may need to be updated.'
+        errorMsg += 'Permission denied. Please ensure:\n'
+        errorMsg += '1. You are logged in as an admin\n'
+        errorMsg += '2. Firestore rules are properly configured\n'
+        errorMsg += '3. Your user document exists with the correct UID'
       } else if (err.message) {
         errorMsg += err.message
       }
