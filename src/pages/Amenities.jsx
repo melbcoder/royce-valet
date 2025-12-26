@@ -13,6 +13,36 @@ import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
 import { getTodayInTimezone, getTomorrowInTimezone } from '../utils/timezoneUtils';
 
+// Security utility functions
+const sanitizeHtml = (str) => {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+};
+
+const validateCsvContent = (content) => {
+  // Check for CSV injection patterns
+  const dangerousPatterns = /^[\=\+\-\@\t\r]/;
+  return !dangerousPatterns.test(content);
+};
+
+const sanitizeInput = (input) => {
+  if (!input) return '';
+  return String(input).trim().replace(/[<>]/g, '');
+};
+
+const validateFileType = (file) => {
+  // Check both extension and MIME type
+  const validTypes = ['text/csv', 'application/csv'];
+  const validExtensions = ['.csv'];
+  const fileExtension = file.name.toLowerCase().substr(file.name.lastIndexOf('.'));
+  
+  return validTypes.includes(file.type) && validExtensions.includes(fileExtension);
+};
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
+
 export default function Amenities() {
   const navigate = useNavigate();
   const [amenityItems, setAmenityItems] = useState([]);
@@ -92,10 +122,19 @@ export default function Amenities() {
   }, [amenityItems]);
 
   const handleCreate = async () => {
+    // Sanitize inputs
+    const sanitizedAmenity = {
+      ...newAmenity,
+      description: sanitizeInput(newAmenity.description),
+      guestName: sanitizeInput(newAmenity.guestName),
+      roomNumber: sanitizeInput(newAmenity.roomNumber),
+      notes: sanitizeInput(newAmenity.notes),
+    };
+
     const validationErrors = {
-      description: !String(newAmenity.description).trim(),
-      guestName: !String(newAmenity.guestName).trim(),
-      roomNumber: !String(newAmenity.roomNumber).trim(),
+      description: !String(sanitizedAmenity.description).trim(),
+      guestName: !String(sanitizedAmenity.guestName).trim(),
+      roomNumber: !String(sanitizedAmenity.roomNumber).trim(),
     };
 
     setErrors(validationErrors);
@@ -105,7 +144,7 @@ export default function Amenities() {
     }
 
     try {
-      await createAmenity(newAmenity);
+      await createAmenity(sanitizedAmenity);
       
       setNewAmenity({
         description: '',
@@ -131,10 +170,19 @@ export default function Amenities() {
   };
 
   const handleEdit = async () => {
+    // Sanitize inputs
+    const sanitizedItem = {
+      ...editingItem,
+      description: sanitizeInput(editingItem.description),
+      guestName: sanitizeInput(editingItem.guestName),
+      roomNumber: sanitizeInput(editingItem.roomNumber),
+      notes: sanitizeInput(editingItem.notes),
+    };
+
     const validationErrors = {
-      description: !String(editingItem.description).trim(),
-      guestName: !String(editingItem.guestName).trim(),
-      roomNumber: !String(editingItem.roomNumber).trim(),
+      description: !String(sanitizedItem.description).trim(),
+      guestName: !String(sanitizedItem.guestName).trim(),
+      roomNumber: !String(sanitizedItem.roomNumber).trim(),
     };
 
     setErrors(validationErrors);
@@ -144,13 +192,13 @@ export default function Amenities() {
     }
 
     try {
-      await updateAmenity(editingItem.id, {
-        description: editingItem.description,
-        guestName: editingItem.guestName,
-        roomNumber: editingItem.roomNumber,
-        roomStatus: editingItem.roomStatus,
-        deliveryDate: editingItem.deliveryDate,
-        notes: editingItem.notes,
+      await updateAmenity(sanitizedItem.id, {
+        description: sanitizedItem.description,
+        guestName: sanitizedItem.guestName,
+        roomNumber: sanitizedItem.roomNumber,
+        roomStatus: sanitizedItem.roomStatus,
+        deliveryDate: sanitizedItem.deliveryDate,
+        notes: sanitizedItem.notes,
       });
       setEditOpen(false);
       setEditingItem(null);
@@ -197,8 +245,26 @@ export default function Amenities() {
 
     setUploadError('');
 
+    // Validate file type and size
+    if (!validateFileType(file)) {
+      setUploadError('Please upload a valid CSV file');
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError('File size must be less than 5MB');
+      return;
+    }
+
     try {
       const text = await file.text();
+      
+      // Basic content validation
+      if (text.length > 1000000) { // 1MB text limit
+        setUploadError('CSV content is too large');
+        return;
+      }
+
       const lines = text.split('\n').filter(line => line.trim());
       
       if (lines.length < 2) {
@@ -206,8 +272,8 @@ export default function Amenities() {
         return;
       }
 
-      // Parse CSV
-      const headers = lines[0].split(',').map(h => h.trim());
+      // Parse CSV with security checks
+      const headers = lines[0].split(',').map(h => sanitizeInput(h));
       const dateIndex = headers.findIndex(h => h.toLowerCase().includes('date'));
       const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
       const roomIndex = headers.findIndex(h => h.toLowerCase().includes('room'));
@@ -229,13 +295,21 @@ export default function Amenities() {
       let skippedCount = 0;
 
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
+        const values = lines[i].split(',').map(v => sanitizeInput(v));
         
         if (values.length < 3) continue;
 
+        // Validate each field for CSV injection
         const description = values[descIndex] || '';
         const roomNumber = values[roomIndex] || '';
         let guestName = values[nameIndex] || '';
+
+        // Check for dangerous content
+        if (!validateCsvContent(description) || !validateCsvContent(roomNumber) || !validateCsvContent(guestName)) {
+          console.warn('Skipping potentially dangerous CSV content');
+          skippedCount++;
+          continue;
+        }
         
         // Swap name format from "SURNAME FirstName" to "FirstName SURNAME"
         if (guestName) {
@@ -292,9 +366,9 @@ export default function Amenities() {
 
         if (description && roomNumber && guestName) {
           amenities.push({
-            description,
-            roomNumber,
-            guestName,
+            description: sanitizeInput(description),
+            roomNumber: sanitizeInput(roomNumber),
+            guestName: sanitizeInput(guestName),
             roomStatus: '',
             deliveryDate,
             notes: '',
@@ -347,6 +421,11 @@ export default function Amenities() {
   // Further filter today's items by status
   const todayOutstanding = todayAmenities.filter(item => item.status === 'outstanding');
   const todayDelivered = todayAmenities.filter(item => item.status === 'delivered');
+
+  // Safe rendering functions
+  const safeRender = (text) => {
+    return <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }} />;
+  };
 
   return (
     <div className="page pad">
@@ -410,9 +489,11 @@ export default function Amenities() {
                 </tr>
               )}
               {todayOutstanding.map((item) => (
-                <tr key={item.id}>                  <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>                  <td>{item.description}</td>
-                  <td>{item.guestName}</td>
-                  <td>{item.roomNumber}</td>
+                <tr key={item.id}>
+                  <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
+                  <td>{safeRender(item.description)}</td>
+                  <td>{safeRender(item.guestName)}</td>
+                  <td>{safeRender(item.roomNumber)}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
@@ -438,7 +519,7 @@ export default function Amenities() {
                       </select>
                     </div>
                   </td>
-                  <td>{item.notes || '—'}</td>
+                  <td>{safeRender(item.notes) || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => openEdit(item)}>
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
@@ -483,9 +564,9 @@ export default function Amenities() {
               {todayDelivered.map((item) => (
                 <tr key={item.id}>
                   <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
-                  <td>{item.description}</td>
-                  <td>{item.guestName}</td>
-                  <td>{item.roomNumber}</td>
+                  <td>{safeRender(item.description)}</td>
+                  <td>{safeRender(item.guestName)}</td>
+                  <td>{safeRender(item.roomNumber)}</td>
                   <td>
                     {item.deliveredAt ? 
                       new Date(item.deliveredAt.seconds * 1000).toLocaleTimeString('en-US', {
@@ -533,9 +614,9 @@ export default function Amenities() {
               {tomorrowAmenities.map((item) => (
                 <tr key={item.id}>
                   <td>{item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</td>
-                  <td>{item.description}</td>
-                  <td>{item.guestName}</td>
-                  <td>{item.roomNumber}</td>
+                  <td>{safeRender(item.description)}</td>
+                  <td>{safeRender(item.guestName)}</td>
+                  <td>{safeRender(item.roomNumber)}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
@@ -561,7 +642,7 @@ export default function Amenities() {
                       </select>
                     </div>
                   </td>
-                  <td>{item.notes || '—'}</td>
+                  <td>{safeRender(item.notes) || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => openEdit(item)}>
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
