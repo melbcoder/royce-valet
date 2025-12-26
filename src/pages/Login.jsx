@@ -65,7 +65,7 @@ export default function Login() {
     
     // Add minimum response time to prevent timing attacks
     const startTime = Date.now();
-    const minResponseTime = 500; // milliseconds
+    const minResponseTime = 500;
     
     if (isLockedOut) {
       setError('Account temporarily locked due to too many failed attempts. Please try again later.');
@@ -99,15 +99,29 @@ export default function Login() {
     try {
       // If no users exist and default credentials are used, create default admin
       if (isFirstSetup && cleanUsername === 'admin' && cleanPassword === 'admin123') {
+        console.log('Creating default admin account...');
         await initializeDefaultAdmin();
+        
+        // Small delay to ensure Firestore write completes
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         const user = await authenticateUser(cleanUsername, cleanPassword);
         if (user) {
-          // Clear failed attempts on successful login
           localStorage.removeItem('loginAttempts');
           localStorage.removeItem('lastLoginAttempt');
           
           sessionStorage.setItem('staffAuthenticated', 'true');
-          sessionStorage.setItem('currentUser', JSON.stringify(user));
+          sessionStorage.setItem('currentUser', JSON.stringify({
+            id: user.id,
+            username: user.username,
+            role: user.role
+          }));
+          
+          const elapsed = Date.now() - startTime;
+          if (elapsed < minResponseTime) {
+            await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsed));
+          }
+          
           navigate('/valet');
           return;
         }
@@ -212,7 +226,10 @@ export default function Login() {
             <strong>First-time setup:</strong><br />
             Username: <code>admin</code><br />
             Password: <code>admin123</code><br />
-            <small style={{ color: '#666' }}>Please change this password after logging in!</small>
+            <small style={{ color: '#666' }}>
+              This default account will be created automatically.<br />
+              Please create a second admin account and change/delete this one!
+            </small>
           </div>
         )}
 

@@ -259,17 +259,24 @@ export async function initializeDefaultAdmin() {
   
   try {
     const email = "admin@royce-valet.internal";
-    const userCredential = await createUserWithEmailAndPassword(auth, email, "admin123");
+    const password = "admin123"; // Changed to match your requirement
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
     // Use Firebase Auth UID as document ID for easy rule matching
     await setDoc(doc(usersRef, userCredential.user.uid), {
       uid: userCredential.user.uid,
       username: "admin",
       role: "admin",
+      isDefaultAdmin: true, // Mark as default admin
       createdAt: serverTimestamp(),
     });
     return userCredential.user.uid;
   } catch (error) {
+    // If user already exists, that's okay
+    if (error.code === 'auth/email-already-in-use') {
+      console.log('Default admin already exists');
+      return null;
+    }
     console.error('Error creating default admin:', error);
     throw error;
   }
@@ -393,6 +400,17 @@ export async function updateUser(userId, updates) {
 
 // Delete user (Firestore only - Firebase Auth deletion requires current user context)
 export async function deleteUser(userId) {
+  // Check if this is the last admin
+  const snapshot = await getDocs(usersRef);
+  const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  const admins = users.filter(u => u.role === 'admin');
+  const userToDelete = users.find(u => u.id === userId);
+  
+  // Prevent deleting the last admin
+  if (admins.length === 1 && userToDelete?.role === 'admin') {
+    throw new Error('Cannot delete the last admin user. Create another admin first.');
+  }
+  
   // Note: Firebase Auth user deletion should be handled separately
   // and requires the user to be signed in or admin SDK on backend
   await deleteDoc(doc(usersRef, userId));

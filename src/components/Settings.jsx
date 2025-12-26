@@ -137,12 +137,33 @@ export default function Settings({open, onClose}){
   }
 
   async function handleDeleteUser(userId) {
-    if (confirm('Are you sure you want to delete this user?')) {
+    const userToDelete = users.find(u => u.id === userId);
+    const adminCount = users.filter(u => u.role === 'admin').length;
+    
+    // Prevent deleting yourself
+    if (userId === currentUser?.id) {
+      alert('You cannot delete your own account while logged in.');
+      return;
+    }
+    
+    // Prevent deleting the last admin
+    if (userToDelete?.role === 'admin' && adminCount === 1) {
+      alert('Cannot delete the last admin user. Please create another admin first.');
+      return;
+    }
+    
+    // Show special message for default admin
+    let confirmMessage = 'Are you sure you want to delete this user?';
+    if (userToDelete?.isDefaultAdmin) {
+      confirmMessage = 'Are you sure you want to delete the default admin account?\n\nMake sure you have another admin account and remember your credentials!';
+    }
+    
+    if (confirm(confirmMessage)) {
       try {
-        await deleteUser(userId)
+        await deleteUser(userId);
       } catch (err) {
-        console.error('Error deleting user:', err)
-        alert('Failed to delete user')
+        console.error('Error deleting user:', err);
+        alert(err.message || 'Failed to delete user');
       }
     }
   }
@@ -417,40 +438,72 @@ export default function Settings({open, onClose}){
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(user => (
-                      <tr key={user.id} style={{borderBottom: '1px solid #eee'}}>
-                        <td style={{padding: 12}}>{user.username}</td>
-                        <td style={{padding: 12}}>
-                          <span style={{
-                            padding: '2px 8px',
-                            borderRadius: 3,
-                            background: user.role === 'admin' ? '#4CAF50' : '#2196F3',
-                            color: 'white',
-                            fontSize: 12,
-                            fontWeight: 500
-                          }}>
-                            {user.role}
-                          </span>
-                        </td>
-                        <td style={{padding: 12, textAlign: 'right'}}>
-                          <button 
-                            className="btn secondary" 
-                            onClick={() => handleEditUser(user)}
-                            style={{marginRight: 8, fontSize: 12, padding: '4px 12px'}}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="btn secondary" 
-                            onClick={() => handleDeleteUser(user.id)}
-                            style={{fontSize: 12, padding: '4px 12px', color: '#ff4444'}}
-                            disabled={user.id === currentUser?.id}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {users.map(user => {
+                      const isCurrentUser = user.id === currentUser?.id;
+                      const isLastAdmin = user.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
+                      const canDelete = !isCurrentUser && !isLastAdmin;
+                      
+                      return (
+                        <tr key={user.id} style={{borderBottom: '1px solid #eee'}}>
+                          <td style={{padding: 12}}>
+                            {user.username}
+                            {user.isDefaultAdmin && (
+                              <span style={{
+                                marginLeft: 8,
+                                padding: '2px 6px',
+                                borderRadius: 3,
+                                background: '#fff3cd',
+                                color: '#856404',
+                                fontSize: 11,
+                                fontWeight: 500
+                              }}>
+                                DEFAULT
+                              </span>
+                            )}
+                          </td>
+                          <td style={{padding: 12}}>
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: 3,
+                              background: user.role === 'admin' ? '#4CAF50' : '#2196F3',
+                              color: 'white',
+                              fontSize: 12,
+                              fontWeight: 500
+                            }}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td style={{padding: 12, textAlign: 'right'}}>
+                            <button 
+                              className="btn secondary" 
+                              onClick={() => handleEditUser(user)}
+                              style={{marginRight: 8, fontSize: 12, padding: '4px 12px'}}
+                              disabled={isCurrentUser}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              className="btn secondary" 
+                              onClick={() => handleDeleteUser(user.id)}
+                              style={{
+                                fontSize: 12, 
+                                padding: '4px 12px', 
+                                color: canDelete ? '#ff4444' : '#999',
+                                cursor: canDelete ? 'pointer' : 'not-allowed'
+                              }}
+                              disabled={!canDelete}
+                              title={
+                                isCurrentUser ? 'Cannot delete your own account' :
+                                isLastAdmin ? 'Cannot delete the last admin' :
+                                'Delete user'
+                              }
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
