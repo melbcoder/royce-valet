@@ -300,27 +300,60 @@ export async function authenticateUser(username, password) {
     const cleanUsername = sanitizeString(username.toLowerCase().trim(), 50);
     const email = `${cleanUsername}@royce-valet.internal`;
     
+    console.log('Attempting Firebase Auth with email:', email);
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+    console.log('Firebase Auth successful for UID:', uid);
     
     // Get user data using UID as document ID
-    const userDoc = await getDoc(doc(usersRef, userCredential.user.uid));
+    const userDoc = await getDoc(doc(usersRef, uid));
     
     if (!userDoc.exists()) {
       console.error('User authenticated in Firebase Auth but not found in Firestore');
-      return null;
+      console.error('Expected document at path: users/' + uid);
+      
+      // Try to find user by querying
+      console.log('Attempting to find user by UID in query...');
+      const q = query(usersRef, where("uid", "==", uid));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const foundDoc = snapshot.docs[0];
+        console.log('Found user in Firestore with different document ID:', foundDoc.id);
+        
+        // Migrate to correct document structure
+        const userData = foundDoc.data();
+        await setDoc(doc(usersRef, uid), userData);
+        await deleteDoc(doc(usersRef, foundDoc.id));
+        console.log('Migrated user document to correct ID');
+        
+        return {
+          id: uid,
+          uid: uid,
+          username: userData.username,
+          role: userData.role,
+          createdAt: userData.createdAt,
+        };
+      }
+      
+      throw new Error('User profile not found in Firestore after authentication');
     }
     
     const userData = userDoc.data();
+    console.log('User data retrieved successfully');
     
     return {
-      id: userCredential.user.uid,
-      uid: userCredential.user.uid,
+      id: uid,
+      uid: uid,
       username: userData.username,
       role: userData.role,
       createdAt: userData.createdAt,
     };
   } catch (error) {
     console.error('Authentication error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
     throw error;
   }
 }

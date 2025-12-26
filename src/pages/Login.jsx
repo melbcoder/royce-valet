@@ -20,6 +20,7 @@ export default function Login() {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutEndTime, setLockoutEndTime] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
   const navigate = useNavigate();
 
   // Check lockout status
@@ -61,9 +62,9 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setDebugInfo('');
     setLoading(true);
     
-    // Add minimum response time to prevent timing attacks
     const startTime = Date.now();
     const minResponseTime = 500;
     
@@ -73,7 +74,6 @@ export default function Login() {
       return;
     }
 
-    // Input validation
     const cleanUsername = sanitizeInput(username);
     const cleanPassword = password;
     
@@ -89,7 +89,6 @@ export default function Login() {
       return;
     }
     
-    // Check for suspicious patterns
     if (/[<>'"]/g.test(cleanUsername)) {
       setError('Invalid characters in username.');
       setLoading(false);
@@ -97,55 +96,56 @@ export default function Login() {
     }
     
     try {
+      setDebugInfo('Checking if users exist...');
+      
       // If no users exist and default credentials are used, create default admin
       if (isFirstSetup && cleanUsername === 'admin' && cleanPassword === 'admin123') {
+        setDebugInfo('Creating default admin account...');
         console.log('Creating default admin account...');
-        await initializeDefaultAdmin();
         
-        // Small delay to ensure Firestore write completes
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const user = await authenticateUser(cleanUsername, cleanPassword);
-        if (user) {
-          localStorage.removeItem('loginAttempts');
-          localStorage.removeItem('lastLoginAttempt');
+        try {
+          await initializeDefaultAdmin();
+          setDebugInfo('Default admin created. Waiting for Firestore sync...');
+          console.log('Default admin created successfully');
           
-          sessionStorage.setItem('staffAuthenticated', 'true');
-          sessionStorage.setItem('currentUser', JSON.stringify({
-            id: user.id,
-            username: user.username,
-            role: user.role
-          }));
+          // Longer delay to ensure Firestore write completes
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
-          const elapsed = Date.now() - startTime;
-          if (elapsed < minResponseTime) {
-            await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsed));
+          setDebugInfo('Attempting authentication...');
+        } catch (createError) {
+          console.error('Error creating default admin:', createError);
+          
+          // If user already exists, continue with authentication
+          if (createError.code !== 'auth/email-already-in-use') {
+            setError('Failed to create default admin: ' + createError.message);
+            setLoading(false);
+            return;
           }
-          
-          navigate('/valet');
-          return;
+          console.log('Default admin already exists, proceeding to authenticate');
         }
       }
 
+      setDebugInfo('Authenticating user...');
       console.log('Attempting to authenticate user:', cleanUsername);
+      
       const user = await authenticateUser(cleanUsername, cleanPassword);
-      console.log('Authentication result:', user ? 'Success' : 'Failed');
+      console.log('Authentication result:', user);
       
       if (user) {
-        // Clear failed attempts on successful login
+        setDebugInfo('Authentication successful!');
+        console.log('Login successful:', user.username);
+        
         localStorage.removeItem('loginAttempts');
         localStorage.removeItem('lastLoginAttempt');
         
-        // Store authentication and user info in sessionStorage
         sessionStorage.setItem('staffAuthenticated', 'true');
         sessionStorage.setItem('currentUser', JSON.stringify({
           id: user.id,
+          uid: user.uid,
           username: user.username,
           role: user.role
-          // Don't store sensitive data like uid
         }));
         
-        // Ensure minimum response time to prevent timing attacks
         const elapsed = Date.now() - startTime;
         if (elapsed < minResponseTime) {
           await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsed));
@@ -156,29 +156,35 @@ export default function Login() {
         await new Promise(resolve => setTimeout(resolve, Math.max(0, minResponseTime - (Date.now() - startTime))));
         handleFailedLogin();
         setError('Invalid credentials. Please try again.');
+        setDebugInfo('');
         setPassword('');
       }
     } catch (err) {
       console.error('Login error:', err);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
       
-      // Ensure minimum response time
       await new Promise(resolve => setTimeout(resolve, Math.max(0, minResponseTime - (Date.now() - startTime))));
       
       handleFailedLogin();
       
-      // Generic error message to prevent user enumeration
+      // More detailed error messages
+      let errorMessage = 'Login error. ';
+      
       if (err.code === 'auth/invalid-credential' || 
           err.code === 'auth/user-not-found' || 
           err.code === 'auth/wrong-password') {
-        setError('Invalid credentials. Please try again.');
+        errorMessage = 'Invalid credentials. Please try again.';
       } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
+        errorMessage = 'Too many failed attempts. Please try again later.';
       } else if (err.code === 'auth/network-request-failed') {
-        setError('Network error. Please check your connection.');
-      } else {
-        setError('Login error. Please try again.');
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (err.message) {
+        errorMessage += err.message;
       }
       
+      setError(errorMessage);
+      setDebugInfo('Error: ' + err.code);
       setPassword('');
     } finally {
       setLoading(false);
@@ -227,9 +233,23 @@ export default function Login() {
             Username: <code>admin</code><br />
             Password: <code>admin123</code><br />
             <small style={{ color: '#666' }}>
-              This default account will be created automatically.<br />
-              Please create a second admin account and change/delete this one!
+              This default account will be created automatically when you log in.<br />
+              Please create a second admin account afterward!
             </small>
+          </div>
+        )}
+
+        {/* Debug info */}
+        {debugInfo && (
+          <div style={{ 
+            background: '#f0f0f0', 
+            padding: '8px', 
+            borderRadius: '4px', 
+            marginBottom: '12px',
+            fontSize: '12px',
+            color: '#666'
+          }}>
+            {debugInfo}
           </div>
         )}
 
