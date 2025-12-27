@@ -8,7 +8,6 @@ import Luggage from './pages/Luggage';
 import Amenities from './pages/Amenities';
 import LuggageHistory from './pages/LuggageHistory';
 import AmenitiesHistory from './pages/AmenitiesHistory';
-import UserManagement from './pages/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
@@ -88,14 +87,6 @@ export default function App(){
               element={
                 <ProtectedRoute>
                   <AmenitiesHistory />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/account" 
-              element={
-                <ProtectedRoute>
-                  <UserManagement />
                 </ProtectedRoute>
               } 
             />

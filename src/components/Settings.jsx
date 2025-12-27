@@ -18,17 +18,31 @@ export default function Settings({open, onClose}){
   
   const isAdmin = currentUser?.role === 'admin'
 
-  // Load current user from sessionStorage when modal opens
+  // Load current user from localStorage and Firebase Auth when modal opens
   useEffect(() => {
     if (!open) return
-    const userStr = sessionStorage.getItem('currentUser')
-    if (userStr) {
-      try {
-        setCurrentUser(JSON.parse(userStr))
-      } catch (err) {
-        console.error('Failed to parse current user:', err)
+    
+    const loadCurrentUser = async () => {
+      const { auth } = await import('../firebase')
+      
+      // Get user from localStorage
+      const userStr = localStorage.getItem('currentUser')
+      if (userStr) {
+        try {
+          const userData = JSON.parse(userStr)
+          setCurrentUser(userData)
+        } catch (err) {
+          console.error('Failed to parse current user:', err)
+        }
+      }
+      
+      // Verify Firebase auth state
+      if (!auth.currentUser) {
+        console.warn('No Firebase user logged in')
       }
     }
+    
+    loadCurrentUser()
   }, [open])
 
   useEffect(() => {
@@ -75,15 +89,17 @@ export default function Settings({open, onClose}){
 
   if(!open) return null
 
-  function handleLogout() {
-    // Sign out from Firebase Auth
-    import('../firebase').then(({ auth }) => {
-      import('firebase/auth').then(({ signOut }) => {
-        signOut(auth).catch(err => console.error('Sign out error:', err))
-      })
-    })
-    sessionStorage.clear()
-    location.href = '/login'
+  async function handleLogout() {
+    try {
+      const { auth } = await import('../firebase')
+      const { signOut } = await import('firebase/auth')
+      await signOut(auth)
+      localStorage.clear()
+      location.href = '/login'
+    } catch (err) {
+      console.error('Sign out error:', err)
+      alert('Failed to logout. Please try again.')
+    }
   }
 
   async function handleSubmitUser(e) {
@@ -210,31 +226,54 @@ export default function Settings({open, onClose}){
     setPasswordError('')
     setPasswordSuccess(false)
 
-    if (!changePasswordData.currentPassword || !changePasswordData.newPassword || !changePasswordData.confirmPassword) {
+    const { currentPassword, newPassword, confirmPassword } = changePasswordData
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError('All fields are required')
       return
     }
 
-    if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setPasswordError('New passwords do not match')
       return
     }
 
-    if (changePasswordData.newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters')
+    if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters long')
+      return
+    }
+
+    if (newPassword === 'admin123') {
+      setPasswordError('Please choose a more secure password')
+      return
+    }
+
+    // Check password strength
+    const hasUpperCase = /[A-Z]/.test(newPassword)
+    const hasLowerCase = /[a-z]/.test(newPassword)
+    const hasNumber = /[0-9]/.test(newPassword)
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      setPasswordError('Password must contain uppercase, lowercase, and numbers')
       return
     }
 
     try {
-      // Re-authenticate user before changing password (Firebase Auth requirement)
-      const { signInWithEmailAndPassword } = await import('firebase/auth')
       const { auth } = await import('../firebase')
+      const { EmailAuthProvider, reauthenticateWithCredential, updatePassword } = await import('firebase/auth')
       
-      const email = `${currentUser.username}@royce-valet.internal`
-      await signInWithEmailAndPassword(auth, email, changePasswordData.currentPassword)
+      const user = auth.currentUser
+      if (!user) {
+        setPasswordError('Not authenticated. Please log in again.')
+        return
+      }
+
+      // Re-authenticate before changing password
+      const credential = EmailAuthProvider.credential(user.email, currentPassword)
+      await reauthenticateWithCredential(user, credential)
       
-      // Update password through Firebase Auth
-      await updateUser(currentUser.id, { password: changePasswordData.newPassword })
+      // Update password
+      await updatePassword(user, newPassword)
       
       setChangePasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setPasswordSuccess(true)
@@ -244,8 +283,10 @@ export default function Settings({open, onClose}){
       console.error('Error changing password:', err)
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setPasswordError('Current password is incorrect')
+      } else if (err.code === 'auth/weak-password') {
+        setPasswordError('Password is too weak')
       } else {
-        setPasswordError('Failed to change password')
+        setPasswordError('Failed to change password: ' + (err.message || 'Unknown error'))
       }
     }
   }
@@ -309,6 +350,9 @@ export default function Settings({open, onClose}){
                   onChange={(e) => setChangePasswordData({...changePasswordData, confirmPassword: e.target.value})}
                   style={{width: '100%'}}
                 />
+                <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                  Must be 8+ characters with uppercase, lowercase, and numbers
+                </small>
               </div>
               {passwordError && (
                 <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{passwordError}</div>

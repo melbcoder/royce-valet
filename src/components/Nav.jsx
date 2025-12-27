@@ -7,7 +7,7 @@ export default function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const isStaffPage = ['/valet', '/valet-history', '/luggage', '/amenities', '/luggage-history', '/amenities-history', '/account'].includes(location.pathname);
+  const isStaffPage = ['/valet', '/valet-history', '/luggage', '/amenities', '/luggage-history', '/amenities-history'].includes(location.pathname);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -49,9 +49,6 @@ export default function Nav() {
       </NavLink>
       <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
         Amenities
-      </NavLink>
-      <NavLink to="/account" style={({ isActive }) => navLinkStyle(isActive)}>
-        Account
       </NavLink>
       
       {isStaffPage && (
