@@ -139,13 +139,19 @@ export default function Login() {
         localStorage.removeItem('loginAttempts');
         localStorage.removeItem('lastLoginAttempt');
         
-        sessionStorage.setItem('staffAuthenticated', 'true');
-        sessionStorage.setItem('currentUser', JSON.stringify({
+        // Store user info in localStorage for non-sensitive data
+        localStorage.setItem('currentUser', JSON.stringify({
           id: user.id,
           uid: user.uid,
           username: user.username,
           role: user.role
         }));
+        
+        // Check if this is default admin with default password
+        if (user.isDefaultAdmin && cleanUsername === 'admin' && cleanPassword === 'admin123') {
+          setError('');
+          alert('⚠️ SECURITY WARNING: You are using the default admin credentials. Please change your password immediately for security.');
+        }
         
         const elapsed = Date.now() - startTime;
         if (elapsed < minResponseTime) {

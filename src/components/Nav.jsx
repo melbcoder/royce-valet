@@ -1,15 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { auth } from '../firebase';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 
 export default function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
-  const isAuthenticated = sessionStorage.getItem('staffAuthenticated') === 'true';
-  const isStaffPage = ['/valet', '/valet-history', '/luggage', '/amenities', '/luggage-history', '/amenities-history'].includes(location.pathname);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const isStaffPage = ['/valet', '/valet-history', '/luggage', '/amenities', '/luggage-history', '/amenities-history', '/account'].includes(location.pathname);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('staffAuthenticated');
-    navigate('/login');
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      alert('Failed to logout. Please try again.');
+    }
   };
 
   if (!isAuthenticated) return null;
@@ -35,6 +49,9 @@ export default function Nav() {
       </NavLink>
       <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
         Amenities
+      </NavLink>
+      <NavLink to="/account" style={({ isActive }) => navLinkStyle(isActive)}>
+        Account
       </NavLink>
       
       {isStaffPage && (
