@@ -377,33 +377,6 @@ export default function Login() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-
-        {/* Debug Diagnostics Section */}
-        <div style={{ marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 }}>
-          <button 
-            className="btn secondary" 
-            onClick={runDiagnostics}
-            style={{ width: '100%', marginBottom: 12 }}
-          >
-            🔍 Run Diagnostics
-          </button>
-          
-          {debugOutput && (
-            <div style={{
-              background: '#f8f8f8',
-              border: '1px solid #ddd',
-              borderRadius: 4,
-              padding: 12,
-              fontSize: 12,
-              fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap',
-              maxHeight: 400,
-              overflow: 'auto'
-            }}>
-              {debugOutput}
-            </div>
-          )}
-        </div>
       </section>
     </div>
   );
