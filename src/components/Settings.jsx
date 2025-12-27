@@ -15,6 +15,7 @@ export default function Settings({open, onClose}){
   const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles' })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
+  const [loading, setLoading] = useState(true)
   
   const isAdmin = currentUser?.role === 'admin'
 
@@ -23,22 +24,27 @@ export default function Settings({open, onClose}){
     if (!open) return
     
     const loadCurrentUser = async () => {
-      const { auth } = await import('../firebase')
-      
-      // Get user from localStorage
-      const userStr = localStorage.getItem('currentUser')
-      if (userStr) {
-        try {
-          const userData = JSON.parse(userStr)
-          setCurrentUser(userData)
-        } catch (err) {
-          console.error('Failed to parse current user:', err)
+      setLoading(true)
+      try {
+        const { auth } = await import('../firebase')
+        
+        // Get user from localStorage
+        const userStr = localStorage.getItem('currentUser')
+        if (userStr) {
+          try {
+            const userData = JSON.parse(userStr)
+            setCurrentUser(userData)
+          } catch (err) {
+            console.error('Failed to parse current user:', err)
+          }
         }
-      }
-      
-      // Verify Firebase auth state
-      if (!auth.currentUser) {
-        console.warn('No Firebase user logged in')
+        
+        // Verify Firebase auth state
+        if (!auth.currentUser) {
+          console.warn('No Firebase user logged in')
+        }
+      } finally {
+        setLoading(false)
       }
     }
     
@@ -299,6 +305,12 @@ export default function Settings({open, onClose}){
           <button className="btn secondary" onClick={onClose}>Close</button>
         </div>
 
+        {loading ? (
+          <div style={{padding: 40, textAlign: 'center'}}>
+            <p>Loading...</p>
+          </div>
+        ) : (
+          <>
         {/* Current User Info */}
         {currentUser && (
           <div className="field" style={{marginBottom: 24, padding: 16, background: '#f5f5f5', borderRadius: 4}}>
@@ -553,6 +565,8 @@ export default function Settings({open, onClose}){
               )}
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>
