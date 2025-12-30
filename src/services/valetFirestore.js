@@ -26,6 +26,7 @@ const historyRef = collection(db, "history");
 const usersRef = collection(db, "users");
 const luggageRef = collection(db, "luggage");
 const luggageHistoryRef = collection(db, "luggageHistory");
+const luggageAuditRef = collection(db, "luggageAudit");
 const amenitiesRef = collection(db, "amenities");
 const amenitiesHistoryRef = collection(db, "amenitiesHistory");
 const settingsRef = collection(db, "settings");
@@ -81,6 +82,41 @@ const validateEmail = (email) => {
 
 const validateTag = (tag) => {
   return /^[a-zA-Z0-9]{1,20}$/.test(String(tag));
+};
+
+// Helper function to get current user from session
+const getCurrentUser = () => {
+  try {
+    const userStr = sessionStorage.getItem('currentUser');
+    if (userStr) {
+      return JSON.parse(userStr);
+    }
+  } catch (error) {
+    console.error('Error getting current user:', error);
+  }
+  return null;
+};
+
+// Helper function to add audit log entry
+const addAuditLog = async (luggageId, action, details = {}) => {
+  try {
+    const currentUser = getCurrentUser();
+    const auditEntry = {
+      luggageId,
+      action,
+      details,
+      timestamp: serverTimestamp(),
+      user: currentUser ? {
+        id: currentUser.id,
+        username: currentUser.username,
+        role: currentUser.role
+      } : { username: 'System' }
+    };
+    
+    await setDoc(doc(luggageAuditRef, `${luggageId}-${Date.now()}`), auditEntry);
+  } catch (error) {
+    console.error('Error adding audit log:', error);
+  }
 };
 
 // Create / check-in vehicle
@@ -486,6 +522,15 @@ export async function createLuggage(data) {
   // Use guest name + timestamp as document ID since we may have multiple tags
   const docId = `${data.guestName.replace(/\s+/g, '-')}-${Date.now()}`;
   await setDoc(doc(luggageRef, docId), item);
+  
+  // Add audit log
+  await addAuditLog(docId, 'created', {
+    tags: item.tags,
+    guestName: item.guestName,
+    roomNumber: item.roomNumber,
+    numberOfBags: item.numberOfBags
+  });
+  
   return docId;
 }
 
@@ -495,11 +540,30 @@ export async function updateLuggage(id, updates) {
     ...updates,
     updatedAt: serverTimestamp(),
   });
+  
+  // Add audit log for updates (excluding timestamp fields)
+  const auditableUpdates = Object.keys(updates)
+    .filter(key => !key.includes('At') && key !== 'updatedAt')
+    .reduce((obj, key) => {
+      obj[key] = updates[key];
+      return obj;
+    }, {});
+  
+  if (Object.keys(auditableUpdates).length > 0) {
+    await addAuditLog(id, 'updated', auditableUpdates);
+  }
 }
 
 // Mark luggage as delivered to room
 export async function markLuggageDelivered(id) {
-  await updateLuggage(id, { status: "delivered", deliveredAt: serverTimestamp() });
+  await updateDoc(doc(luggageRef, id), {
+    status: "delivered",
+    deliveredAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Add specific audit log for delivery
+  await addAuditLog(id, 'delivered', {});
 }
 
 // Archive luggage item
@@ -534,6 +598,27 @@ export function subscribeLuggageHistory(callback) {
     }));
     callback(list);
   });
+}
+
+// Get audit logs for a specific luggage item
+export async function getLuggageAuditLog(luggageId) {
+  try {
+    const q = query(luggageAuditRef, where("luggageId", "==", luggageId));
+    const snapshot = await getDocs(q);
+    const logs = snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
+    // Sort by timestamp (most recent first)
+    return logs.sort((a, b) => {
+      const timeA = a.timestamp?.seconds || 0;
+      const timeB = b.timestamp?.seconds || 0;
+      return timeA - timeB; // Oldest first for chronological order
+    });
+  } catch (error) {
+    console.error("Error fetching audit logs:", error);
+    return [];
+  }
 }
 
 // ===== AMENITIES MANAGEMENT =====
