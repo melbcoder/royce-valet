@@ -340,15 +340,6 @@ export default function Amenities() {
         const description = values[descIndex] || '';
         const roomNumber = values[roomIndex] || '';
         let guestName = values[nameIndex] || '';
-
-        // Enhanced validation - check for dangerous content
-        if (!validateCsvContent(description) || 
-            !validateCsvContent(roomNumber) || 
-            !validateCsvContent(guestName)) {
-          console.warn('Skipping potentially dangerous CSV content at line', i + 1);
-          skippedCount++;
-          continue;
-        }
         
         // Additional length validation
         if (description.length > 500 || roomNumber.length > 50 || guestName.length > 200) {
