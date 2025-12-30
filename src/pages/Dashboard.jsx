@@ -175,15 +175,6 @@ export default function Dashboard() {
             <div style={{ fontSize: 13, opacity: 0.7 }}>
               {readyToDeliver.length} guest{readyToDeliver.length !== 1 ? 's' : ''} • Room is clean
             </div>
-            {readyToDeliver.length > 0 && (
-              <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-                {readyToDeliver.map(item => (
-                  <div key={item.id} style={{ marginTop: 4 }}>
-                    • {item.guestName} (Room {item.roomNumber}) - {item.numberOfBags} bag{item.numberOfBags !== 1 ? 's' : ''}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           <div style={{ 
@@ -201,15 +192,6 @@ export default function Dashboard() {
             <div style={{ fontSize: 13, opacity: 0.7 }}>
               {notReadyToDeliver.length} guest{notReadyToDeliver.length !== 1 ? 's' : ''} • Room not ready
             </div>
-            {notReadyToDeliver.length > 0 && (
-              <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-                {notReadyToDeliver.map(item => (
-                  <div key={item.id} style={{ marginTop: 4 }}>
-                    • {item.guestName} (Room {item.roomNumber}) - {item.numberOfBags} bag{item.numberOfBags !== 1 ? 's' : ''} [{item.roomStatus || 'unknown'}]
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -263,15 +245,6 @@ export default function Dashboard() {
               {amenitiesReadyToDeliver.length}
             </div>
             <div style={{ fontSize: 13, opacity: 0.7 }}>Room is clean</div>
-            {amenitiesReadyToDeliver.length > 0 && (
-              <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-                {amenitiesReadyToDeliver.map(item => (
-                  <div key={item.id} style={{ marginTop: 4 }}>
-                    • {item.description} - {item.guestName} (Room {item.roomNumber})
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           <div style={{ 
@@ -287,15 +260,6 @@ export default function Dashboard() {
               {amenitiesNotReady.length}
             </div>
             <div style={{ fontSize: 13, opacity: 0.7 }}>Room not ready</div>
-            {amenitiesNotReady.length > 0 && (
-              <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-                {amenitiesNotReady.map(item => (
-                  <div key={item.id} style={{ marginTop: 4 }}>
-                    • {item.description} - {item.guestName} (Room {item.roomNumber}) [{item.roomStatus || 'unknown'}]
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </section>
