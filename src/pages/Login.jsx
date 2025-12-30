@@ -158,7 +158,7 @@ export default function Login() {
           await new Promise(resolve => setTimeout(resolve, minResponseTime - elapsed));
         }
         
-        navigate('/valet');
+        navigate('/dashboard');
       } else {
         await new Promise(resolve => setTimeout(resolve, Math.max(0, minResponseTime - (Date.now() - startTime))));
         handleFailedLogin();

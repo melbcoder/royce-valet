@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Guest from './pages/Guest';
 import Valet from './pages/Valet';
 import ValetHistory from './pages/ValetHistory';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Luggage from './pages/Luggage';
 import Amenities from './pages/Amenities';
 import LuggageHistory from './pages/LuggageHistory';
@@ -12,6 +13,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
 import Settings from './components/Settings';
+
+function Logo() {
+  const navigate = useNavigate();
+  return (
+    <div className="brand" onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+      <img src="/royce-logo.jpg" alt="The Royce" />
+    </div>
+  );
+}
 
 export default function App(){
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -22,9 +32,7 @@ export default function App(){
       <div>
         <div className="topbar">
           <div className="inner container">
-            <div className="brand">
-              <img src="/royce-logo.jpg" alt="The Royce" />
-            </div>
+            <Logo />
             <div className="row">
               <Nav />
               <button className="tag" onClick={()=>setSettingsOpen(true)} title="Settings" style={{background:'#fff', cursor:'pointer'}}>
@@ -42,6 +50,14 @@ export default function App(){
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/guest/:tag" element={<Guest />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
             <Route 
               path="/valet" 
               element={
