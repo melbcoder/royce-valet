@@ -139,13 +139,19 @@ export default function Login() {
         localStorage.removeItem('loginAttempts');
         localStorage.removeItem('lastLoginAttempt');
         
-        sessionStorage.setItem('staffAuthenticated', 'true');
-        sessionStorage.setItem('currentUser', JSON.stringify({
+        // Store user info in localStorage for non-sensitive data
+        localStorage.setItem('currentUser', JSON.stringify({
           id: user.id,
           uid: user.uid,
           username: user.username,
           role: user.role
         }));
+        
+        // Check if this is default admin with default password
+        if (user.isDefaultAdmin && cleanUsername === 'admin' && cleanPassword === 'admin123') {
+          setError('');
+          alert('⚠️ SECURITY WARNING: You are using the default admin credentials. Please change your password immediately for security.');
+        }
         
         const elapsed = Date.now() - startTime;
         if (elapsed < minResponseTime) {
@@ -371,33 +377,6 @@ export default function Login() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-
-        {/* Debug Diagnostics Section */}
-        <div style={{ marginTop: 24, borderTop: '1px solid #eee', paddingTop: 16 }}>
-          <button 
-            className="btn secondary" 
-            onClick={runDiagnostics}
-            style={{ width: '100%', marginBottom: 12 }}
-          >
-            🔍 Run Diagnostics
-          </button>
-          
-          {debugOutput && (
-            <div style={{
-              background: '#f8f8f8',
-              border: '1px solid #ddd',
-              borderRadius: 4,
-              padding: 12,
-              fontSize: 12,
-              fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap',
-              maxHeight: 400,
-              overflow: 'auto'
-            }}>
-              {debugOutput}
-            </div>
-          )}
-        </div>
       </section>
     </div>
   );
