@@ -36,6 +36,7 @@ export default function Dashboard() {
 
   // Calculate luggage statistics
   const storedLuggage = luggageItems.filter(item => item.status === 'stored');
+  const deliveredLuggage = luggageItems.filter(item => item.status === 'delivered');
   const totalBagsToDeliver = storedLuggage.reduce((sum, item) => sum + (item.numberOfBags || 0), 0);
   
   // Split by room readiness
@@ -126,17 +127,36 @@ export default function Dashboard() {
       {/* Luggage Overview */}
       <section className="card pad" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0 }}>Luggage Storage</h3>
+          <h3 style={{ margin: 0 }}>Luggage Overview</h3>
           <button className="btn secondary" onClick={() => navigate('/luggage')}>
             View Details →
           </button>
         </div>
         
-        <div style={{ marginBottom: 20, textAlign: 'center' }}>
-          <div style={{ fontSize: 42, fontWeight: 'bold', color: '#2196F3', marginBottom: 8 }}>
-            {totalBagsToDeliver}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 20 }}>
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: 8,
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#2196F3', marginBottom: 8 }}>
+              {totalBagsToDeliver}
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.7 }}>Bags to Deliver</div>
           </div>
-          <div style={{ fontSize: 16, opacity: 0.8, fontWeight: 500 }}>Total Bags to Deliver</div>
+          
+          <div style={{ 
+            padding: 16, 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: 8,
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: 32, fontWeight: 'bold', color: '#4CAF50', marginBottom: 8 }}>
+              {deliveredLuggage.length}
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.7 }}>Delivered Today</div>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
@@ -197,7 +217,7 @@ export default function Dashboard() {
       {/* Amenities Overview */}
       <section className="card pad">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0 }}>Amenities Today</h3>
+          <h3 style={{ margin: 0 }}>Amenities Overview</h3>
           <button className="btn secondary" onClick={() => navigate('/amenities')}>
             View Details →
           </button>
