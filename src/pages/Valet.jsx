@@ -11,6 +11,7 @@ import {
   parkAgain,
   scheduleRequest,
   clearSchedule,
+  getVehicleAuditLog,
 } from "../services/valetFirestore";
 import { sendWelcomeSMS } from "../services/smsService";
 import Modal from "../components/Modal";
@@ -72,6 +73,11 @@ const CameraIcon = () => (
   <img src="/camera.png" alt="Camera" style={{ width: "20px", height: "20px" }} />
 );
 
+// Reusable Audit Icon Component
+const AuditIcon = () => (
+  <img src="/audit.png" alt="Audit" style={{ width: "20px", height: "20px" }} />
+);
+
 export default function Staff() {
   const navigate = useNavigate();
   
@@ -119,6 +125,12 @@ export default function Staff() {
   // Photo modal
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [photoTag, setPhotoTag] = useState(null);
+
+  // Audit modal
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditTag, setAuditTag] = useState(null);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   // notification count & chime
   const unseenCount = useRef(0);
@@ -503,6 +515,53 @@ export default function Staff() {
     setPhotoModalOpen(true);
   };
 
+  const handleViewAudit = async (tag) => {
+    setAuditTag(tag);
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    setAuditLogs([]);
+    
+    try {
+      const logs = await getVehicleAuditLog(tag);
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      showToast('Failed to load audit history.');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const formatAuditTimestamp = (timestamp) => {
+    if (!timestamp || !timestamp.seconds) return '—';
+    return new Date(timestamp.seconds * 1000).toLocaleString();
+  };
+
+  const formatAuditAction = (action) => {
+    const actionMap = {
+      'created': 'Vehicle Checked In',
+      'updated': 'Details Updated',
+      'parked': 'Parked',
+      'requested': 'Pickup Requested',
+      'marked_ready': 'Marked Ready',
+      'handed_over': 'Handed Over to Guest'
+    };
+    return actionMap[action] || action;
+  };
+
+  const formatAuditDetails = (action, details) => {
+    if (!details || Object.keys(details).length === 0) return null;
+    
+    const entries = Object.entries(details).map(([key, value]) => {
+      if (typeof value === 'object' && value !== null) {
+        return `${key}: ${JSON.stringify(value)}`;
+      }
+      return `${key}: ${value}`;
+    });
+    
+    return entries.join(', ');
+  };
+
   // ---------- UI ----------
   return (
     <div className="page pad">
@@ -834,6 +893,11 @@ export default function Staff() {
                       <CameraIcon />
                     </button>
 
+                    {/* View Audit Log */}
+                    <button className="btn secondary" onClick={() => handleViewAudit(v.tag)} title="View Audit Log">
+                      <AuditIcon />
+                    </button>
+
                     {/* Schedule pickup */}
                     <ScheduleInline v={v} onSet={setSchedule} onClear={cancelSched} />
                   </td>
@@ -1061,6 +1125,62 @@ export default function Staff() {
         vehicleTag={photoTag}
         vehicle={vehicles.find(v => v.tag === photoTag)}
       />
+
+      {/* Audit Log Modal */}
+      <Modal open={auditModalOpen} onClose={() => setAuditModalOpen(false)} title={`Audit Trail - Tag #${auditTag}`}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {auditLoading ? (
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <p>Loading audit history...</p>
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 20, opacity: 0.7 }}>
+              <p>No audit history available for this vehicle.</p>
+            </div>
+          ) : (
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table className="table" style={{ fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>User</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((log, index) => (
+                    <tr key={log.id || index}>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>
+                        {formatAuditTimestamp(log.timestamp)}
+                      </td>
+                      <td style={{ fontWeight: 500 }}>
+                        {formatAuditAction(log.action)}
+                      </td>
+                      <td>
+                        {log.user?.username || 'System'}
+                        {log.user?.role && (
+                          <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 4 }}>
+                            ({log.user.role})
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13 }}>
+                        {formatAuditDetails(log.action, log.details) || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn secondary" onClick={() => setAuditModalOpen(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

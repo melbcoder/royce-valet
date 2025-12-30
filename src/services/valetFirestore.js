@@ -23,12 +23,14 @@ export const storage = getStorage();
 // Firestore collections
 const vehiclesRef = collection(db, "vehicles");
 const historyRef = collection(db, "history");
+const vehicleAuditRef = collection(db, "vehicleAudit");
 const usersRef = collection(db, "users");
 const luggageRef = collection(db, "luggage");
 const luggageHistoryRef = collection(db, "luggageHistory");
 const luggageAuditRef = collection(db, "luggageAudit");
 const amenitiesRef = collection(db, "amenities");
 const amenitiesHistoryRef = collection(db, "amenitiesHistory");
+const amenitiesAuditRef = collection(db, "amenitiesAudit");
 const settingsRef = collection(db, "settings");
 
 // ===== SETTINGS MANAGEMENT =====
@@ -97,7 +99,7 @@ const getCurrentUser = () => {
   return null;
 };
 
-// Helper function to add audit log entry
+// Helper function to add audit log entry for luggage
 const addAuditLog = async (luggageId, action, details = {}) => {
   try {
     const currentUser = getCurrentUser();
@@ -116,6 +118,50 @@ const addAuditLog = async (luggageId, action, details = {}) => {
     await setDoc(doc(luggageAuditRef, `${luggageId}-${Date.now()}`), auditEntry);
   } catch (error) {
     console.error('Error adding audit log:', error);
+  }
+};
+
+// Helper function to add vehicle audit log
+const addVehicleAuditLog = async (vehicleTag, action, details = {}) => {
+  try {
+    const currentUser = getCurrentUser();
+    const auditEntry = {
+      vehicleTag,
+      action,
+      details,
+      timestamp: serverTimestamp(),
+      user: currentUser ? {
+        id: currentUser.id,
+        username: currentUser.username,
+        role: currentUser.role
+      } : { username: 'System' }
+    };
+    
+    await setDoc(doc(vehicleAuditRef, `${vehicleTag}-${Date.now()}`), auditEntry);
+  } catch (error) {
+    console.error('Error adding vehicle audit log:', error);
+  }
+};
+
+// Helper function to add amenity audit log
+const addAmenityAuditLog = async (amenityId, action, details = {}) => {
+  try {
+    const currentUser = getCurrentUser();
+    const auditEntry = {
+      amenityId,
+      action,
+      details,
+      timestamp: serverTimestamp(),
+      user: currentUser ? {
+        id: currentUser.id,
+        username: currentUser.username,
+        role: currentUser.role
+      } : { username: 'System' }
+    };
+    
+    await setDoc(doc(amenitiesAuditRef, `${amenityId}-${Date.now()}`), auditEntry);
+  } catch (error) {
+    console.error('Error adding amenity audit log:', error);
   }
 };
 
@@ -146,7 +192,15 @@ export async function createVehicle(data) {
     updatedAt: serverTimestamp(),
   };
 
-  await setDoc(doc(vehiclesRef, sanitizeString(data.tag, 20)), v);
+  const tag = sanitizeString(data.tag, 20);
+  await setDoc(doc(vehiclesRef, tag), v);
+  
+  // Add audit log
+  await addVehicleAuditLog(tag, 'created', {
+    guestName: v.guestName,
+    roomNumber: v.roomNumber,
+    departureDate: v.departureDate
+  });
 }
 
 // Staff: update vehicle
@@ -155,15 +209,29 @@ export async function updateVehicle(tag, updates) {
     ...updates,
     updatedAt: serverTimestamp(),
   });
+  
+  // Add audit log for significant updates
+  const auditableUpdates = Object.keys(updates)
+    .filter(key => !key.includes('At') && key !== 'updatedAt' && key !== 'requested')
+    .reduce((obj, key) => {
+      obj[key] = updates[key];
+      return obj;
+    }, {});
+  
+  if (Object.keys(auditableUpdates).length > 0) {
+    await addVehicleAuditLog(tag, 'updated', auditableUpdates);
+  }
 }
 
 // Guest: request pickup
 export async function requestVehicle(tag) {
-  await updateVehicle(tag, {
+  await updateDoc(doc(vehiclesRef, tag), {
     status: "requested",
     requested: true,
     scheduledAt: null,
+    updatedAt: serverTimestamp(),
   });
+  await addVehicleAuditLog(tag, 'requested', {});
 }
 
 // Guest: cancel request
@@ -195,22 +263,39 @@ export async function cancelRequest(tag) {
 
 // Staff: vehicle ready at driveway
 export async function markReady(tag) {
-  await updateVehicle(tag, { status: "ready" });
+  await updateDoc(doc(vehiclesRef, tag), {
+    status: "ready",
+    updatedAt: serverTimestamp(),
+  });
+  await addVehicleAuditLog(tag, 'marked_ready', {});
 }
 
 // Staff: vehicle handed to guest
 export async function markOut(tag) {
-  await updateVehicle(tag, { status: "out", requested: false });
+  await updateDoc(doc(vehiclesRef, tag), {
+    status: "out",
+    requested: false,
+    updatedAt: serverTimestamp(),
+  });
+  await addVehicleAuditLog(tag, 'handed_over', {});
 }
 
 // Staff: re-park returned vehicle
 export async function parkAgain(tag, bay, license, make, color) {
-  await updateVehicle(tag, {
+  await updateDoc(doc(vehiclesRef, tag), {
     status: "parked",
     bay: bay ?? "",
     license: license ?? "",
     make: make ?? "",
     color: color ?? "",
+    updatedAt: serverTimestamp(),
+  });
+  
+  await addVehicleAuditLog(tag, 'parked', {
+    bay: bay ?? "",
+    license: license ?? "",
+    make: make ?? "",
+    color: color ?? ""
   });
 }
 
@@ -278,6 +363,27 @@ export function subscribeHistory(callback) {
     }));
     callback(list);
   });
+}
+
+// Get audit logs for a specific vehicle
+export async function getVehicleAuditLog(vehicleTag) {
+  try {
+    const q = query(vehicleAuditRef, where("vehicleTag", "==", vehicleTag));
+    const snapshot = await getDocs(q);
+    const logs = snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
+    // Sort by timestamp (oldest first for chronological order)
+    return logs.sort((a, b) => {
+      const timeA = a.timestamp?.seconds || 0;
+      const timeB = b.timestamp?.seconds || 0;
+      return timeA - timeB;
+    });
+  } catch (error) {
+    console.error("Error fetching vehicle audit logs:", error);
+    return [];
+  }
 }
 
 // ===== USER MANAGEMENT =====
@@ -648,6 +754,15 @@ export async function createAmenity(data) {
   // Use guest name + timestamp as document ID
   const docId = `${data.guestName.replace(/\s+/g, '-')}-${Date.now()}`;
   await setDoc(doc(amenitiesRef, docId), item);
+  
+  // Add audit log
+  await addAmenityAuditLog(docId, 'created', {
+    description: item.description,
+    guestName: item.guestName,
+    roomNumber: item.roomNumber,
+    deliveryDate: item.deliveryDate
+  });
+  
   return docId;
 }
 
@@ -657,11 +772,30 @@ export async function updateAmenity(id, updates) {
     ...updates,
     updatedAt: serverTimestamp(),
   });
+  
+  // Add audit log for updates (excluding timestamp fields)
+  const auditableUpdates = Object.keys(updates)
+    .filter(key => !key.includes('At') && key !== 'updatedAt')
+    .reduce((obj, key) => {
+      obj[key] = updates[key];
+      return obj;
+    }, {});
+  
+  if (Object.keys(auditableUpdates).length > 0) {
+    await addAmenityAuditLog(id, 'updated', auditableUpdates);
+  }
 }
 
 // Mark amenity as delivered to room
 export async function markAmenityDelivered(id) {
-  await updateAmenity(id, { status: "delivered", deliveredAt: serverTimestamp() });
+  await updateDoc(doc(amenitiesRef, id), {
+    status: "delivered",
+    deliveredAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // Add specific audit log for delivery
+  await addAmenityAuditLog(id, 'delivered', {});
 }
 
 // Archive amenity item
@@ -696,6 +830,27 @@ export function subscribeAmenitiesHistory(callback) {
     }));
     callback(list);
   });
+}
+
+// Get audit logs for a specific amenity
+export async function getAmenityAuditLog(amenityId) {
+  try {
+    const q = query(amenitiesAuditRef, where("amenityId", "==", amenityId));
+    const snapshot = await getDocs(q);
+    const logs = snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
+    // Sort by timestamp (oldest first for chronological order)
+    return logs.sort((a, b) => {
+      const timeA = a.timestamp?.seconds || 0;
+      const timeB = b.timestamp?.seconds || 0;
+      return timeA - timeB;
+    });
+  } catch (error) {
+    console.error("Error fetching amenity audit logs:", error);
+    return [];
+  }
 }
 
 

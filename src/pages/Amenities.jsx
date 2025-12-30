@@ -8,6 +8,7 @@ import {
   deleteAmenity,
   archiveAmenity,
   getSettings,
+  getAmenityAuditLog,
 } from '../services/valetFirestore';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
@@ -38,6 +39,9 @@ export default function Amenities() {
   const [editingItem, setEditingItem] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef(null);
   
@@ -224,6 +228,49 @@ export default function Amenities() {
   const cancelDelete = () => {
     setDeleteModalOpen(false);
     setItemToDelete(null);
+  };
+
+  const handleViewAudit = async (item) => {
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    setAuditLogs([]);
+    
+    try {
+      const logs = await getAmenityAuditLog(item.id);
+      setAuditLogs(logs);
+    } catch (error) {
+      console.error('Error loading audit logs:', error);
+      showToast('Failed to load audit history.');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  const formatAuditTimestamp = (timestamp) => {
+    if (!timestamp || !timestamp.seconds) return '—';
+    return new Date(timestamp.seconds * 1000).toLocaleString();
+  };
+
+  const formatAuditAction = (action) => {
+    const actionMap = {
+      'created': 'Created',
+      'updated': 'Updated',
+      'delivered': 'Marked as Delivered'
+    };
+    return actionMap[action] || action;
+  };
+
+  const formatAuditDetails = (action, details) => {
+    if (!details || Object.keys(details).length === 0) return null;
+    
+    const entries = Object.entries(details).map(([key, value]) => {
+      if (typeof value === 'object' && value !== null) {
+        return `${key}: ${JSON.stringify(value)}`;
+      }
+      return `${key}: ${value}`;
+    });
+    
+    return entries.join(', ');
   };
 
   const handleCSVUpload = async (event) => {
@@ -522,6 +569,9 @@ export default function Amenities() {
                     <button className="btn secondary" onClick={() => handleDeliver(item)}>
                       <img src="/tick.png" alt="Deliver" style={{ width: 20, height: 20 }} />
                     </button>
+                    <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
+                      <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
+                    </button>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
@@ -571,6 +621,9 @@ export default function Amenities() {
                       }) : '—'}
                   </td>
                   <td>
+                    <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log" style={{ marginRight: 6 }}>
+                      <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
+                    </button>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
@@ -641,6 +694,9 @@ export default function Amenities() {
                   <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => openEdit(item)}>
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
+                    </button>
+                    <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
+                      <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
@@ -811,6 +867,62 @@ export default function Amenities() {
           <button className="btn secondary" onClick={cancelDelete}>
             Cancel
           </button>
+        </div>
+      </Modal>
+
+      {/* Audit Log Modal */}
+      <Modal open={auditModalOpen} onClose={() => setAuditModalOpen(false)} title="Amenity Audit Trail">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {auditLoading ? (
+            <div style={{ textAlign: 'center', padding: 20 }}>
+              <p>Loading audit history...</p>
+            </div>
+          ) : auditLogs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 20, opacity: 0.7 }}>
+              <p>No audit history available for this item.</p>
+            </div>
+          ) : (
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table className="table" style={{ fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>User</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditLogs.map((log, index) => (
+                    <tr key={log.id || index}>
+                      <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>
+                        {formatAuditTimestamp(log.timestamp)}
+                      </td>
+                      <td style={{ fontWeight: 500 }}>
+                        {formatAuditAction(log.action)}
+                      </td>
+                      <td>
+                        {log.user?.username || 'System'}
+                        {log.user?.role && (
+                          <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 4 }}>
+                            ({log.user.role})
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 13 }}>
+                        {formatAuditDetails(log.action, log.details) || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn secondary" onClick={() => setAuditModalOpen(false)}>
+              Close
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
