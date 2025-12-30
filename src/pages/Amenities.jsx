@@ -29,6 +29,36 @@ const validateFileType = (file) => {
   return validTypes.includes(file.type) && validExtensions.includes(fileExtension);
 };
 
+const validateCsvContent = (content) => {
+  if (!content) return true;
+  
+  const str = String(content).toLowerCase();
+  
+  // Check for script tags and JavaScript
+  if (str.includes('<script') || str.includes('javascript:') || str.includes('onerror=') || str.includes('onload=')) {
+    return false;
+  }
+  
+  // Check for SQL injection patterns
+  if (str.includes('drop table') || str.includes('delete from') || str.includes('insert into') || 
+      str.includes('update set') || str.includes('union select') || str.includes('exec(')) {
+    return false;
+  }
+  
+  // Check for command injection
+  if (str.includes('rm -rf') || str.includes('cmd.exe') || str.includes('powershell') || 
+      str.includes('../../') || str.includes('..\\..\\')) {
+    return false;
+  }
+  
+  // Check for null bytes and dangerous control characters
+  if (str.includes('\0') || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(content)) {
+    return false;
+  }
+  
+  return true;
+};
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
 
 export default function Amenities() {
@@ -340,6 +370,15 @@ export default function Amenities() {
         const description = values[descIndex] || '';
         const roomNumber = values[roomIndex] || '';
         let guestName = values[nameIndex] || '';
+        
+        // Enhanced validation - check for dangerous content
+        if (!validateCsvContent(description) || 
+            !validateCsvContent(roomNumber) || 
+            !validateCsvContent(guestName)) {
+          console.warn('Skipping potentially dangerous CSV content at line', i + 1);
+          skippedCount++;
+          continue;
+        }
         
         // Additional length validation
         if (description.length > 500 || roomNumber.length > 50 || guestName.length > 200) {
