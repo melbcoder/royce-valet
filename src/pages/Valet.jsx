@@ -1417,9 +1417,9 @@ function ParkingMapView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAud
         {/* Top Row - Bays 1-5 */}
         <ParkingBay number={1} x={790} y={10} />
         <ParkingBay number={2} x={685} y={10} />
-        <ParkingBay number={3} x={280} y={10} />
-        <ParkingBay number={4} x={175} y={10} />
-        <ParkingBay number={5} x={70} y={10} />
+        <ParkingBay number={3} x={260} y={10} />
+        <ParkingBay number={4} x={155} y={10} />
+        <ParkingBay number={5} x={50} y={10} />
 
         {/* Elevator */}
         <rect x={395} y={80} width={250} height={120} fill="#ffcc80" stroke="#666" strokeWidth="2" rx="6" />
