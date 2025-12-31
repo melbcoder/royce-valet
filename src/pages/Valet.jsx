@@ -1426,7 +1426,7 @@ function ParkingMapView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAud
         <text x={520} y={150} textAnchor="middle" fontSize="22" fontWeight="bold" fill="#333">Elevator</text>
 
         {/* Right Side - Bays 6-7 */}
-        <ParkingBay number={6} x={785} y={250} width={110} height={180} /> {/* Accessible bay - wider */}
+        <ParkingBay number={6} x={785} y={250} width={110} height={200} /> {/* Accessible bay - wider */}
         <ParkingBay number={7} x={680} y={250} width={95} />
 
         {/* Middle Group - Bays 8-10 */}
@@ -1448,10 +1448,8 @@ function ParkingMapView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAud
         <ParkingBay number={20} x={155} y={470} />
         <ParkingBay number={21} x={50} y={470} />
 
-        {/* Bay 14 space (empty/reserved) */}
-        <rect x={785} y={470} width={110} height={200} fill="#ddd" stroke="#999" strokeWidth="1" strokeDasharray="5,5" rx="4" />
-        <text x={840} y={570} textAnchor="middle" fontSize="16" fill="#999">14</text>
-        <text x={840} y={590} textAnchor="middle" fontSize="11" fill="#999">(Reserved)</text>
+        {/* Wall where bay 14 would be */}
+        <rect x={785} y={470} width={110} height={200} fill="#999" stroke="#666" strokeWidth="2" rx="4" />
       </svg>
 
       {/* Vehicle Detail Modal */}
