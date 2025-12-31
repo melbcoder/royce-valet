@@ -226,6 +226,7 @@ export default function Staff() {
 
   // Active Vehicles (all), filtered by status if selected
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [viewMode, setViewMode] = useState("list"); // "list" or "map"
 
   // Close status dropdown when clicking outside
   useEffect(() => {
@@ -709,7 +710,38 @@ export default function Staff() {
         <div className="row space-between" style={{ marginBottom: 8 }}>
           <h3>Active Vehicles</h3>
           {/* Filter Bar */}
-          <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto"}}>
+          <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto",alignItems: "center"}}>
+            {/* View Mode Toggle */}
+            <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", borderRadius: "8px", padding: "4px" }}>
+              <button
+                className="btn secondary"
+                onClick={() => setViewMode("list")}
+                style={{
+                  padding: "6px 16px",
+                  background: viewMode === "list" ? "#fff" : "transparent",
+                  border: "none",
+                  boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  fontSize: "14px"
+                }}
+              >
+                List
+              </button>
+              <button
+                className="btn secondary"
+                onClick={() => setViewMode("map")}
+                style={{
+                  padding: "6px 16px",
+                  background: viewMode === "map" ? "#fff" : "transparent",
+                  border: "none",
+                  boxShadow: viewMode === "map" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  fontSize: "14px"
+                }}
+              >
+                Map
+              </button>
+            </div>
+
+            <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative"}}>
             <div style={{ position: "relative" }}>
               <button className="btn secondary"
                 onClick={(e) => {e.stopPropagation();setShowStatusMenu(!showStatusMenu);}}
@@ -815,10 +847,12 @@ export default function Staff() {
             >
               Departing Today
             </button>
+            </div>
           </div>
         </div>
 
-        <div className="table-wrap">
+        {viewMode === "list" ? (
+          <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
@@ -906,6 +940,16 @@ export default function Staff() {
             </tbody>
           </table>
         </div>
+        ) : (
+          <ParkingMapView 
+            vehicles={active} 
+            onPark={openPark}
+            onReady={setReady}
+            onHandOver={handOver}
+            onPhotos={openPhotos}
+            onAudit={handleViewAudit}
+          />
+        )}
       </section>
 
       {/* Create Vehicle */}
@@ -1181,6 +1225,333 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// Parking Map View Component
+function ParkingMapView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAudit }) {
+  const [hoveredBay, setHoveredBay] = useState(null);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+
+  // Create a map of bay number to vehicle
+  const bayToVehicle = useMemo(() => {
+    const map = {};
+    vehicles.forEach(v => {
+      if (v.bay) {
+        map[v.bay.toString()] = v;
+      }
+    });
+    return map;
+  }, [vehicles]);
+
+  // Get status color for a bay
+  const getBayColor = (bayNum) => {
+    const vehicle = bayToVehicle[bayNum.toString()];
+    if (!vehicle) return "#e8f5e9"; // vacant - light green
+    
+    switch (vehicle.status) {
+      case "received": return "#9e9e9e"; // gray
+      case "parked": return "#e8daec"; // light purple
+      case "requested": return "#ff5900"; // orange
+      case "retrieving": return "#ffa726"; // amber
+      case "ready": return "#4caf50"; // green
+      case "out": return "#1976d2"; // blue
+      default: return "#e0e0e0"; // gray
+    }
+  };
+
+  // Render a parking bay
+  const ParkingBay = ({ number, x, y, width = 95, height = 200 }) => {
+    const vehicle = bayToVehicle[number.toString()];
+    const color = getBayColor(number);
+    const isHovered = hoveredBay === number;
+
+    return (
+      <g
+        onMouseEnter={() => setHoveredBay(number)}
+        onMouseLeave={() => setHoveredBay(null)}
+        onClick={() => vehicle && setSelectedVehicle(vehicle)}
+        style={{ cursor: vehicle ? "pointer" : "default" }}
+      >
+        {/* Bay rectangle */}
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={color}
+          stroke={isHovered ? "#000" : "#666"}
+          strokeWidth={isHovered ? 3 : 1.5}
+          rx="4"
+        />
+        
+        {/* Bay number */}
+        <text
+          x={x + width / 2}
+          y={y + 30}
+          textAnchor="middle"
+          fontSize="24"
+          fontWeight="bold"
+          fill="#333"
+        >
+          {number}
+        </text>
+
+        {/* Vehicle info if occupied */}
+        {vehicle && (
+          <>
+            <text
+              x={x + width / 2}
+              y={y + 65}
+              textAnchor="middle"
+              fontSize="11"
+              fill="#333"
+              fontWeight="500"
+            >
+              #{vehicle.tag}
+            </text>
+            <text
+              x={x + width / 2}
+              y={y + 85}
+              textAnchor="middle"
+              fontSize="10"
+              fill="#555"
+            >
+              {vehicle.guestName?.length > 12 
+                ? vehicle.guestName.substring(0, 12) + '...' 
+                : vehicle.guestName}
+            </text>
+            <text
+              x={x + width / 2}
+              y={y + 102}
+              textAnchor="middle"
+              fontSize="10"
+              fill="#555"
+            >
+              Rm {vehicle.roomNumber}
+            </text>
+            {vehicle.make && (
+              <text
+                x={x + width / 2}
+                y={y + 120}
+                textAnchor="middle"
+                fontSize="9"
+                fill="#666"
+              >
+                {vehicle.make?.length > 12 
+                  ? vehicle.make.substring(0, 12) + '...' 
+                  : vehicle.make}
+              </text>
+            )}
+            {vehicle.license && (
+              <text
+                x={x + width / 2}
+                y={y + 135}
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight="600"
+                fill="#333"
+              >
+                {vehicle.license}
+              </text>
+            )}
+          </>
+        )}
+
+        {/* Status indicator */}
+        {vehicle && (
+          <circle
+            cx={x + width - 15}
+            cy={y + 15}
+            r="8"
+            fill={color}
+            stroke="#fff"
+            strokeWidth="2"
+          />
+        )}
+      </g>
+    );
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      {/* Legend */}
+      <div style={{ 
+        display: "flex", 
+        gap: "16px", 
+        marginBottom: "16px", 
+        flexWrap: "wrap",
+        padding: "12px",
+        background: "#f8f8f8",
+        borderRadius: "8px"
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "16px", height: "16px", background: "#e8f5e9", border: "1px solid #666", borderRadius: "3px" }}></div>
+          <span style={{ fontSize: "13px" }}>Vacant</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "16px", height: "16px", background: "#e8daec", border: "1px solid #666", borderRadius: "3px" }}></div>
+          <span style={{ fontSize: "13px" }}>Parked</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "16px", height: "16px", background: "#ff5900", border: "1px solid #666", borderRadius: "3px" }}></div>
+          <span style={{ fontSize: "13px" }}>Requested</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "16px", height: "16px", background: "#ffa726", border: "1px solid #666", borderRadius: "3px" }}></div>
+          <span style={{ fontSize: "13px" }}>Retrieving</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "16px", height: "16px", background: "#4caf50", border: "1px solid #666", borderRadius: "3px" }}></div>
+          <span style={{ fontSize: "13px" }}>Ready</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "16px", height: "16px", background: "#1976d2", border: "1px solid #666", borderRadius: "3px" }}></div>
+          <span style={{ fontSize: "13px" }}>Out</span>
+        </div>
+      </div>
+
+      {/* SVG Map */}
+      <svg viewBox="0 0 900 700" style={{ width: "100%", height: "auto", background: "#f5f5f5", borderRadius: "8px" }}>
+        {/* Top Row - Bays 1-5 */}
+        <ParkingBay number={1} x={790} y={10} />
+        <ParkingBay number={2} x={685} y={10} />
+        <ParkingBay number={3} x={280} y={10} />
+        <ParkingBay number={4} x={175} y={10} />
+        <ParkingBay number={5} x={70} y={10} />
+
+        {/* Elevator */}
+        <rect x={395} y={80} width={250} height={120} fill="#ffcc80" stroke="#666" strokeWidth="2" rx="6" />
+        <text x={520} y={150} textAnchor="middle" fontSize="22" fontWeight="bold" fill="#333">Elevator</text>
+
+        {/* Right Side - Bays 6-7 */}
+        <ParkingBay number={6} x={785} y={250} width={110} height={180} /> {/* Accessible bay - wider */}
+        <ParkingBay number={7} x={680} y={250} width={95} />
+
+        {/* Middle Group - Bays 8-10 */}
+        <ParkingBay number={8} x={575} y={250} />
+        <ParkingBay number={9} x={470} y={250} />
+        <ParkingBay number={10} x={365} y={250} />
+
+        {/* Left Group Top - Bays 11-13 */}
+        <ParkingBay number={11} x={260} y={250} />
+        <ParkingBay number={12} x={155} y={250} />
+        <ParkingBay number={13} x={50} y={250} />
+
+        {/* Bottom Row - Bays 15-21 */}
+        <ParkingBay number={15} x={680} y={470} />
+        <ParkingBay number={16} x={575} y={470} />
+        <ParkingBay number={17} x={470} y={470} />
+        <ParkingBay number={18} x={365} y={470} />
+        <ParkingBay number={19} x={260} y={470} />
+        <ParkingBay number={20} x={155} y={470} />
+        <ParkingBay number={21} x={50} y={470} />
+
+        {/* Bay 14 space (empty/reserved) */}
+        <rect x={785} y={470} width={110} height={200} fill="#ddd" stroke="#999" strokeWidth="1" strokeDasharray="5,5" rx="4" />
+        <text x={840} y={570} textAnchor="middle" fontSize="16" fill="#999">14</text>
+        <text x={840} y={590} textAnchor="middle" fontSize="11" fill="#999">(Reserved)</text>
+      </svg>
+
+      {/* Vehicle Detail Modal */}
+      {selectedVehicle && (
+        <div
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            background: "#fff",
+            padding: "24px",
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+            zIndex: 1000,
+            minWidth: "400px",
+            maxWidth: "500px"
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "16px" }}>
+            <h3 style={{ margin: 0 }}>Vehicle #{selectedVehicle.tag} - Bay {selectedVehicle.bay}</h3>
+            <button
+              onClick={() => setSelectedVehicle(null)}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: "24px",
+                cursor: "pointer",
+                padding: "0",
+                lineHeight: "1"
+              }}
+            >
+              ×
+            </button>
+          </div>
+
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ marginBottom: "8px" }}>
+              <strong>Guest:</strong> {selectedVehicle.guestName} (Room {selectedVehicle.roomNumber})
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <strong>Vehicle:</strong> {selectedVehicle.color} {selectedVehicle.make}
+            </div>
+            {selectedVehicle.license && (
+              <div style={{ marginBottom: "8px" }}>
+                <strong>License:</strong> {selectedVehicle.license}
+              </div>
+            )}
+            <div style={{ marginBottom: "8px" }}>
+              <strong>Status:</strong>{" "}
+              <span className={`status-pill status-${selectedVehicle.status}`}>
+                {selectedVehicle.status === "out" ? "Out" : cap(selectedVehicle.status)}
+              </span>
+            </div>
+            {selectedVehicle.departureDate && (
+              <div style={{ marginBottom: "8px" }}>
+                <strong>Departure:</strong> {fmtDate(selectedVehicle.departureDate)}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button className="btn secondary" onClick={() => { onPark(selectedVehicle); setSelectedVehicle(null); }}>
+              <ParkIcon /> Park
+            </button>
+            {(selectedVehicle.status === "retrieving" || selectedVehicle.status === "parked" || selectedVehicle.status === "requested") && (
+              <button className="btn secondary" onClick={() => { onReady(selectedVehicle.tag); setSelectedVehicle(null); }}>
+                <ReadyIcon /> Ready
+              </button>
+            )}
+            {(selectedVehicle.status === "ready" || selectedVehicle.status === "parked" || selectedVehicle.status === "requested" || selectedVehicle.status === "retrieving") && (
+              <button className="btn secondary" onClick={() => { onHandOver(selectedVehicle.tag); setSelectedVehicle(null); }}>
+                <HandOverIcon /> Hand Over
+              </button>
+            )}
+            <button className="btn secondary" onClick={() => { onPhotos(selectedVehicle.tag); setSelectedVehicle(null); }}>
+              <CameraIcon /> Photos
+            </button>
+            <button className="btn secondary" onClick={() => { onAudit(selectedVehicle.tag); setSelectedVehicle(null); }}>
+              <AuditIcon /> Audit
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Backdrop */}
+      {selectedVehicle && (
+        <div
+          onClick={() => setSelectedVehicle(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 999
+          }}
+        />
+      )}
     </div>
   );
 }
