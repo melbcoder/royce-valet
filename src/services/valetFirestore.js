@@ -504,7 +504,7 @@ export async function authenticateUser(username, password) {
 // Create new user with Firebase Auth
 export async function createUser({ username, password, role, mustChangePassword = false }) {
   const cleanUsername = username.toLowerCase().trim()
-  const email = `${cleanUsername}@royce-valet.local`
+  const email = `${cleanUsername}@royce-valet.internal` // Changed from .local to .internal
   
   let userCredential = null
   

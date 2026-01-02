@@ -1,49 +1,44 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase'; // Adjust the import based on your firebase config file
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { authenticateUser } from '../services/valetFirestore';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
     try {
-      // Sign in with Firebase Auth
-      const { user } = await signInWithEmailAndPassword(auth, email, password);
-
-      // Get user data from Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-
-      if (!userDoc.exists()) {
-        throw new Error('User not found in database');
-      }
-
-      const userData = userDoc.data();
+      // Use the authenticateUser function which handles username -> email conversion
+      const userData = await authenticateUser(username, password);
 
       // Store in localStorage
-      localStorage.setItem('currentUser', JSON.stringify({
-        id: userDoc.id,
-        uid: user.uid,
-        ...userData
-      }))
+      localStorage.setItem('currentUser', JSON.stringify(userData));
 
       // Check if user must change password
       if (userData.mustChangePassword) {
-        navigate('/force-change-password')
-        return
+        navigate('/force-change-password');
+        return;
       }
 
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message);
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        setError('Invalid username or password');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please try again later.');
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,13 +47,15 @@ const Login = () => {
       <h2>Login</h2>
       <form onSubmit={handleLogin}>
         <div className="form-group">
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="username">Username:</label>
           <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type="text"
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             required
+            disabled={loading}
+            autoFocus
           />
         </div>
         <div className="form-group">
@@ -69,10 +66,13 @@ const Login = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
         {error && <p className="error-message">{error}</p>}
-        <button type="submit">Login</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Logging in...' : 'Login'}
+        </button>
       </form>
     </div>
   );
