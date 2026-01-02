@@ -503,7 +503,8 @@ export async function authenticateUser(username, password) {
 
 // Create new user with Firebase Auth
 export async function createUser({ username, password, role, mustChangePassword = false }) {
-  const email = `${username}@royce-valet.local`
+  const cleanUsername = username.toLowerCase().trim()
+  const email = `${cleanUsername}@royce-valet.local`
   
   let userCredential = null
   
@@ -514,7 +515,7 @@ export async function createUser({ username, password, role, mustChangePassword 
     // Create user document in Firestore using UID as document ID
     await setDoc(doc(db, 'users', userCredential.user.uid), {
       uid: userCredential.user.uid,
-      username,
+      username: cleanUsername,
       email,
       role,
       mustChangePassword,

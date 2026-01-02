@@ -171,7 +171,7 @@ export default function Settings({open, onClose}){
       if (editingUser) {
         // Only update role for existing users (password changes done through "Change Password")
         await updateUser(editingUser.id, {
-          username: formData.username,
+          username: formData.username.toLowerCase().trim(),
           role: formData.role
         })
       } else {
@@ -180,7 +180,7 @@ export default function Settings({open, onClose}){
         
         // Create new user with generated password
         await createUser({
-          username: formData.username,
+          username: formData.username.toLowerCase().trim(),
           password: randomPassword,
           role: formData.role,
           mustChangePassword: true
@@ -189,7 +189,7 @@ export default function Settings({open, onClose}){
         // Send SMS with credentials
         try {
           const siteUrl = window.location.origin
-          const message = `Welcome to Royce Valet!\n\nUsername: ${formData.username}\nPassword: ${randomPassword}\n\nLogin at: ${siteUrl}\n\nYou will be required to change your password on first login.`
+          const message = `Welcome to Royce Valet!\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nLogin at: ${siteUrl}\n\nYou will be required to change your password on first login.`
           
           // Use the SMS service
           const { sendSMS } = await import('../services/smsService')
@@ -198,7 +198,7 @@ export default function Settings({open, onClose}){
           alert(`User created successfully!\n\nCredentials have been sent to ${formData.phone}`)
         } catch (smsError) {
           console.error('Failed to send SMS:', smsError)
-          alert(`User created successfully!\n\nWARNING: Could not send SMS. Please manually share credentials:\n\nUsername: ${formData.username}\nPassword: ${randomPassword}\n\nUser must change password on first login.`)
+          alert(`User created successfully!\n\nWARNING: Could not send SMS. Please manually share credentials:\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nUser must change password on first login.`)
         }
       }
       
