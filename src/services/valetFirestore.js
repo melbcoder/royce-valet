@@ -13,9 +13,10 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getTodayInTimezone } from "../utils/timezoneUtils";
 
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 
 // Get storage from the existing Firebase app (imported from firebase.js)
 export const storage = getStorage();
@@ -502,46 +503,43 @@ export async function authenticateUser(username, password) {
 
 // Create new user with Firebase Auth
 export async function createUser({ username, password, role, mustChangePassword = false }) {
-  const { createUserWithEmailAndPassword } = await import('firebase/auth');
-  const { auth } = await import('../firebase');
+  const email = `${username}@royce-valet.local`
   
-  // Validate inputs
-  if (!username || typeof username !== 'string') {
-    throw new Error('Invalid username');
-  }
-  
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    throw new Error('Password must be at least 6 characters');
-  }
+  let userCredential = null
   
   try {
-    const normalizedUsername = sanitizeString(username.toLowerCase().trim(), 50);
+    // Create Firebase Auth user
+    userCredential = await createUserWithEmailAndPassword(auth, email, password)
     
-    // Additional validation
-    if (normalizedUsername.length < 2) {
-      throw new Error('Username must be at least 2 characters');
-    }
-    
-    if (!/^[a-zA-Z0-9_-]+$/.test(normalizedUsername)) {
-      throw new Error('Username can only contain letters, numbers, hyphens, and underscores');
-    }
-    
-    const email = `${normalizedUsername}@royce-valet.internal`;
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // Create user document in Firestore
+    // Create user document in Firestore using UID as document ID
     await setDoc(doc(db, 'users', userCredential.user.uid), {
+      uid: userCredential.user.uid,
       username,
       email,
       role,
       mustChangePassword,
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     })
     
-    return userCredential.user.uid;
-  } catch (error) {
-    console.error('Error creating user:', error);
-    throw error;
+    console.log('User created successfully:', userCredential.user.uid)
+    
+  } catch (err) {
+    console.error('Error in createUser:', err)
+    console.error('Error code:', err.code)
+    console.error('Error message:', err.message)
+    
+    // If Firestore write failed but Auth user was created, try to clean up
+    if (userCredential?.user) {
+      console.warn('Auth user created but Firestore write failed. Attempting cleanup...')
+      try {
+        await userCredential.user.delete()
+        console.log('Cleaned up orphaned auth user')
+      } catch (cleanupErr) {
+        console.error('Failed to cleanup auth user:', cleanupErr)
+      }
+    }
+    
+    throw err
   }
 }
 
