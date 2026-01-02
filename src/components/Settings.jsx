@@ -16,7 +16,7 @@ export default function Settings({open, onClose}){
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
   const [loading, setLoading] = useState(true)
-  const [usersLoading, setUsersLoading] = useState(true)
+  const [usersLoading, setUsersLoading] = useState(false)
   
   const isAdmin = currentUser?.role === 'admin'
 
@@ -53,9 +53,13 @@ export default function Settings({open, onClose}){
   }, [open])
 
   useEffect(() => {
-    if (!open || !isAdmin) return
+    if (!open || !isAdmin) {
+      setUsersLoading(false)
+      return
+    }
     setUsersLoading(true)
     const unsubscribe = subscribeUsers((updatedUsers) => {
+      console.log('Users received:', updatedUsers) // Debug log
       setUsers(updatedUsers)
       setUsersLoading(false)
     })
