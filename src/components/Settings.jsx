@@ -16,6 +16,7 @@ export default function Settings({open, onClose}){
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [usersLoading, setUsersLoading] = useState(true)
   
   const isAdmin = currentUser?.role === 'admin'
 
@@ -53,7 +54,11 @@ export default function Settings({open, onClose}){
 
   useEffect(() => {
     if (!open || !isAdmin) return
-    const unsubscribe = subscribeUsers(setUsers)
+    setUsersLoading(true)
+    const unsubscribe = subscribeUsers((updatedUsers) => {
+      setUsers(updatedUsers)
+      setUsersLoading(false)
+    })
     return () => unsubscribe()
   }, [open, isAdmin])
 
@@ -542,7 +547,11 @@ export default function Settings({open, onClose}){
 
             {/* User List */}
             <div style={{border: '1px solid #ddd', borderRadius: 4, overflow: 'hidden'}}>
-              {users.length === 0 ? (
+              {usersLoading ? (
+                <div style={{padding: 20, textAlign: 'center', color: '#999'}}>
+                  Loading users...
+                </div>
+              ) : users.length === 0 ? (
                 <div style={{padding: 20, textAlign: 'center', color: '#999'}}>
                   No users yet. Add your first user above.
                 </div>
