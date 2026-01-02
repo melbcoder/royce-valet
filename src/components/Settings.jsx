@@ -501,8 +501,12 @@ export default function Settings({open, onClose}){
                       autoFocus
                       disabled={!!editingUser}
                     />
-                    {editingUser && (
+                    {editingUser ? (
                       <small style={{color: '#666', fontSize: 12}}>Username cannot be changed</small>
+                    ) : (
+                      <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                        Email will be: {formData.username.toLowerCase().trim() || 'username'}@royce-valet.internal
+                      </small>
                     )}
                   </div>
                   {!editingUser && (
