@@ -476,6 +476,7 @@ export async function authenticateUser(username, password) {
           uid: uid,
           username: userData.username,
           role: userData.role,
+          mustChangePassword: userData.mustChangePassword || false,
           createdAt: userData.createdAt,
         };
       }
@@ -484,13 +485,14 @@ export async function authenticateUser(username, password) {
     }
     
     const userData = userDoc.data();
-    console.log('User data retrieved successfully');
+    console.log('User data retrieved successfully:', userData);
     
     return {
       id: uid,
       uid: uid,
       username: userData.username,
       role: userData.role,
+      mustChangePassword: userData.mustChangePassword || false,
       createdAt: userData.createdAt,
     };
   } catch (error) {

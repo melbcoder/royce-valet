@@ -14,15 +14,20 @@ const Login = () => {
     setError(null);
     setLoading(true);
 
+    console.log('Attempting login with username:', username);
+
     try {
       // Use the authenticateUser function which handles username -> email conversion
       const userData = await authenticateUser(username, password);
+
+      console.log('Login successful, userData:', userData);
 
       // Store in localStorage
       localStorage.setItem('currentUser', JSON.stringify(userData));
 
       // Check if user must change password
       if (userData.mustChangePassword) {
+        console.log('User must change password, redirecting...');
         navigate('/force-change-password');
         return;
       }
@@ -30,7 +35,10 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
         setError('Invalid username or password');
       } else if (err.code === 'auth/too-many-requests') {
         setError('Too many failed attempts. Please try again later.');
