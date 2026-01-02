@@ -197,3 +197,38 @@ export async function sendRoomReadySMS(phone, roomNumber) {
   }
 }
 
+// SMS Service using Twilio (or your preferred SMS provider)
+// You'll need to set up environment variables or Firebase functions for this
+
+/**
+ * Send SMS using your SMS provider
+ * @param {string} phoneNumber - Phone number in E.164 format (e.g., +12345678900)
+ * @param {string} message - Message to send
+ */
+export async function sendSMS(phoneNumber, message) {
+  // Option 1: Using Firebase Functions (recommended for security)
+  // Call a Cloud Function that handles SMS sending
+  try {
+    const response = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phoneNumber, message }),
+    })
+    
+    if (!response.ok) {
+      throw new Error('Failed to send SMS')
+    }
+    
+    return await response.json()
+  } catch (error) {
+    console.error('SMS sending error:', error)
+    throw error
+  }
+}
+
+// Option 2: Direct Twilio integration (not recommended - exposes API keys)
+// You would need: npm install twilio
+// And set up environment variables for TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
+

@@ -501,21 +501,21 @@ export async function authenticateUser(username, password) {
 }
 
 // Create new user with Firebase Auth
-export async function createUser(userData) {
+export async function createUser({ username, password, role, mustChangePassword = false }) {
   const { createUserWithEmailAndPassword } = await import('firebase/auth');
   const { auth } = await import('../firebase');
   
   // Validate inputs
-  if (!userData.username || typeof userData.username !== 'string') {
+  if (!username || typeof username !== 'string') {
     throw new Error('Invalid username');
   }
   
-  if (!userData.password || typeof userData.password !== 'string' || userData.password.length < 6) {
+  if (!password || typeof password !== 'string' || password.length < 6) {
     throw new Error('Password must be at least 6 characters');
   }
   
   try {
-    const normalizedUsername = sanitizeString(userData.username.toLowerCase().trim(), 50);
+    const normalizedUsername = sanitizeString(username.toLowerCase().trim(), 50);
     
     // Additional validation
     if (normalizedUsername.length < 2) {
@@ -527,15 +527,17 @@ export async function createUser(userData) {
     }
     
     const email = `${normalizedUsername}@royce-valet.internal`;
-    const userCredential = await createUserWithEmailAndPassword(auth, email, userData.password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
-    // Use Firebase Auth UID as document ID
-    await setDoc(doc(usersRef, userCredential.user.uid), {
-      uid: userCredential.user.uid,
-      username: normalizedUsername,
-      role: userData.role || "user",
-      createdAt: serverTimestamp(),
-    });
+    // Create user document in Firestore
+    await setDoc(doc(db, 'users', userCredential.user.uid), {
+      username,
+      email,
+      role,
+      mustChangePassword,
+      createdAt: new Date().toISOString()
+    })
+    
     return userCredential.user.uid;
   } catch (error) {
     console.error('Error creating user:', error);

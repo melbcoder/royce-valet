@@ -6,7 +6,7 @@ export default function Settings({open, onClose}){
   const [users, setUsers] = useState([])
   const [showAddUser, setShowAddUser] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
-  const [formData, setFormData] = useState({ username: '', password: '', role: 'user' })
+  const [formData, setFormData] = useState({ username: '', password: '', role: 'user', phone: '' })
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -108,6 +108,31 @@ export default function Settings({open, onClose}){
     }
   }
 
+  // Add function to generate random password
+  function generateRandomPassword() {
+    const length = 12
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+    const numbers = '0123456789'
+    const special = '!@#$%^&*'
+    const all = uppercase + lowercase + numbers + special
+    
+    let password = ''
+    // Ensure at least one of each type
+    password += uppercase[Math.floor(Math.random() * uppercase.length)]
+    password += lowercase[Math.floor(Math.random() * lowercase.length)]
+    password += numbers[Math.floor(Math.random() * numbers.length)]
+    password += special[Math.floor(Math.random() * special.length)]
+    
+    // Fill the rest randomly
+    for (let i = password.length; i < length; i++) {
+      password += all[Math.floor(Math.random() * all.length)]
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('')
+  }
+
   async function handleSubmitUser(e) {
     e.preventDefault()
     setError('')
@@ -117,10 +142,20 @@ export default function Settings({open, onClose}){
       return
     }
 
-    // Password required only when creating new user
-    if (!editingUser && !formData.password) {
-      setError('Password is required for new users')
-      return
+    // Validate phone number for new users
+    if (!editingUser) {
+      if (!formData.phone) {
+        setError('Phone number is required for new users')
+        return
+      }
+      
+      // Basic phone validation (accepts formats like +1234567890 or 1234567890)
+      const phoneRegex = /^\+?[1-9]\d{9,14}$/
+      const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '')
+      if (!phoneRegex.test(cleanPhone)) {
+        setError('Please enter a valid phone number (10+ digits)')
+        return
+      }
     }
 
     try {
@@ -131,11 +166,34 @@ export default function Settings({open, onClose}){
           role: formData.role
         })
       } else {
-        // Create new user with password
-        await createUser(formData)
+        // Generate random password for new user
+        const randomPassword = generateRandomPassword()
+        
+        // Create new user with generated password
+        await createUser({
+          username: formData.username,
+          password: randomPassword,
+          role: formData.role,
+          mustChangePassword: true
+        })
+        
+        // Send SMS with credentials
+        try {
+          const siteUrl = window.location.origin
+          const message = `Welcome to Royce Valet!\n\nUsername: ${formData.username}\nPassword: ${randomPassword}\n\nLogin at: ${siteUrl}\n\nYou will be required to change your password on first login.`
+          
+          // Use the SMS service
+          const { sendSMS } = await import('../services/smsService')
+          await sendSMS(formData.phone, message)
+          
+          alert(`User created successfully!\n\nCredentials have been sent to ${formData.phone}`)
+        } catch (smsError) {
+          console.error('Failed to send SMS:', smsError)
+          alert(`User created successfully!\n\nWARNING: Could not send SMS. Please manually share credentials:\n\nUsername: ${formData.username}\nPassword: ${randomPassword}\n\nUser must change password on first login.`)
+        }
       }
       
-      setFormData({ username: '', password: '', role: 'user' })
+      setFormData({ username: '', password: '', role: 'user', phone: '' })
       setShowAddUser(false)
       setEditingUser(null)
     } catch (err) {
@@ -153,7 +211,8 @@ export default function Settings({open, onClose}){
     setFormData({
       username: user.username,
       password: '', // Don't populate password for edit
-      role: user.role
+      role: user.role,
+      phone: '' // Don't populate phone for edit
     })
     setShowAddUser(true)
   }
@@ -191,7 +250,7 @@ export default function Settings({open, onClose}){
   }
 
   function cancelForm() {
-    setFormData({ username: '', password: '', role: 'user' })
+    setFormData({ username: '', password: '', role: 'user', phone: '' })
     setShowAddUser(false)
     setEditingUser(null)
     setError('')
@@ -440,12 +499,15 @@ export default function Settings({open, onClose}){
                   {!editingUser && (
                     <div style={{marginBottom: 12}}>
                       <input
-                        type="password"
-                        placeholder="Password (min 6 characters)"
-                        value={formData.password}
-                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                        type="tel"
+                        placeholder="Phone Number (e.g., +12345678900)"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
                         style={{width: '100%'}}
                       />
+                      <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                        A random password will be generated and sent via SMS
+                      </small>
                     </div>
                   )}
                   {editingUser && (
