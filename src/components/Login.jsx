@@ -32,12 +32,12 @@ const Login = () => {
         id: userDoc.id,
         uid: user.uid,
         ...userData
-      }));
+      }))
 
       // Check if user must change password
       if (userData.mustChangePassword) {
-        navigate('/force-change-password');
-        return;
+        navigate('/force-change-password')
+        return
       }
 
       navigate('/');
