@@ -197,15 +197,21 @@ export async function sendRoomReadySMS(phone, roomNumber) {
   }
 }
 
-// SMS Service using Twilio (or your preferred SMS provider)
-// You'll need to set up environment variables or Firebase functions for this
-
 /**
  * Send SMS using your SMS provider
- * @param {string} phoneNumber - Phone number in E.164 format (e.g., +12345678900)
+ * @param {string} phone - Phone number in E.164 format (e.g., +12345678900)
  * @param {string} message - Message to send
  */
-export async function sendSMS(phoneNumber, message) {
+export async function sendSMS(phone, message) {
+  // Validate inputs
+  if (!validatePhoneNumber(phone)) {
+    throw new Error('Invalid phone number format');
+  }
+  
+  checkRateLimit(phone);
+  
+  const sanitized = sanitizeMessage(message);
+  
   // Option 1: Using Firebase Functions (recommended for security)
   // Call a Cloud Function that handles SMS sending
   try {
@@ -214,11 +220,16 @@ export async function sendSMS(phoneNumber, message) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ phoneNumber, message }),
+      body: JSON.stringify({ 
+        to: phone, 
+        message: sanitized,
+        from: 'The Royce'
+      }),
     })
     
     if (!response.ok) {
-      throw new Error('Failed to send SMS')
+      const data = await response.json().catch(() => ({ error: 'Unknown error' }))
+      throw new Error(data.error || 'Failed to send SMS')
     }
     
     return await response.json()
