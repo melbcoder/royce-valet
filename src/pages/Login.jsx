@@ -135,6 +135,8 @@ export default function Login() {
       if (user) {
         setDebugInfo('Authentication successful!');
         console.log('Login successful:', user.username);
+        console.log('mustChangePassword value:', user.mustChangePassword);
+        console.log('Type of mustChangePassword:', typeof user.mustChangePassword);
         
         localStorage.removeItem('loginAttempts');
         localStorage.removeItem('lastLoginAttempt');
@@ -144,8 +146,16 @@ export default function Login() {
           id: user.id,
           uid: user.uid,
           username: user.username,
-          role: user.role
+          role: user.role,
+          mustChangePassword: user.mustChangePassword
         }));
+        
+        // Check if user must change password
+        if (user.mustChangePassword === true) {
+          console.log('User must change password, redirecting to /force-change-password');
+          window.location.href = '/force-change-password';
+          return;
+        }
         
         // Check if this is default admin with default password
         if (user.isDefaultAdmin && cleanUsername === 'admin' && cleanPassword === 'admin123') {
