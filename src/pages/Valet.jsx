@@ -12,6 +12,7 @@ import {
   scheduleRequest,
   clearSchedule,
   getVehicleAuditLog,
+  archiveVehicle,
 } from "../services/valetFirestore";
 import { sendWelcomeSMS } from "../services/smsService";
 import Modal from "../components/Modal";
@@ -428,18 +429,17 @@ export default function Staff() {
   const confirmDeparture = async () => {
     if (departureTag) {
       const tag = departureTag;
-      await updateVehicle(tag, { 
-        status: "departed", 
-        bay: "", 
-        requested: false, 
-        requestedAt: null 
-      });
-      showToast("Vehicle marked as departed.", async () => {
-        // Undo: set status back to "out"
-        await updateVehicle(tag, { 
-          status: "out"
+      const vehicle = vehicles.find(v => v.tag === tag);
+      
+      if (vehicle) {
+        // Archive the vehicle (moves to history collection)
+        await archiveVehicle(tag, vehicle);
+        showToast("Vehicle moved to history.", async () => {
+          // Undo: restore from history by recreating in active vehicles
+          const { reinstateVehicle } = await import('../services/valetFirestore');
+          await reinstateVehicle(tag, vehicle);
         });
-      });
+      }
     }
     setDepartureModalOpen(false);
     setDepartureTag(null);
