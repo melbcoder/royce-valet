@@ -13,6 +13,7 @@ import {
   clearSchedule,
   getVehicleAuditLog,
   archiveVehicle,
+  reinstateVehicle, // Add this import
 } from "../services/valetFirestore";
 import { sendWelcomeSMS } from "../services/smsService";
 import Modal from "../components/Modal";

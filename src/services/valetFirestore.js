@@ -314,8 +314,16 @@ export async function clearSchedule(tag) {
 export async function archiveVehicle(tag, vehicle) {
   const historyDocId = `${tag}-${Date.now()}`;
   
+  // Clean the vehicle object - remove any undefined values and convert Firestore timestamps
+  const cleanVehicle = Object.entries(vehicle).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+  
   await setDoc(doc(historyRef, historyDocId), {
-    ...vehicle,
+    ...cleanVehicle,
     archivedAt: serverTimestamp(),
   });
 
