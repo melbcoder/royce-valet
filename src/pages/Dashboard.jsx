@@ -14,7 +14,13 @@ export default function Dashboard() {
 
   // Subscribe to all active data
   useEffect(() => {
-    const unsubVehicles = subscribeActiveVehicles(setVehicles);
+    const unsubVehicles = subscribeActiveVehicles((allVehicles) => {
+      // Filter out any vehicles that shouldn't be counted (just active ones)
+      const activeVehicles = allVehicles.filter(v => 
+        v.status !== 'archived' && v.status !== 'deleted'
+      );
+      setVehicles(activeVehicles);
+    });
     const unsubLuggage = subscribeActiveLuggage(setLuggageItems);
     const unsubAmenities = subscribeActiveAmenities(setAmenityItems);
 
