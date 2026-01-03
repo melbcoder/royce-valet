@@ -947,9 +947,6 @@ export default function Staff() {
             onPark={openPark}
             onReady={setReady}
             onHandOver={handOver}
-            onPark={openPark}
-            onReady={setReady}
-            onHandOver={handOver}
             onPhotos={openPhotos}
             onAudit={handleViewAudit}
           />
@@ -1651,8 +1648,7 @@ function ScheduleInline({ v, onSet, onClear }) {
           <button className="btn secondary" onClick={() => setOpen(false)}>
             Cancel
           </button>
-        </>
-      )}
+        </>      )}
     </div>
   );
 }
