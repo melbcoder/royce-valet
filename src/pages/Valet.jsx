@@ -432,18 +432,28 @@ export default function Staff() {
       const vehicle = vehicles.find(v => v.tag === tag);
       
       if (vehicle) {
-        // Archive the vehicle and get the history document ID
-        const historyDocId = await archiveVehicle(tag, vehicle);
-        
-        showToast("Vehicle moved to history.", async () => {
-          // Undo: restore from history using the document ID
-          const { reinstateVehicle } = await import('../services/valetFirestore');
-          await reinstateVehicle(historyDocId, vehicle);
-        });
+        try {
+          // Archive the vehicle and get the history document ID
+          const historyDocId = await archiveVehicle(tag, vehicle);
+          
+          setDepartureModalOpen(false);
+          setDepartureTag(null);
+          
+          showToast("Vehicle moved to history.", async () => {
+            // Undo: restore from history using the document ID
+            await reinstateVehicle(historyDocId, vehicle);
+          });
+        } catch (error) {
+          console.error('Error archiving vehicle:', error);
+          showToast('Failed to archive vehicle.');
+          setDepartureModalOpen(false);
+          setDepartureTag(null);
+        }
       }
+    } else {
+      setDepartureModalOpen(false);
+      setDepartureTag(null);
     }
-    setDepartureModalOpen(false);
-    setDepartureTag(null);
   };
 
   const declineDeparture = async () => {
