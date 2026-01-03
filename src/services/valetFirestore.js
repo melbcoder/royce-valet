@@ -312,12 +312,16 @@ export async function clearSchedule(tag) {
 
 // Staff: archive on departure
 export async function archiveVehicle(tag, vehicle) {
-  await setDoc(doc(historyRef, `${tag}-${Date.now()}`), {
+  const historyDocId = `${tag}-${Date.now()}`;
+  
+  await setDoc(doc(historyRef, historyDocId), {
     ...vehicle,
     archivedAt: serverTimestamp(),
   });
 
   await deleteDoc(doc(vehiclesRef, tag));
+  
+  return historyDocId; // Return the history document ID for potential undo
 }
 
 // ✅ Reinstate vehicle from today's history

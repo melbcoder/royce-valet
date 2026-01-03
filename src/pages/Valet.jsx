@@ -432,12 +432,13 @@ export default function Staff() {
       const vehicle = vehicles.find(v => v.tag === tag);
       
       if (vehicle) {
-        // Archive the vehicle (moves to history collection)
-        await archiveVehicle(tag, vehicle);
+        // Archive the vehicle and get the history document ID
+        const historyDocId = await archiveVehicle(tag, vehicle);
+        
         showToast("Vehicle moved to history.", async () => {
-          // Undo: restore from history by recreating in active vehicles
+          // Undo: restore from history using the document ID
           const { reinstateVehicle } = await import('../services/valetFirestore');
-          await reinstateVehicle(tag, vehicle);
+          await reinstateVehicle(historyDocId, vehicle);
         });
       }
     }
@@ -943,6 +944,9 @@ export default function Staff() {
         ) : (
           <ParkingMapView 
             vehicles={active} 
+            onPark={openPark}
+            onReady={setReady}
+            onHandOver={handOver}
             onPark={openPark}
             onReady={setReady}
             onHandOver={handOver}
