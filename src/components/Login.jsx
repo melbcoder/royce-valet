@@ -21,17 +21,21 @@ const Login = () => {
       const userData = await authenticateUser(username, password);
 
       console.log('Login successful, userData:', userData);
+      console.log('mustChangePassword value:', userData.mustChangePassword);
+      console.log('Type of mustChangePassword:', typeof userData.mustChangePassword);
 
       // Store in localStorage
       localStorage.setItem('currentUser', JSON.stringify(userData));
 
       // Check if user must change password
-      if (userData.mustChangePassword) {
-        console.log('User must change password, redirecting...');
-        navigate('/force-change-password');
+      if (userData.mustChangePassword === true) {
+        console.log('User must change password, redirecting to /force-change-password');
+        // Try using window.location instead of navigate for a hard redirect
+        window.location.href = '/force-change-password';
         return;
       }
 
+      console.log('Navigating to home page');
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);
