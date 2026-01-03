@@ -322,11 +322,39 @@ export async function archiveVehicle(tag, vehicle) {
     return acc;
   }, {});
   
+  // Copy vehicle data to history
   await setDoc(doc(historyRef, historyDocId), {
     ...cleanVehicle,
     archivedAt: serverTimestamp(),
   });
 
+  // Move all audit logs for this vehicle to history
+  try {
+    const q = query(vehicleAuditRef, where("vehicleTag", "==", tag));
+    const auditSnapshot = await getDocs(q);
+    
+    // Copy each audit log to a history-specific location
+    const copyPromises = auditSnapshot.docs.map(async (auditDoc) => {
+      const auditData = auditDoc.data();
+      // Store in vehicleAudit collection with a history prefix or marker
+      await setDoc(doc(vehicleAuditRef, `history-${historyDocId}-${auditDoc.id}`), {
+        ...auditData,
+        historyDocId, // Link back to the history document
+        archivedAt: serverTimestamp(),
+      });
+    });
+    
+    await Promise.all(copyPromises);
+    
+    // Delete original audit logs after copying
+    const deletePromises = auditSnapshot.docs.map(auditDoc => deleteDoc(auditDoc.ref));
+    await Promise.all(deletePromises);
+  } catch (error) {
+    console.error('Error moving audit logs to history:', error);
+    // Don't fail the entire archive operation if audit move fails
+  }
+
+  // Delete the active vehicle
   await deleteDoc(doc(vehiclesRef, tag));
   
   return historyDocId; // Return the history document ID for potential undo
@@ -395,6 +423,27 @@ export async function getVehicleAuditLog(vehicleTag) {
     });
   } catch (error) {
     console.error("Error fetching vehicle audit logs:", error);
+    return [];
+  }
+}
+
+// Get audit logs for a vehicle in history (by history document ID)
+export async function getVehicleAuditLogFromHistory(historyDocId) {
+  try {
+    const q = query(vehicleAuditRef, where("historyDocId", "==", historyDocId));
+    const snapshot = await getDocs(q);
+    const logs = snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
+    // Sort by timestamp (oldest first for chronological order)
+    return logs.sort((a, b) => {
+      const timeA = a.timestamp?.seconds || 0;
+      const timeB = b.timestamp?.seconds || 0;
+      return timeA - timeB;
+    });
+  } catch (error) {
+    console.error("Error fetching vehicle audit logs from history:", error);
     return [];
   }
 }
