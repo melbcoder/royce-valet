@@ -443,33 +443,24 @@ export async function authenticateUser(username, password) {
     const cleanUsername = sanitizeString(username.toLowerCase().trim(), 50);
     const email = `${cleanUsername}@royce-valet.internal`;
     
-    console.log('Attempting Firebase Auth with email:', email);
-    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const uid = userCredential.user.uid;
-    console.log('Firebase Auth successful for UID:', uid);
     
     // Get user data using UID as document ID
     const userDoc = await getDoc(doc(usersRef, uid));
     
     if (!userDoc.exists()) {
-      console.error('User authenticated in Firebase Auth but not found in Firestore');
-      console.error('Expected document at path: users/' + uid);
-      
       // Try to find user by querying
-      console.log('Attempting to find user by UID in query...');
       const q = query(usersRef, where("uid", "==", uid));
       const snapshot = await getDocs(q);
       
       if (!snapshot.empty) {
         const foundDoc = snapshot.docs[0];
-        console.log('Found user in Firestore with different document ID:', foundDoc.id);
         
         // Migrate to correct document structure
         const userData = foundDoc.data();
         await setDoc(doc(usersRef, uid), userData);
         await deleteDoc(doc(usersRef, foundDoc.id));
-        console.log('Migrated user document to correct ID');
         
         return {
           id: uid,
@@ -485,7 +476,6 @@ export async function authenticateUser(username, password) {
     }
     
     const userData = userDoc.data();
-    console.log('User data retrieved successfully:', userData);
     
     return {
       id: uid,
@@ -496,9 +486,6 @@ export async function authenticateUser(username, password) {
       createdAt: userData.createdAt,
     };
   } catch (error) {
-    console.error('Authentication error:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
     throw error;
   }
 }
@@ -506,7 +493,7 @@ export async function authenticateUser(username, password) {
 // Create new user with Firebase Auth
 export async function createUser({ username, password, role, mustChangePassword = false }) {
   const cleanUsername = username.toLowerCase().trim()
-  const email = `${cleanUsername}@royce-valet.internal` // Changed from .local to .internal
+  const email = `${cleanUsername}@royce-valet.internal`
   
   let userCredential = null
   
@@ -524,21 +511,13 @@ export async function createUser({ username, password, role, mustChangePassword 
       createdAt: serverTimestamp()
     })
     
-    console.log('User created successfully:', userCredential.user.uid)
-    
   } catch (err) {
-    console.error('Error in createUser:', err)
-    console.error('Error code:', err.code)
-    console.error('Error message:', err.message)
-    
     // If Firestore write failed but Auth user was created, try to clean up
     if (userCredential?.user) {
-      console.warn('Auth user created but Firestore write failed. Attempting cleanup...')
       try {
         await userCredential.user.delete()
-        console.log('Cleaned up orphaned auth user')
       } catch (cleanupErr) {
-        console.error('Failed to cleanup auth user:', cleanupErr)
+        // Silent cleanup failure
       }
     }
     

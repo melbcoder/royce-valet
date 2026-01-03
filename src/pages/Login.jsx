@@ -102,41 +102,31 @@ export default function Login() {
       // If no users exist and default credentials are used, create default admin
       if (isFirstSetup && cleanUsername === 'admin' && cleanPassword === 'admin123') {
         setDebugInfo('Creating default admin account...');
-        console.log('Creating default admin account...');
         
         try {
           await initializeDefaultAdmin();
           setDebugInfo('Default admin created. Waiting for Firestore sync...');
-          console.log('Default admin created successfully');
           
           // Longer delay to ensure Firestore write completes
           await new Promise(resolve => setTimeout(resolve, 2000));
           
           setDebugInfo('Attempting authentication...');
         } catch (createError) {
-          console.error('Error creating default admin:', createError);
-          
           // If user already exists, continue with authentication
           if (createError.code !== 'auth/email-already-in-use') {
             setError('Failed to create default admin: ' + createError.message);
             setLoading(false);
             return;
           }
-          console.log('Default admin already exists, proceeding to authenticate');
         }
       }
 
       setDebugInfo('Authenticating user...');
-      console.log('Attempting to authenticate user:', cleanUsername);
       
       const user = await authenticateUser(cleanUsername, cleanPassword);
-      console.log('Authentication result:', user);
       
       if (user) {
         setDebugInfo('Authentication successful!');
-        console.log('Login successful:', user.username);
-        console.log('mustChangePassword value:', user.mustChangePassword);
-        console.log('Type of mustChangePassword:', typeof user.mustChangePassword);
         
         localStorage.removeItem('loginAttempts');
         localStorage.removeItem('lastLoginAttempt');
@@ -152,7 +142,6 @@ export default function Login() {
         
         // Check if user must change password
         if (user.mustChangePassword === true) {
-          console.log('User must change password, redirecting to /force-change-password');
           window.location.href = '/force-change-password';
           return;
         }
@@ -177,10 +166,6 @@ export default function Login() {
         setPassword('');
       }
     } catch (err) {
-      console.error('Login error:', err);
-      console.error('Error code:', err.code);
-      console.error('Error message:', err.message);
-      
       await new Promise(resolve => setTimeout(resolve, Math.max(0, minResponseTime - (Date.now() - startTime))));
       
       handleFailedLogin();
