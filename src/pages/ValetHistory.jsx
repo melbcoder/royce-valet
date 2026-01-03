@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
-  subscribeActiveVehicles,
-  updateVehicle,
-  deleteVehicle,
+  subscribeHistory,
+  reinstateVehicle,
 } from "../services/valetFirestore";
 import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
@@ -19,47 +18,20 @@ export default function History() {
   const [photoTag, setPhotoTag] = useState(null);
 
   useEffect(() => {
-    const unsub = subscribeActiveVehicles((list) => {
-      // Filter only departed vehicles
-      const departed = list.filter((v) => v.status === "departed");
-      setHistory(departed);
-
-      // Check for vehicles older than 7 days and remove them
-      cleanupOldVehicles(departed);
+    const unsub = subscribeHistory((list) => {
+      // All vehicles from valetHistory collection
+      setHistory(list);
     });
     return unsub;
   }, []);
 
-  const cleanupOldVehicles = async (departedVehicles) => {
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    let removedCount = 0;
-
-    for (const vehicle of departedVehicles) {
-      // Get the departure timestamp (updatedAt is when status was changed to departed)
-      let departureTime;
-      
-      if (vehicle.updatedAt?.toDate) {
-        departureTime = vehicle.updatedAt.toDate().getTime();
-      } else if (vehicle.updatedAt) {
-        departureTime = vehicle.updatedAt;
-      } else {
-        continue; // Skip if no timestamp
-      }
-
-      // If older than 7 days, delete
-      if (departureTime < sevenDaysAgo) {
-        try {
-          console.log(`Deleting vehicle ${vehicle.tag} (departed ${new Date(departureTime).toLocaleDateString()})`);
-          await deleteVehicle(vehicle.tag);
-          removedCount++;
-        } catch (error) {
-          console.error(`Failed to delete vehicle ${vehicle.tag}:`, error);
-        }
-      }
-    }
-
-    if (removedCount > 0) {
-      showToast(`Removed ${removedCount} vehicle(s) older than 7 days from database.`);
+  const handleReinstate = async (vehicle) => {
+    try {
+      await reinstateVehicle(vehicle._id, vehicle);
+      showToast("Vehicle reinstated to active list.");
+    } catch (error) {
+      console.error('Error reinstating vehicle:', error);
+      showToast("Failed to reinstate vehicle.");
     }
   };
 
@@ -78,11 +50,11 @@ export default function History() {
     );
   });
 
-  // group by departure date (using updatedAt as proxy for when departed status was set)
+  // group by archived date
   const grouped = {};
   filtered.forEach((v) => {
-    const d = v.updatedAt?.toDate
-      ? v.updatedAt.toDate().toLocaleDateString()
+    const d = v.archivedAt?.toDate
+      ? v.archivedAt.toDate().toLocaleDateString()
       : new Date().toLocaleDateString();
     if (!grouped[d]) grouped[d] = [];
     grouped[d].push(v);
@@ -92,7 +64,7 @@ export default function History() {
 
   return (
     <section className="card pad">
-      <h2>Departed Vehicles</h2>
+      <h2>Departed Vehicles History</h2>
 
       <input
         className="field"
@@ -101,6 +73,12 @@ export default function History() {
         onChange={(e) => setSearch(e.target.value)}
         style={{ marginBottom: 15 }}
       />
+
+      {Object.keys(grouped).length === 0 && (
+        <div style={{ textAlign: 'center', padding: 40, opacity: 0.7 }}>
+          <p>No departed vehicles in history.</p>
+        </div>
+      )}
 
       {Object.keys(grouped)
         .sort((a, b) => new Date(b) - new Date(a))
@@ -130,7 +108,7 @@ export default function History() {
                       {date === todayStr && (
                         <button
                           className="btn secondary"
-                          onClick={() => updateVehicle(v.tag, { status: "out" })}
+                          onClick={() => handleReinstate(v)}
                         >
                           Reinstate
                         </button>

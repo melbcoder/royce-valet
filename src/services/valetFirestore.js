@@ -23,7 +23,7 @@ export const storage = getStorage();
 
 // Firestore collections
 const vehiclesRef = collection(db, "vehicles");
-const historyRef = collection(db, "history");
+const historyRef = collection(db, "valetHistory"); // Renamed from "history"
 const vehicleAuditRef = collection(db, "vehicleAudit");
 const usersRef = collection(db, "users");
 const luggageRef = collection(db, "luggage");
