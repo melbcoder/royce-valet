@@ -15,7 +15,7 @@ const CameraIcon = () => (
 
 // Reusable Audit Icon Component
 const AuditIcon = () => (
-  <img src="/audit.png" alt="Audit" style={{ width: "20px", height: "20px" }} />
+  <span style={{ fontSize: "16px" }}>📋</span>
 );
 
 export default function History() {
@@ -181,7 +181,7 @@ export default function History() {
 
                       {/* View Audit Log */}
                       <button className="btn secondary" onClick={() => handleViewAudit(v)} title="View Audit Log">
-                        <AuditIcon />
+                        Audit
                       </button>
                     </td>
                   </tr>
