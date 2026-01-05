@@ -22,7 +22,6 @@ export default function Login() {
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutEndTime, setLockoutEndTime] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
-  const [debugOutput, setDebugOutput] = useState('');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const timeoutReason = searchParams.get('reason');
@@ -222,57 +221,6 @@ export default function Login() {
   const getRemainingLockoutTime = () => {
     if (!lockoutEndTime) return 0;
     return Math.max(0, Math.ceil((lockoutEndTime - Date.now()) / 1000));
-  };
-
-  const runDiagnostics = async () => {
-    setDebugOutput('Running diagnostics...\n');
-    
-    try {
-      const { auth } = await import('../firebase');
-      const { db } = await import('../firebase');
-      const { collection, getDocs } = await import('firebase/firestore');
-      
-      let output = 'Running diagnostics...\n\n';
-      
-      // Check auth state
-      output += '1. Firebase Auth State:\n';
-      if (auth.currentUser) {
-        output += `   ✅ Logged in as: ${auth.currentUser.email}\n`;
-        output += `   UID: ${auth.currentUser.uid}\n\n`;
-      } else {
-        output += '   ❌ No user logged in\n\n';
-      }
-      
-      // Check users in Firestore
-      output += '2. Firestore Users Collection:\n';
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      output += `   Total users: ${usersSnapshot.size}\n\n`;
-      
-      if (usersSnapshot.size > 0) {
-        output += '   User documents:\n';
-        usersSnapshot.forEach(doc => {
-          const data = doc.data();
-          output += `   - Document ID: ${doc.id}\n`;
-          output += `     Username: ${data.username}\n`;
-          output += `     Role: ${data.role}\n`;
-          output += `     UID field: ${data.uid}\n`;
-          output += `     Match: ${doc.id === data.uid ? '✅ YES' : '❌ NO'}\n\n`;
-        });
-      } else {
-        output += '   ❌ No users found in Firestore\n\n';
-      }
-      
-      // Check Firestore rules
-      output += '3. Next Steps:\n';
-      output += '   - Go to Firebase Console → Firestore → Rules\n';
-      output += '   - Make sure you published the latest rules\n';
-      output += '   - Document ID must match the UID field\n';
-      
-      setDebugOutput(output);
-      
-    } catch (error) {
-      setDebugOutput(`Error running diagnostics: ${error.message}\n${error.stack}`);
-    }
   };
 
   return (
