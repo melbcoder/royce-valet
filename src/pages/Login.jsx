@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { authenticateUser, checkUsersExist, initializeDefaultAdmin } from '../services/valetFirestore';
 
 // Security utilities
 const sanitizeInput = (input) => {
@@ -20,60 +21,29 @@ export default function Login() {
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutEndTime, setLockoutEndTime] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
-  const [servicesLoaded, setServicesLoaded] = useState(false);
+  const [debugOutput, setDebugOutput] = useState('');
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const timeoutReason = searchParams.get('reason');
-
-  // Lazy load services
-  useEffect(() => {
-    let mounted = true;
-    
-    const loadServices = async () => {
-      try {
-        await import('../services/valetFirestore');
-        if (mounted) {
-          setServicesLoaded(true);
-        }
-      } catch (error) {
-        console.error('Failed to load services:', error);
-        if (mounted) {
-          setError('Failed to load authentication services. Please refresh the page.');
-        }
-      }
-    };
-    
-    loadServices();
-    
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // Check lockout status
   useEffect(() => {
     const checkLockout = () => {
-      try {
-        const attempts = parseInt(localStorage.getItem('loginAttempts') || '0');
-        const lastAttempt = parseInt(localStorage.getItem('lastLoginAttempt') || '0');
-        
-        if (attempts >= MAX_LOGIN_ATTEMPTS) {
-          const timeSinceLastAttempt = Date.now() - lastAttempt;
-          if (timeSinceLastAttempt < LOCKOUT_DURATION) {
-            setIsLockedOut(true);
-            setLockoutEndTime(lastAttempt + LOCKOUT_DURATION);
-            return;
-          } else {
-            // Reset attempts after lockout period
-            localStorage.removeItem('loginAttempts');
-            localStorage.removeItem('lastLoginAttempt');
-          }
+      const attempts = parseInt(localStorage.getItem('loginAttempts') || '0');
+      const lastAttempt = parseInt(localStorage.getItem('lastLoginAttempt') || '0');
+      
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        const timeSinceLastAttempt = Date.now() - lastAttempt;
+        if (timeSinceLastAttempt < LOCKOUT_DURATION) {
+          setIsLockedOut(true);
+          setLockoutEndTime(lastAttempt + LOCKOUT_DURATION);
+          return;
+        } else {
+          // Reset attempts after lockout period
+          localStorage.removeItem('loginAttempts');
+          localStorage.removeItem('lastLoginAttempt');
         }
-        
-        setLoginAttempts(attempts);
-      } catch (error) {
-        console.error('Error checking lockout:', error);
       }
+      
+      setLoginAttempts(attempts);
     };
     
     checkLockout();
@@ -83,47 +53,15 @@ export default function Login() {
 
   // Check if this is first-time setup
   useEffect(() => {
-    if (!servicesLoaded) return;
-    
-    let mounted = true;
-    
     async function checkSetup() {
-      try {
-        const { checkUsersExist } = await import('../services/valetFirestore');
-        const usersExist = await checkUsersExist();
-        if (mounted) {
-          setIsFirstSetup(!usersExist);
-        }
-      } catch (error) {
-        console.error('Error checking setup:', error);
-        if (mounted) {
-          setIsFirstSetup(false);
-        }
-      }
+      const usersExist = await checkUsersExist();
+      setIsFirstSetup(!usersExist);
     }
-    
     checkSetup();
-    
-    return () => {
-      mounted = false;
-    };
-  }, [servicesLoaded]);
-
-  // Show timeout message if redirected from session expiry
-  useEffect(() => {
-    if (timeoutReason === 'timeout') {
-      setError('Your session has expired. Please log in again.');
-    }
-  }, [timeoutReason]);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!servicesLoaded) {
-      setError('Services are still loading. Please wait...');
-      return;
-    }
-    
     setError('');
     setDebugInfo('');
     setLoading(true);
@@ -159,8 +97,6 @@ export default function Login() {
     }
     
     try {
-      const { authenticateUser, initializeDefaultAdmin } = await import('../services/valetFirestore');
-      
       setDebugInfo('Checking if users exist...');
       
       // If no users exist and default credentials are used, create default admin
@@ -203,16 +139,6 @@ export default function Login() {
           role: user.role,
           mustChangePassword: user.mustChangePassword
         }));
-        
-        // Start session tracking
-        try {
-          const { sessionManager } = await import('../utils/sessionManager');
-          if (sessionManager && sessionManager.startSession) {
-            sessionManager.startSession();
-          }
-        } catch (error) {
-          console.error('Failed to start session:', error);
-        }
         
         // Check if user must change password
         if (user.mustChangePassword === true) {
@@ -285,22 +211,56 @@ export default function Login() {
     return Math.max(0, Math.ceil((lockoutEndTime - Date.now()) / 1000));
   };
 
-  if (!servicesLoaded) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: 'calc(100vh - 200px)',
-        padding: '20px'
-      }}>
-        <section className="card pad" style={{ maxWidth: '600px', width: '100%', textAlign: 'center' }}>
-          <h1 style={{ marginBottom: 24 }}>Loading...</h1>
-          <p>Please wait while we load the authentication services.</p>
-        </section>
-      </div>
-    );
-  }
+  const runDiagnostics = async () => {
+    setDebugOutput('Running diagnostics...\n');
+    
+    try {
+      const { auth } = await import('../firebase');
+      const { db } = await import('../firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      
+      let output = 'Running diagnostics...\n\n';
+      
+      // Check auth state
+      output += '1. Firebase Auth State:\n';
+      if (auth.currentUser) {
+        output += `   ✅ Logged in as: ${auth.currentUser.email}\n`;
+        output += `   UID: ${auth.currentUser.uid}\n\n`;
+      } else {
+        output += '   ❌ No user logged in\n\n';
+      }
+      
+      // Check users in Firestore
+      output += '2. Firestore Users Collection:\n';
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      output += `   Total users: ${usersSnapshot.size}\n\n`;
+      
+      if (usersSnapshot.size > 0) {
+        output += '   User documents:\n';
+        usersSnapshot.forEach(doc => {
+          const data = doc.data();
+          output += `   - Document ID: ${doc.id}\n`;
+          output += `     Username: ${data.username}\n`;
+          output += `     Role: ${data.role}\n`;
+          output += `     UID field: ${data.uid}\n`;
+          output += `     Match: ${doc.id === data.uid ? '✅ YES' : '❌ NO'}\n\n`;
+        });
+      } else {
+        output += '   ❌ No users found in Firestore\n\n';
+      }
+      
+      // Check Firestore rules
+      output += '3. Next Steps:\n';
+      output += '   - Go to Firebase Console → Firestore → Rules\n';
+      output += '   - Make sure you published the latest rules\n';
+      output += '   - Document ID must match the UID field\n';
+      
+      setDebugOutput(output);
+      
+    } catch (error) {
+      setDebugOutput(`Error running diagnostics: ${error.message}\n${error.stack}`);
+    }
+  };
 
   return (
     <div style={{ 
