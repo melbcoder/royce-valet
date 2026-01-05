@@ -56,8 +56,13 @@ export default function Login() {
   // Check if this is first-time setup
   useEffect(() => {
     async function checkSetup() {
-      const usersExist = await checkUsersExist();
-      setIsFirstSetup(!usersExist);
+      try {
+        const usersExist = await checkUsersExist();
+        setIsFirstSetup(!usersExist);
+      } catch (error) {
+        console.error('Error checking setup:', error);
+        setIsFirstSetup(false);
+      }
     }
     checkSetup();
   }, []);
