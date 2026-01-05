@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authenticateUser, checkUsersExist, initializeDefaultAdmin } from '../services/valetFirestore';
-import { sessionManager } from '../utils/sessionManager';
 
 // Security utilities
 const sanitizeInput = (input) => {
@@ -29,23 +28,27 @@ export default function Login() {
   // Check lockout status
   useEffect(() => {
     const checkLockout = () => {
-      const attempts = parseInt(localStorage.getItem('loginAttempts') || '0');
-      const lastAttempt = parseInt(localStorage.getItem('lastLoginAttempt') || '0');
-      
-      if (attempts >= MAX_LOGIN_ATTEMPTS) {
-        const timeSinceLastAttempt = Date.now() - lastAttempt;
-        if (timeSinceLastAttempt < LOCKOUT_DURATION) {
-          setIsLockedOut(true);
-          setLockoutEndTime(lastAttempt + LOCKOUT_DURATION);
-          return;
-        } else {
-          // Reset attempts after lockout period
-          localStorage.removeItem('loginAttempts');
-          localStorage.removeItem('lastLoginAttempt');
+      try {
+        const attempts = parseInt(localStorage.getItem('loginAttempts') || '0');
+        const lastAttempt = parseInt(localStorage.getItem('lastLoginAttempt') || '0');
+        
+        if (attempts >= MAX_LOGIN_ATTEMPTS) {
+          const timeSinceLastAttempt = Date.now() - lastAttempt;
+          if (timeSinceLastAttempt < LOCKOUT_DURATION) {
+            setIsLockedOut(true);
+            setLockoutEndTime(lastAttempt + LOCKOUT_DURATION);
+            return;
+          } else {
+            // Reset attempts after lockout period
+            localStorage.removeItem('loginAttempts');
+            localStorage.removeItem('lastLoginAttempt');
+          }
         }
+        
+        setLoginAttempts(attempts);
+      } catch (error) {
+        console.error('Error checking lockout:', error);
       }
-      
-      setLoginAttempts(attempts);
     };
     
     checkLockout();
@@ -155,7 +158,14 @@ export default function Login() {
         }));
         
         // Start session tracking
-        sessionManager.startSession();
+        try {
+          const { sessionManager } = await import('../utils/sessionManager');
+          if (sessionManager && sessionManager.startSession) {
+            sessionManager.startSession();
+          }
+        } catch (error) {
+          console.error('Failed to start session:', error);
+        }
         
         // Check if user must change password
         if (user.mustChangePassword === true) {
@@ -340,5 +350,8 @@ export default function Login() {
         </form>
       </section>
     </div>
+
+
+}  );    </div>
   );
 }
