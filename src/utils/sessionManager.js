@@ -62,8 +62,10 @@ class SessionManager {
   startActivityMonitoring() {
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     
+    const updateActivity = () => this.updateActivity();
+    
     events.forEach(event => {
-      document.addEventListener(event, () => this.updateActivity(), { passive: true });
+      document.addEventListener(event, updateActivity, { passive: true });
     });
   }
 
