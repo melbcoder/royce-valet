@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { authenticateUser, checkUsersExist, initializeDefaultAdmin } from '../services/valetFirestore';
 
 // Security utilities
 const sanitizeInput = (input) => {
@@ -21,9 +20,35 @@ export default function Login() {
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutEndTime, setLockoutEndTime] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
+  const [servicesLoaded, setServicesLoaded] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const timeoutReason = searchParams.get('reason');
+
+  // Lazy load services
+  useEffect(() => {
+    let mounted = true;
+    
+    const loadServices = async () => {
+      try {
+        await import('../services/valetFirestore');
+        if (mounted) {
+          setServicesLoaded(true);
+        }
+      } catch (error) {
+        console.error('Failed to load services:', error);
+        if (mounted) {
+          setError('Failed to load authentication services. Please refresh the page.');
+        }
+      }
+    };
+    
+    loadServices();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Check lockout status
   useEffect(() => {
@@ -58,17 +83,31 @@ export default function Login() {
 
   // Check if this is first-time setup
   useEffect(() => {
+    if (!servicesLoaded) return;
+    
+    let mounted = true;
+    
     async function checkSetup() {
       try {
+        const { checkUsersExist } = await import('../services/valetFirestore');
         const usersExist = await checkUsersExist();
-        setIsFirstSetup(!usersExist);
+        if (mounted) {
+          setIsFirstSetup(!usersExist);
+        }
       } catch (error) {
         console.error('Error checking setup:', error);
-        setIsFirstSetup(false);
+        if (mounted) {
+          setIsFirstSetup(false);
+        }
       }
     }
+    
     checkSetup();
-  }, []);
+    
+    return () => {
+      mounted = false;
+    };
+  }, [servicesLoaded]);
 
   // Show timeout message if redirected from session expiry
   useEffect(() => {
@@ -79,6 +118,12 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!servicesLoaded) {
+      setError('Services are still loading. Please wait...');
+      return;
+    }
+    
     setError('');
     setDebugInfo('');
     setLoading(true);
@@ -114,6 +159,8 @@ export default function Login() {
     }
     
     try {
+      const { authenticateUser, initializeDefaultAdmin } = await import('../services/valetFirestore');
+      
       setDebugInfo('Checking if users exist...');
       
       // If no users exist and default credentials are used, create default admin
@@ -237,6 +284,23 @@ export default function Login() {
     if (!lockoutEndTime) return 0;
     return Math.max(0, Math.ceil((lockoutEndTime - Date.now()) / 1000));
   };
+
+  if (!servicesLoaded) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: 'calc(100vh - 200px)',
+        padding: '20px'
+      }}>
+        <section className="card pad" style={{ maxWidth: '600px', width: '100%', textAlign: 'center' }}>
+          <h1 style={{ marginBottom: 24 }}>Loading...</h1>
+          <p>Please wait while we load the authentication services.</p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
