@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authenticateUser, checkUsersExist, initializeDefaultAdmin } from '../services/valetFirestore';
+import { sessionManager } from '../utils/sessionManager';
 
 // Security utilities
 const sanitizeInput = (input) => {
@@ -23,6 +24,8 @@ export default function Login() {
   const [debugInfo, setDebugInfo] = useState('');
   const [debugOutput, setDebugOutput] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const timeoutReason = searchParams.get('reason');
 
   // Check lockout status
   useEffect(() => {
@@ -59,6 +62,13 @@ export default function Login() {
     }
     checkSetup();
   }, []);
+
+  // Show timeout message if redirected from session expiry
+  useEffect(() => {
+    if (timeoutReason === 'timeout') {
+      setError('Your session has expired. Please log in again.');
+    }
+  }, [timeoutReason]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -139,6 +149,9 @@ export default function Login() {
           role: user.role,
           mustChangePassword: user.mustChangePassword
         }));
+        
+        // Start session tracking
+        sessionManager.startSession();
         
         // Check if user must change password
         if (user.mustChangePassword === true) {

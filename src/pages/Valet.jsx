@@ -20,6 +20,7 @@ import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
 import { formatPhoneNumber } from "../utils/phoneFormatter";
+import { sessionManager } from "../utils/sessionManager";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -140,6 +141,21 @@ export default function Staff() {
   const prevQueueIds = useRef(new Set());
   const titleBase = useRef(document.title);
   const chimeRef = useRef(null);
+
+  // session timeout
+  const [remainingSessionTime, setRemainingSessionTime] = useState(60);
+
+  // Update remaining session time every minute
+  useEffect(() => {
+    const updateRemainingTime = () => {
+      setRemainingSessionTime(sessionManager.getRemainingTime());
+    };
+    
+    updateRemainingTime();
+    const interval = setInterval(updateRemainingTime, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // ---------- subscription ----------
   useEffect(() => {
@@ -581,7 +597,17 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+          {remainingSessionTime <= 5 && (
+            <div style={{ 
+              fontSize: '12px', 
+              color: remainingSessionTime <= 2 ? '#f44336' : '#ff9800',
+              marginRight: '8px',
+              fontWeight: 500
+            }}>
+              ⏱️ Session expires in {remainingSessionTime} min
+            </div>
+          )}
           <button className="btn secondary" onClick={() => navigate('/valet-history')}>
             View History
           </button>
