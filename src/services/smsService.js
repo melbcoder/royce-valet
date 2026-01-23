@@ -88,7 +88,7 @@ export async function sendWelcomeSMS(phone, tag) {
   // Ensure tag is properly encoded
   const encodedTag = encodeURIComponent(String(tag));
   const guestLink = `${appUrl}/guest/${encodedTag}`;
-  const from = 'The Royce';
+  // const from = 'The Royce';
 
   const message = sanitizeMessage(`Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`);
 
@@ -103,7 +103,7 @@ export async function sendWelcomeSMS(phone, tag) {
       body: JSON.stringify({
         to: phone,
         message: message,
-        from: from,
+        // from: from,
       }),
     });
 
@@ -145,7 +145,7 @@ export async function sendVehicleReadySMS(phone, tag) {
       body: JSON.stringify({
         to: phone,
         message: message,
-        from: 'The Royce',
+        // from: 'The Royce',
       }),
     });
 
@@ -180,7 +180,7 @@ export async function sendRoomReadySMS(phone, roomNumber) {
       body: JSON.stringify({
         to: phone,
         message: message,
-        from: 'The Royce',
+        // from: 'The Royce',
       }),
     });
 
@@ -223,7 +223,7 @@ export async function sendSMS(phone, message) {
       body: JSON.stringify({ 
         to: phone, 
         message: sanitized,
-        from: 'The Royce'
+        // from: 'The Royce'
       }),
     })
     
