@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Guest from './pages/Guest';
 import Valet from './pages/Valet';
 import ValetHistory from './pages/ValetHistory';
@@ -14,6 +14,7 @@ import Nav from './components/Nav';
 import ToastHost from './components/Toast';
 import Settings from './components/Settings';
 import ForceChangePassword from './components/ForceChangePassword';
+import { sessionManager } from './utils/sessionManager';
 
 function Logo() {
   const navigate = useNavigate();
@@ -26,6 +27,30 @@ function Logo() {
 
 export default function App(){
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const location = useLocation();
+
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    
+    if (currentUser) {
+      // Start session monitoring if user is logged in
+      if (sessionManager.isSessionValid()) {
+        sessionManager.startSession();
+      } else {
+        // Session expired, clear user and redirect to login
+        sessionManager.endSession();
+      }
+    }
+  }, []);
+
+  // Check session validity on route changes
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    
+    if (currentUser && !sessionManager.isSessionValid()) {
+      sessionManager.endSession();
+    }
+  }, [location.pathname]);
 
   return (
     <Router>
