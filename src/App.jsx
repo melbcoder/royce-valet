@@ -15,6 +15,7 @@ import ToastHost from './components/Toast';
 import Settings from './components/Settings';
 import ForceChangePassword from './components/ForceChangePassword';
 import { sessionManager } from './utils/sessionManager';
+import { getCurrentUser } from './services/valetFirestore';
 
 function Logo() {
   const navigate = useNavigate();

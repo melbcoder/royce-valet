@@ -88,7 +88,7 @@ const validateTag = (tag) => {
 };
 
 // Helper function to get current user from session
-const getCurrentUser = () => {
+export const getCurrentUser = () => {
   try {
     const userStr = localStorage.getItem('currentUser');
     if (userStr) {
