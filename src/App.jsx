@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Guest from './pages/Guest';
 import Valet from './pages/Valet';
 import ValetHistory from './pages/ValetHistory';
@@ -54,7 +54,7 @@ export default function App(){
   }, [location.pathname]);
 
   return (
-    <Router>
+    <>
       <ToastHost />
       <div>
         <div className="topbar">
@@ -139,6 +139,6 @@ export default function App(){
         </main>
         <Settings open={settingsOpen} onClose={()=>setSettingsOpen(false)} />
       </div>
-    </Router>
+    </>
   )
 }
