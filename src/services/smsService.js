@@ -108,15 +108,15 @@ export async function sendWelcomeSMS(phone, tag) {
     });
 
     console.log('Response status:', response.status);
-    
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({ error: 'Unknown error' }));
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok || !data.success) {
       throw new Error(data.error || 'Failed to send SMS');
     }
-    
-    const data = await response.json();
 
-    return { success: true, messageSid: data.messageSid };
+    return { success: true, messageSid: data.messageSid, status: data.status };
   } catch (error) {
     console.error('Error sending SMS:', error);
     throw error;
@@ -149,13 +149,14 @@ export async function sendVehicleReadySMS(phone, tag) {
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
 
-    if (!response.ok) {
+    if (!response.ok || !data.success) {
       throw new Error(data.error || 'Failed to send SMS');
     }
 
-    return { success: true, messageSid: data.messageSid };
+    return { success: true, messageSid: data.messageSid, status: data.status };
   } catch (error) {
     console.error('Error sending SMS:', error);
     throw error;
@@ -184,13 +185,14 @@ export async function sendRoomReadySMS(phone, roomNumber) {
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
 
-    if (!response.ok) {
+    if (!response.ok || !data.success) {
       throw new Error(data.error || 'Failed to send SMS');
     }
 
-    return { success: true, messageSid: data.messageSid };
+    return { success: true, messageSid: data.messageSid, status: data.status };
   } catch (error) {
     console.error('Error sending SMS:', error);
     throw error;
@@ -220,19 +222,21 @@ export async function sendSMS(phone, message) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        to: phone, 
+      body: JSON.stringify({
+        to: phone,
         message: sanitized,
         // from: 'The Royce'
       }),
     })
-    
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({ error: 'Unknown error' }))
+
+    const text = await response.text()
+    const data = text ? JSON.parse(text) : {}
+
+    if (!response.ok || !data.success) {
       throw new Error(data.error || 'Failed to send SMS')
     }
-    
-    return await response.json()
+
+    return data
   } catch (error) {
     console.error('SMS sending error:', error)
     throw error

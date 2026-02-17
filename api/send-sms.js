@@ -53,15 +53,25 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error('Twilio API error:', data);
-      return res.status(response.status).json({ 
-        error: 'Failed to send SMS', 
-        details: data 
+      return res.status(response.status).json({
+        error: 'Failed to send SMS',
+        details: data
       });
     }
 
-    return res.status(200).json({ 
-      success: true, 
-      messageSid: data.sid 
+    // Twilio can return 200 with error info embedded
+    if (data.error_code || data.error_message || data.status === 'failed' || data.status === 'undelivered') {
+      console.error('Twilio message failure:', data);
+      return res.status(502).json({
+        error: 'Failed to send SMS',
+        details: data
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      messageSid: data.sid,
+      status: data.status
     });
   } catch (error) {
     console.error('Error sending SMS:', error);
