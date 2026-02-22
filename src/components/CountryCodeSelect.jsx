@@ -29,10 +29,14 @@ const isExactMatch = (country, value) => {
   if (country.iso.toLowerCase() === v) return true;
 
   const codeValue = v.startsWith("+") ? v : `+${v}`;
-  return getCodeList(country.code).some((code) => code.toLowerCase() === codeValue);
+  if (getCodeList(country.code).some((code) => code.toLowerCase() === codeValue)) return true;
+
+  const primary = getCodeList(country.code)[0]?.toLowerCase();
+  const isoPlus = `${country.iso.toLowerCase()} ${primary || ""}`.trim();
+  return v === isoPlus;
 };
 
-export default function CountryCodeSelect({ value, onChange, placeholder = "ISO (e.g., AUS)" }) {
+export default function CountryCodeSelect({ value, onChange, placeholder = "Country Code" }) {
   const [inputValue, setInputValue] = useState(value || "");
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -58,8 +62,10 @@ export default function CountryCodeSelect({ value, onChange, placeholder = "ISO 
   }, [inputValue]);
 
   const handleSelect = (country) => {
-    onChange(country.iso);
-    setInputValue(country.iso);
+    const primary = getCodeList(country.code)[0] || "";
+    const display = `${country.iso} ${primary}`.trim();
+    onChange(display);
+    setInputValue(display);
     setOpen(false);
   };
 
