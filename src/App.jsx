@@ -9,6 +9,8 @@ import Luggage from './pages/Luggage';
 import Amenities from './pages/Amenities';
 import LuggageHistory from './pages/LuggageHistory';
 import AmenitiesHistory from './pages/AmenitiesHistory';
+import MaintenanceJobs from './pages/MaintenanceJobs';
+import ContractorSignIn from './pages/ContractorSignIn';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
@@ -133,6 +135,22 @@ export default function App(){
                   <AmenitiesHistory />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/maintenance/jobs"
+              element={
+                <ProtectedRoute>
+                  <MaintenanceJobs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/maintenance/contractor-sign-in"
+              element={
+                <ProtectedRoute>
+                  <ContractorSignIn />
+                </ProtectedRoute>
+              }
             />
           </Routes>
           <div style={{position:'fixed', right:12, bottom:10, opacity:.5, fontSize:12, pointerEvents:'none'}}>Version 1.8.5</div>

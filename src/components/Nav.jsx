@@ -7,7 +7,18 @@ export default function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const isStaffPage = ['/dashboard', '/valet', '/valet-history', '/luggage', '/amenities', '/luggage-history', '/amenities-history'].includes(location.pathname);
+  const isStaffPage = [
+    '/dashboard',
+    '/valet',
+    '/valet-history',
+    '/luggage',
+    '/amenities',
+    '/luggage-history',
+    '/amenities-history',
+    '/maintenance/jobs',
+    '/maintenance/contractor-sign-in'
+  ].includes(location.pathname);
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -50,6 +61,55 @@ export default function Nav() {
       <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
         Amenities
       </NavLink>
+      <div
+        onMouseEnter={() => setMaintenanceOpen(true)}
+        onMouseLeave={() => setMaintenanceOpen(false)}
+        style={{ position: 'relative', display: 'inline-block' }}
+      >
+        <NavLink
+          to="/maintenance/jobs"
+          style={({ isActive }) => navLinkStyle(isActive)}
+        >
+          Maintenance ▾
+        </NavLink>
+        {maintenanceOpen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              background: '#fff',
+              border: '1px solid #ddd',
+              borderRadius: 8,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+              padding: 6,
+              zIndex: 50,
+              minWidth: 200
+            }}
+          >
+            <NavLink
+              to="/maintenance/jobs"
+              style={({ isActive }) => ({
+                ...navLinkStyle(isActive),
+                display: 'block',
+                marginRight: 0
+              })}
+            >
+              Maintenance Jobs
+            </NavLink>
+            <NavLink
+              to="/maintenance/contractor-sign-in"
+              style={({ isActive }) => ({
+                ...navLinkStyle(isActive),
+                display: 'block',
+                marginRight: 0
+              })}
+            >
+              Contractor Sign In
+            </NavLink>
+          </div>
+        )}
+      </div>
       
       {isStaffPage && (
         <button 
