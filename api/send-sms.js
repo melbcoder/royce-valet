@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const usNumber = process.env.TWILIO_US_PHONE_NUMBER;
   const auNumber = process.env.TWILIO_AU_PHONE_NUMBER;
 
-  if (!accountSid || !authToken || !usNumber || !auNumber) {
+  if (!accountSid || !authToken || !auNumber) {
     console.error('Missing Twilio credentials');
     return res.status(500).json({ error: 'Server configuration error' });
   }
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   // Determine which number to send from based on destination country
   // US numbers start with +1, use US number for those
   const isUSNumber = to.startsWith('+1');
-  const fromNumber = isUSNumber ? usNumber : auNumber;
+  const fromNumber = isUSNumber ? (usNumber || auNumber) : auNumber;
 
   console.log(`Sending to ${to.substring(0, 5)}... from ${fromNumber.substring(0, 5)}... (${isUSNumber ? 'US' : 'International'})`);
 
