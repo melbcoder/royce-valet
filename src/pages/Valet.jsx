@@ -20,6 +20,7 @@ import Modal from "../components/Modal";
 import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
 import { formatPhoneNumber } from "../utils/phoneFormatter";
+import { countryCodes } from "../utils/countryCodes";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -39,6 +40,11 @@ const fmtDate = (dateStr) => {
 };
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
+
+const getCountryCode = (value) => {
+  const match = String(value || "").match(/\+\d{1,4}/);
+  return match ? match[0] : "";
+};
 
 // Reusable Park Icon Component
 const ParkIcon = () => (
@@ -91,6 +97,7 @@ export default function Staff() {
     tag: "",
     guestName: "",
     roomNumber: "",
+    countryCode: "Australia (+61)",
     phone: "",
     departureDate: "",
   });
@@ -98,6 +105,7 @@ export default function Staff() {
     tag: false,
     guestName: false,
     roomNumber: false,
+    countryCode: false,
     phone: false,
     departureDate: false,
   });
@@ -277,13 +285,16 @@ export default function Staff() {
 
   // ---------- actions ----------
   const handleCreate = async () => {
-    const { tag, guestName, roomNumber, phone, departureDate } = newVehicle;
+    const { tag, guestName, roomNumber, countryCode, phone, departureDate } = newVehicle;
+    const parsedCode = getCountryCode(countryCode);
+    const phoneDigits = String(phone).replace(/\D/g, "").replace(/^0+/, "");
     
     const errors = {
       tag: !String(tag).trim(),
       guestName: !String(guestName).trim(),
       roomNumber: !String(roomNumber).trim(),
-      phone: !String(phone).trim(),
+      countryCode: !parsedCode,
+      phone: !String(phone).trim() || phoneDigits.length === 0,
       departureDate: !String(departureDate).trim(),
     };
 
@@ -295,7 +306,7 @@ export default function Staff() {
     }
 
     // Format phone number to international format
-    const formattedPhone = formatPhoneNumber(phone);
+    const formattedPhone = formatPhoneNumber(`${parsedCode}${phoneDigits}`);
 
     await createVehicle({
       tag,
@@ -318,6 +329,7 @@ export default function Staff() {
       tag: "",
       guestName: "",
       roomNumber: "",
+      countryCode: "Australia (+61)",
       phone: "",
       departureDate: "",
     });
@@ -325,6 +337,7 @@ export default function Staff() {
       tag: false,
       guestName: false,
       roomNumber: false,
+      countryCode: false,
       phone: false,
       departureDate: false,
     });
@@ -1019,18 +1032,36 @@ export default function Staff() {
           </div>
 
           <div>
-            <input 
-              placeholder="Phone (required)" 
-              value={newVehicle.phone}
-              onChange={(e) => {
-                setNewVehicle({ ...newVehicle, phone: e.target.value });
-                if (newVehicleErrors.phone) setNewVehicleErrors({ ...newVehicleErrors, phone: false });
-              }}
-              style={{ borderColor: newVehicleErrors.phone ? "#ff4444" : undefined }}
-            />
-            {newVehicleErrors.phone && (
+            <div className="row" style={{ gap: 8 }}>
+              <div style={{ minWidth: 170, flex: "0 0 170px" }}>
+                <input
+                  list="country-code-list"
+                  placeholder="Country code"
+                  value={newVehicle.countryCode}
+                  onChange={(e) => {
+                    setNewVehicle({ ...newVehicle, countryCode: e.target.value });
+                    if (newVehicleErrors.countryCode) setNewVehicleErrors({ ...newVehicleErrors, countryCode: false });
+                  }}
+                  style={{ borderColor: newVehicleErrors.countryCode ? "#ff4444" : undefined }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <input 
+                  placeholder="Phone (required)" 
+                  value={newVehicle.phone}
+                  onChange={(e) => {
+                    setNewVehicle({ ...newVehicle, phone: e.target.value });
+                    if (newVehicleErrors.phone) setNewVehicleErrors({ ...newVehicleErrors, phone: false });
+                  }}
+                  style={{ borderColor: newVehicleErrors.phone ? "#ff4444" : undefined }}
+                />
+              </div>
+            </div>
+            {(newVehicleErrors.countryCode || newVehicleErrors.phone) && (
               <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
-                *this field is required
+                {newVehicleErrors.countryCode && "*country code is required"}
+                {newVehicleErrors.countryCode && newVehicleErrors.phone ? " | " : ""}
+                {newVehicleErrors.phone && "*phone is required"}
               </div>
             )}
           </div>
@@ -1153,6 +1184,12 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
+
+      <datalist id="country-code-list">
+        {countryCodes.map((c) => (
+          <option key={`${c.name}-${c.code}`} value={`${c.name} (${c.code})`} />
+        ))}
+      </datalist>
 
       {/* Departure Confirmation Modal */}
       <Modal open={departureModalOpen} onClose={() => setDepartureModalOpen(false)} title="Confirm Departure">

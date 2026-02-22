@@ -14,6 +14,12 @@ import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { getTodayInTimezone } from '../utils/timezoneUtils';
+import { countryCodes } from '../utils/countryCodes';
+
+const getCountryCode = (value) => {
+  const match = String(value || '').match(/\+\d{1,4}/);
+  return match ? match[0] : '';
+};
 
 export default function Luggage() {
   const navigate = useNavigate();
@@ -34,6 +40,7 @@ export default function Luggage() {
     guestName: '',
     roomNumber: '',
     roomStatus: '',
+    countryCode: 'Australia (+61)',
     phone: '',
     numberOfBags: '',
     notes: '',
@@ -88,7 +95,9 @@ export default function Luggage() {
       tags: newLuggage.tags.length === 0,
       guestName: !String(newLuggage.guestName).trim(),
       roomNumber: !String(newLuggage.roomNumber).trim(),
-      phone: !String(newLuggage.phone).trim(),
+      countryCode: !getCountryCode(newLuggage.countryCode),
+      phone: !String(newLuggage.phone).trim() ||
+        String(newLuggage.phone).replace(/\D/g, '').replace(/^0+/, '').length === 0,
     };
 
     setErrors(validationErrors);
@@ -102,7 +111,9 @@ export default function Luggage() {
       console.log('Creating luggage with tags:', newLuggage.tags);
 
       // Format phone number to international format
-      const formattedPhone = formatPhoneNumber(newLuggage.phone);
+      const parsedCode = getCountryCode(newLuggage.countryCode);
+      const phoneDigits = String(newLuggage.phone).replace(/\D/g, '').replace(/^0+/, '');
+      const formattedPhone = formatPhoneNumber(`${parsedCode}${phoneDigits}`);
 
       await createLuggage({
         ...newLuggage,
@@ -115,6 +126,7 @@ export default function Luggage() {
         guestName: '',
         roomNumber: '',
         roomStatus: '',
+        countryCode: 'Australia (+61)',
         phone: '',
         numberOfBags: '',
         notes: '',
@@ -560,16 +572,38 @@ export default function Luggage() {
           </div>
 
           <div>
-            <input
-              placeholder="Phone (required)"
-              value={newLuggage.phone}
-              onChange={(e) => {
-                setNewLuggage({ ...newLuggage, phone: e.target.value });
-                if (errors.phone) setErrors({ ...errors, phone: false });
-              }}
-              style={{ width: '100%', borderColor: errors.phone ? '#ff4444' : undefined }}
-            />
-            {errors.phone && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            <div className="row" style={{ gap: 8 }}>
+              <div style={{ minWidth: 170, flex: '0 0 170px' }}>
+                <input
+                  list="country-code-list"
+                  placeholder="Country code"
+                  value={newLuggage.countryCode}
+                  onChange={(e) => {
+                    setNewLuggage({ ...newLuggage, countryCode: e.target.value });
+                    if (errors.countryCode) setErrors({ ...errors, countryCode: false });
+                  }}
+                  style={{ borderColor: errors.countryCode ? '#ff4444' : undefined }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <input
+                  placeholder="Phone (required)"
+                  value={newLuggage.phone}
+                  onChange={(e) => {
+                    setNewLuggage({ ...newLuggage, phone: e.target.value });
+                    if (errors.phone) setErrors({ ...errors, phone: false });
+                  }}
+                  style={{ width: '100%', borderColor: errors.phone ? '#ff4444' : undefined }}
+                />
+              </div>
+            </div>
+            {(errors.countryCode || errors.phone) && (
+              <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>
+                {errors.countryCode && '*country code is required'}
+                {errors.countryCode && errors.phone ? ' | ' : ''}
+                {errors.phone && '*phone is required'}
+              </div>
+            )}
           </div>
 
           <input
@@ -818,6 +852,12 @@ export default function Luggage() {
           </div>
         </div>
       </Modal>
+
+      <datalist id="country-code-list">
+        {countryCodes.map((c) => (
+          <option key={`${c.name}-${c.code}`} value={`${c.name} (${c.code})`} />
+        ))}
+      </datalist>
     </div>
   );
 }
