@@ -15,12 +15,29 @@ import Modal from '../components/Modal';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { getTodayInTimezone } from '../utils/timezoneUtils';
 import { countryCodes } from '../utils/countryCodes';
+import CountryCodeSelect from '../components/CountryCodeSelect';
 
-const getCountryCode = (value) => {
-  const match = String(value || '').match(/\+\d[\d-]*/);
-  if (!match) return '';
-  const digits = match[0].replace(/\D/g, '');
-  return digits ? `+${digits}` : '';
+const getPrimaryCode = (codeStr) =>
+  String(codeStr || '').split(',')[0]?.trim() || '';
+
+const resolveCountryCode = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const match = raw.match(/\+\d[\d-]*/);
+  if (match) {
+    const digits = match[0].replace(/\D/g, '');
+    return digits ? `+${digits}` : '';
+  }
+
+  const iso = raw.replace(/[^a-z]/gi, '').toUpperCase();
+  const isoMatch = countryCodes.find((c) => c.iso.toUpperCase() === iso);
+  if (isoMatch) return getPrimaryCode(isoMatch.code);
+
+  const nameMatch = countryCodes.find((c) => c.name.toLowerCase() === raw.toLowerCase());
+  if (nameMatch) return getPrimaryCode(nameMatch.code);
+
+  return '';
 };
 
 export default function Luggage() {
@@ -42,7 +59,7 @@ export default function Luggage() {
     guestName: '',
     roomNumber: '',
     roomStatus: '',
-    countryCode: 'Australia (AUS) +61',
+    countryCode: '',
     phone: '',
     numberOfBags: '',
     notes: '',
@@ -97,7 +114,7 @@ export default function Luggage() {
       tags: newLuggage.tags.length === 0,
       guestName: !String(newLuggage.guestName).trim(),
       roomNumber: !String(newLuggage.roomNumber).trim(),
-      countryCode: !getCountryCode(newLuggage.countryCode),
+      countryCode: Boolean(newLuggage.countryCode && !resolveCountryCode(newLuggage.countryCode)),
       phone: !String(newLuggage.phone).trim() ||
         String(newLuggage.phone).replace(/\D/g, '').replace(/^0+/, '').length === 0,
     };
@@ -113,9 +130,10 @@ export default function Luggage() {
       console.log('Creating luggage with tags:', newLuggage.tags);
 
       // Format phone number to international format
-      const parsedCode = getCountryCode(newLuggage.countryCode);
+      const parsedCode = resolveCountryCode(newLuggage.countryCode);
+      const effectiveCode = parsedCode || '+61';
       const phoneDigits = String(newLuggage.phone).replace(/\D/g, '').replace(/^0+/, '');
-      const formattedPhone = formatPhoneNumber(`${parsedCode}${phoneDigits}`);
+      const formattedPhone = formatPhoneNumber(`${effectiveCode}${phoneDigits}`);
 
       await createLuggage({
         ...newLuggage,
@@ -128,7 +146,7 @@ export default function Luggage() {
         guestName: '',
         roomNumber: '',
         roomStatus: '',
-        countryCode: 'Australia (AUS) +61',
+        countryCode: '',
         phone: '',
         numberOfBags: '',
         notes: '',
@@ -576,15 +594,12 @@ export default function Luggage() {
           <div>
             <div className="row" style={{ gap: 8 }}>
               <div style={{ minWidth: 170, flex: '0 0 170px' }}>
-                <input
-                  list="country-code-list"
-                  placeholder="Country code"
+                <CountryCodeSelect
                   value={newLuggage.countryCode}
-                  onChange={(e) => {
-                    setNewLuggage({ ...newLuggage, countryCode: e.target.value });
+                  onChange={(value) => {
+                    setNewLuggage({ ...newLuggage, countryCode: value });
                     if (errors.countryCode) setErrors({ ...errors, countryCode: false });
                   }}
-                  style={{ borderColor: errors.countryCode ? '#ff4444' : undefined }}
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -855,11 +870,6 @@ export default function Luggage() {
         </div>
       </Modal>
 
-      <datalist id="country-code-list">
-        {countryCodes.map((c) => (
-          <option key={`${c.name}-${c.iso}-${c.code}`} value={`${c.name} (${c.iso}) ${c.code}`} />
-        ))}
-      </datalist>
     </div>
   );
 }

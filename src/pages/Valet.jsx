@@ -21,6 +21,7 @@ import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
 import { formatPhoneNumber } from "../utils/phoneFormatter";
 import { countryCodes } from "../utils/countryCodes";
+import CountryCodeSelect from "../components/CountryCodeSelect";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -41,11 +42,27 @@ const fmtDate = (dateStr) => {
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
-const getCountryCode = (value) => {
-  const match = String(value || "").match(/\+\d[\d-]*/);
-  if (!match) return "";
-  const digits = match[0].replace(/\D/g, "");
-  return digits ? `+${digits}` : "";
+const getPrimaryCode = (codeStr) =>
+  String(codeStr || "").split(",")[0]?.trim() || "";
+
+const resolveCountryCode = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const match = raw.match(/\+\d[\d-]*/);
+  if (match) {
+    const digits = match[0].replace(/\D/g, "");
+    return digits ? `+${digits}` : "";
+  }
+
+  const iso = raw.replace(/[^a-z]/gi, "").toUpperCase();
+  const isoMatch = countryCodes.find((c) => c.iso.toUpperCase() === iso);
+  if (isoMatch) return getPrimaryCode(isoMatch.code);
+
+  const nameMatch = countryCodes.find((c) => c.name.toLowerCase() === raw.toLowerCase());
+  if (nameMatch) return getPrimaryCode(nameMatch.code);
+
+  return "";
 };
 
 // Reusable Park Icon Component
@@ -99,7 +116,7 @@ export default function Staff() {
     tag: "",
     guestName: "",
     roomNumber: "",
-    countryCode: "Australia (AUS) +61",
+    countryCode: "",
     phone: "",
     departureDate: "",
   });
@@ -288,14 +305,15 @@ export default function Staff() {
   // ---------- actions ----------
   const handleCreate = async () => {
     const { tag, guestName, roomNumber, countryCode, phone, departureDate } = newVehicle;
-    const parsedCode = getCountryCode(countryCode);
+    const parsedCode = resolveCountryCode(countryCode);
+    const effectiveCode = parsedCode || "+61";
     const phoneDigits = String(phone).replace(/\D/g, "").replace(/^0+/, "");
     
     const errors = {
       tag: !String(tag).trim(),
       guestName: !String(guestName).trim(),
       roomNumber: !String(roomNumber).trim(),
-      countryCode: !parsedCode,
+      countryCode: Boolean(countryCode && !parsedCode),
       phone: !String(phone).trim() || phoneDigits.length === 0,
       departureDate: !String(departureDate).trim(),
     };
@@ -308,7 +326,7 @@ export default function Staff() {
     }
 
     // Format phone number to international format
-    const formattedPhone = formatPhoneNumber(`${parsedCode}${phoneDigits}`);
+    const formattedPhone = formatPhoneNumber(`${effectiveCode}${phoneDigits}`);
 
     await createVehicle({
       tag,
@@ -331,7 +349,7 @@ export default function Staff() {
       tag: "",
       guestName: "",
       roomNumber: "",
-      countryCode: "Australia (AUS) +61",
+      countryCode: "",
       phone: "",
       departureDate: "",
     });
@@ -1036,15 +1054,12 @@ export default function Staff() {
           <div>
             <div className="row" style={{ gap: 8 }}>
               <div style={{ minWidth: 170, flex: "0 0 170px" }}>
-                <input
-                  list="country-code-list"
-                  placeholder="Country code"
+                <CountryCodeSelect
                   value={newVehicle.countryCode}
-                  onChange={(e) => {
-                    setNewVehicle({ ...newVehicle, countryCode: e.target.value });
+                  onChange={(value) => {
+                    setNewVehicle({ ...newVehicle, countryCode: value });
                     if (newVehicleErrors.countryCode) setNewVehicleErrors({ ...newVehicleErrors, countryCode: false });
                   }}
-                  style={{ borderColor: newVehicleErrors.countryCode ? "#ff4444" : undefined }}
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -1186,12 +1201,6 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
-
-      <datalist id="country-code-list">
-        {countryCodes.map((c) => (
-          <option key={`${c.name}-${c.iso}-${c.code}`} value={`${c.name} (${c.iso}) ${c.code}`} />
-        ))}
-      </datalist>
 
       {/* Departure Confirmation Modal */}
       <Modal open={departureModalOpen} onClose={() => setDepartureModalOpen(false)} title="Confirm Departure">
