@@ -17,8 +17,10 @@ import { getTodayInTimezone } from '../utils/timezoneUtils';
 import { countryCodes } from '../utils/countryCodes';
 
 const getCountryCode = (value) => {
-  const match = String(value || '').match(/\+\d{1,4}/);
-  return match ? match[0] : '';
+  const match = String(value || '').match(/\+\d[\d-]*/);
+  if (!match) return '';
+  const digits = match[0].replace(/\D/g, '');
+  return digits ? `+${digits}` : '';
 };
 
 export default function Luggage() {
@@ -40,7 +42,7 @@ export default function Luggage() {
     guestName: '',
     roomNumber: '',
     roomStatus: '',
-    countryCode: 'Australia (+61)',
+    countryCode: 'Australia (AUS) +61',
     phone: '',
     numberOfBags: '',
     notes: '',
@@ -126,7 +128,7 @@ export default function Luggage() {
         guestName: '',
         roomNumber: '',
         roomStatus: '',
-        countryCode: 'Australia (+61)',
+        countryCode: 'Australia (AUS) +61',
         phone: '',
         numberOfBags: '',
         notes: '',
@@ -855,7 +857,7 @@ export default function Luggage() {
 
       <datalist id="country-code-list">
         {countryCodes.map((c) => (
-          <option key={`${c.name}-${c.code}`} value={`${c.name} (${c.code})`} />
+          <option key={`${c.name}-${c.iso}-${c.code}`} value={`${c.name} (${c.iso}) ${c.code}`} />
         ))}
       </datalist>
     </div>

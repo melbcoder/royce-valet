@@ -1,12 +1,47 @@
-export const countryCodes = [
-  { name: "Australia", code: "+61" },
-  { name: "New Zealand", code: "+64" },
-  { name: "United States", code: "+1" },
-  { name: "Canada", code: "+1" },
-  { name: "United Kingdom", code: "+44" },
-  { name: "Singapore", code: "+65" },
-  { name: "India", code: "+91" },
-  { name: "United Arab Emirates", code: "+971" },
-  { name: "Philippines", code: "+63" },
-  { name: "China", code: "+86" }
-];
+import rawCodes from "../countryCodes.csv?raw";
+
+const parseCsvLine = (line) => {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+    if (ch === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  result.push(current.trim());
+  return result;
+};
+
+const formatCodes = (codeStr) => {
+  if (!codeStr) return "";
+  return codeStr
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .map((c) => (c.startsWith("+") ? c : `+${c}`))
+    .join(", ");
+};
+
+export const countryCodes = rawCodes
+  .split("\n")
+  .map((l) => l.trim())
+  .filter(Boolean)
+  .map((line) => {
+    const [name, code, iso] = parseCsvLine(line);
+    return {
+      name,
+      code: formatCodes(code),
+      iso,
+    };
+  })
+  .filter((c) => c.name && c.code && c.iso);

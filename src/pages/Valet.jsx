@@ -42,8 +42,10 @@ const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
 const getCountryCode = (value) => {
-  const match = String(value || "").match(/\+\d{1,4}/);
-  return match ? match[0] : "";
+  const match = String(value || "").match(/\+\d[\d-]*/);
+  if (!match) return "";
+  const digits = match[0].replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
 };
 
 // Reusable Park Icon Component
@@ -97,7 +99,7 @@ export default function Staff() {
     tag: "",
     guestName: "",
     roomNumber: "",
-    countryCode: "Australia (+61)",
+    countryCode: "Australia (AUS) +61",
     phone: "",
     departureDate: "",
   });
@@ -329,7 +331,7 @@ export default function Staff() {
       tag: "",
       guestName: "",
       roomNumber: "",
-      countryCode: "Australia (+61)",
+      countryCode: "Australia (AUS) +61",
       phone: "",
       departureDate: "",
     });
@@ -1187,7 +1189,7 @@ export default function Staff() {
 
       <datalist id="country-code-list">
         {countryCodes.map((c) => (
-          <option key={`${c.name}-${c.code}`} value={`${c.name} (${c.code})`} />
+          <option key={`${c.name}-${c.iso}-${c.code}`} value={`${c.name} (${c.iso}) ${c.code}`} />
         ))}
       </datalist>
 
