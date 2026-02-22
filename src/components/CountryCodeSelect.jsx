@@ -21,6 +21,17 @@ const matchesQuery = (country, query) => {
   return nameMatch || isoMatch || codeMatch;
 };
 
+const isExactMatch = (country, value) => {
+  const v = String(value || "").trim().toLowerCase();
+  if (!v) return false;
+
+  if (country.name.toLowerCase() === v) return true;
+  if (country.iso.toLowerCase() === v) return true;
+
+  const codeValue = v.startsWith("+") ? v : `+${v}`;
+  return getCodeList(country.code).some((code) => code.toLowerCase() === codeValue);
+};
+
 export default function CountryCodeSelect({ value, onChange, placeholder = "ISO (e.g., AUS)" }) {
   const [inputValue, setInputValue] = useState(value || "");
   const [open, setOpen] = useState(false);
@@ -64,6 +75,15 @@ export default function CountryCodeSelect({ value, onChange, placeholder = "ISO 
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={() => {
+          const v = inputValue.trim();
+          if (!v) return;
+          const exact = countryCodes.find((c) => isExactMatch(c, v));
+          if (!exact) {
+            setInputValue("");
+            onChange("");
+          }
+        }}
       />
 
       {open && inputValue.trim() && (
