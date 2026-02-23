@@ -155,11 +155,26 @@ export default function Luggage() {
       const phoneDigits = String(newLuggage.phone).replace(/\D/g, '').replace(/^0+/, '');
       const formattedPhone = formatPhoneNumber(`${effectiveCode}${phoneDigits}`);
 
-      await createLuggage({
+      const docId = await createLuggage({
         ...newLuggage,
         phone: formattedPhone,
         numberOfBags: parseInt(newLuggage.numberOfBags) || newLuggage.tags.length,
       });
+
+      if (newLuggage.luggageType === 'departure') {
+        const tagList = (newLuggage.tags || []).join(', ');
+        if (formattedPhone && tagList) {
+          try {
+            await sendSMS(formattedPhone, `Your bags are in very good company.\nTag numbers: ${tagList}.\nGo explore, indulge, wander — we’ll mind the details.`);
+            await updateLuggage(docId, { tagMessageSent: true });
+            showToast('Departure luggage created and tag reminder SMS sent.');
+          } catch (error) {
+            console.error('Failed to send tag SMS:', error);
+            await updateLuggage(docId, { tagMessageSent: false });
+            showToast('Departure luggage created (SMS failed to send).');
+          }
+        }
+      }
 
       setNewLuggage({
         tags: [],
@@ -252,20 +267,7 @@ export default function Luggage() {
   const handleDepart = async (item) => {
     try {
       await markLuggageDeparted(item.id);
-      const tagList = (item.tags || []).join(', ');
-      if (item.phone && tagList) {
-        try {
-          await sendSMS(item.phone, `Your bags are in very good company.\nTag numbers: ${tagList}.\nGo explore, indulge, wander — we’ll mind the details.`);
-          await updateLuggage(item.id, { tagMessageSent: true });
-          showToast('Marked departed and sent tag reminder SMS.');
-        } catch (error) {
-          console.error('Failed to send tag SMS:', error);
-          await updateLuggage(item.id, { tagMessageSent: false });
-          showToast('Marked departed (SMS failed to send).');
-        }
-      } else {
-        showToast('Marked departed.');
-      }
+      showToast('Marked departed.');
     } catch (error) {
       console.error('Failed to mark departed:', error);
       showToast('Failed to mark departed.');
@@ -441,7 +443,7 @@ export default function Luggage() {
                   <td>{item.numberOfBags}</td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    {!item.notified && (
+                    {!item.notified && item.luggageType !== 'departure' && (
                       <button className="btn secondary" onClick={() => handleNotify(item)}>
                         <img src="/chat.png" alt="Message" style={{ width: 20, height: 20 }} />
                       </button>
