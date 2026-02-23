@@ -540,7 +540,7 @@ export default function Luggage() {
 
       {/* Departed Luggage Tags */}
       <section className="card pad" style={{ marginTop: 16 }}>
-        <h3>Departed Luggage Tags ({departedItems.length})</h3>
+        <h3>Departed Luggage ({departedItems.length})</h3>
         <div className="table-wrap">
           <table className="table">
             <thead>
