@@ -450,7 +450,7 @@ export default function Luggage() {
                     )}
                     {item.luggageType === 'departure' && (
                       <button className="btn secondary" onClick={() => handleDepart(item)}>
-                        Departed
+                        <img src="/passenger.png" alt="Departed" style={{ width: 20, height: 20 }} />
                       </button>
                     )}
                     <button className="btn secondary" onClick={() => openEdit(item)}>
