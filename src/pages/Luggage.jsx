@@ -456,9 +456,11 @@ export default function Luggage() {
                     <button className="btn secondary" onClick={() => openEdit(item)}>
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDeliver(item)}>
-                      <img src="/tick.png" alt="Deliver" style={{ width: 20, height: 20 }} />
-                    </button>
+                    {item.luggageType !== 'departure' && (
+                      <button className="btn secondary" onClick={() => handleDeliver(item)}>
+                        <img src="/tick.png" alt="Deliver" style={{ width: 20, height: 20 }} />
+                      </button>
+                    )}
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
