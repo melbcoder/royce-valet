@@ -661,7 +661,8 @@ export async function createLuggage(data) {
     roomStatus: data.roomStatus || "",
     phone: data.phone,
     numberOfBags: data.numberOfBags || 0,
-    status: "stored", // stored, delivered
+    luggageType: data.luggageType || "arrival", // arrival, departure
+    status: "stored", // stored, delivered, departed
     notes: data.notes || "",
     createdDate: todayDate, // YYYY-MM-DD format for easy comparison
     createdAt: serverTimestamp(),
@@ -713,6 +714,17 @@ export async function markLuggageDelivered(id) {
   
   // Add specific audit log for delivery
   await addAuditLog(id, 'delivered', {});
+}
+
+// Mark luggage as departed
+export async function markLuggageDeparted(id) {
+  await updateDoc(doc(luggageRef, id), {
+    status: "departed",
+    departedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  await addAuditLog(id, 'departed', {});
 }
 
 // Archive luggage item

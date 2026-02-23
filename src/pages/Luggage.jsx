@@ -5,11 +5,12 @@ import {
   subscribeActiveLuggage,
   updateLuggage,
   markLuggageDelivered,
+  markLuggageDeparted,
   deleteLuggage,
   getSettings,
   getLuggageAuditLog,
 } from '../services/valetFirestore';
-import { sendRoomReadySMS } from '../services/smsService';
+import { sendRoomReadySMS, sendSMS } from '../services/smsService';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
@@ -61,13 +62,32 @@ export default function Luggage() {
     roomStatus: '',
     countryCode: '',
     phone: '',
+    luggageType: 'arrival',
     numberOfBags: '',
     notes: '',
   });
+  const [luggageTypeManual, setLuggageTypeManual] = useState(false);
 
   const [errors, setErrors] = useState({});
   const [tagInput, setTagInput] = useState('');
   const [editTagInput, setEditTagInput] = useState('');
+
+  const deriveTypeFromTags = (tags) => {
+    const hasDeparture = tags.some((t) => String(t).toUpperCase().startsWith('D'));
+    const hasArrival = tags.some((t) => String(t).toUpperCase().startsWith('A'));
+    if (hasDeparture && !hasArrival) return 'departure';
+    if (hasArrival && !hasDeparture) return 'arrival';
+    return newLuggage.luggageType || 'arrival';
+  };
+
+  useEffect(() => {
+    if (luggageTypeManual) return;
+    if (newLuggage.tags.length === 0) return;
+    const inferred = deriveTypeFromTags(newLuggage.tags);
+    if (inferred !== newLuggage.luggageType) {
+      setNewLuggage((prev) => ({ ...prev, luggageType: inferred }));
+    }
+  }, [newLuggage.tags, luggageTypeManual]);
 
   // Subscribe to active luggage
   useEffect(() => {
@@ -148,9 +168,11 @@ export default function Luggage() {
         roomStatus: '',
         countryCode: '',
         phone: '',
+        luggageType: 'arrival',
         numberOfBags: '',
         notes: '',
       });
+      setLuggageTypeManual(false);
       setTagInput('');
       setErrors({});
       setNewOpen(false);
@@ -227,6 +249,29 @@ export default function Luggage() {
     setDeleteModalOpen(true);
   };
 
+  const handleDepart = async (item) => {
+    try {
+      await markLuggageDeparted(item.id);
+      const tagList = (item.tags || []).join(', ');
+      if (item.phone && tagList) {
+        try {
+          await sendSMS(item.phone, `Your luggage tags: ${tagList}. Please keep this message in case the tags are misplaced.`);
+          await updateLuggage(item.id, { tagMessageSent: true });
+          showToast('Marked departed and sent tag reminder SMS.');
+        } catch (error) {
+          console.error('Failed to send tag SMS:', error);
+          await updateLuggage(item.id, { tagMessageSent: false });
+          showToast('Marked departed (SMS failed to send).');
+        }
+      } else {
+        showToast('Marked departed.');
+      }
+    } catch (error) {
+      console.error('Failed to mark departed:', error);
+      showToast('Failed to mark departed.');
+    }
+  };
+
   const confirmDelete = async () => {
     if (itemToDelete) {
       await deleteLuggage(itemToDelete);
@@ -267,7 +312,8 @@ export default function Luggage() {
       'created': 'Created',
       'updated': 'Updated',
       'delivered': 'Marked as Delivered',
-      'notified': 'Guest Notified'
+      'notified': 'Guest Notified',
+      'departed': 'Marked as Departed'
     };
     return actionMap[action] || action;
   };
@@ -290,6 +336,7 @@ export default function Luggage() {
 
   const storedItems = luggageItems.filter(item => item.status === 'stored');
   const deliveredItems = luggageItems.filter(item => item.status === 'delivered');
+  const departedItems = luggageItems.filter(item => item.status === 'departed');
 
   return (
     <div className="page pad">
@@ -380,6 +427,11 @@ export default function Luggage() {
                         <img src="/chat.png" alt="Message" style={{ width: 20, height: 20 }} />
                       </button>
                     )}
+                    {item.luggageType === 'departure' && (
+                      <button className="btn secondary" onClick={() => handleDepart(item)}>
+                        Departed
+                      </button>
+                    )}
                     <button className="btn secondary" onClick={() => openEdit(item)}>
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
@@ -389,6 +441,63 @@ export default function Luggage() {
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Departed Luggage Tags */}
+      <section className="card pad" style={{ marginBottom: 16 }}>
+        <h3>Departed Luggage Tags ({departedItems.length})</h3>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tags</th>
+                <th>Guest Name</th>
+                <th>Room</th>
+                <th>Departed At</th>
+                <th>Tag SMS</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {departedItems.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
+                    No departed luggage tags
+                  </td>
+                </tr>
+              )}
+              {departedItems.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {item.tags?.length > 0 ? item.tags.map((tag, idx) => (
+                        <span key={idx} style={{
+                          backgroundColor: '#e8f5e9',
+                          color: '#2e7d32',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
+                          {tag}
+                        </span>
+                      )) : '—'}
+                    </div>
+                  </td>
+                  <td>{item.guestName}</td>
+                  <td>{item.roomNumber}</td>
+                  <td>{item.departedAt ? new Date(item.departedAt.seconds * 1000).toLocaleString() : '—'}</td>
+                  <td>{item.tagMessageSent ? 'Sent' : '—'}</td>
+                  <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
@@ -589,6 +698,37 @@ export default function Luggage() {
               <option value="dirty">Dirty</option>
               <option value="clean">Clean</option>
             </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 6, display: 'block' }}>Luggage Type</label>
+            <div className="row" style={{ gap: 8 }}>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => { setNewLuggage({ ...newLuggage, luggageType: 'arrival' }); setLuggageTypeManual(true); }}
+                style={{
+                  background: newLuggage.luggageType === 'arrival' ? '#000' : '#fff',
+                  color: newLuggage.luggageType === 'arrival' ? '#fff' : '#000'
+                }}
+              >
+                Arrival
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => { setNewLuggage({ ...newLuggage, luggageType: 'departure' }); setLuggageTypeManual(true); }}
+                style={{
+                  background: newLuggage.luggageType === 'departure' ? '#000' : '#fff',
+                  color: newLuggage.luggageType === 'departure' ? '#fff' : '#000'
+                }}
+              >
+                Departure
+              </button>
+            </div>
+            <div style={{ fontSize: '11px', color: '#666', marginTop: 4 }}>
+              Defaults based on tag prefix: A for Arrival, D for Departure
+            </div>
           </div>
 
           <div>
