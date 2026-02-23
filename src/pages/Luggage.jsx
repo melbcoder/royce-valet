@@ -255,7 +255,7 @@ export default function Luggage() {
       const tagList = (item.tags || []).join(', ');
       if (item.phone && tagList) {
         try {
-          await sendSMS(item.phone, `Your luggage tags: ${tagList}. Please keep this message in case the tags are misplaced.`);
+          await sendSMS(item.phone, `Your bags are in very good company.\nTag numbers: ${tagList}.\nGo explore, indulge, wander — we’ll mind the details.`);
           await updateLuggage(item.id, { tagMessageSent: true });
           showToast('Marked departed and sent tag reminder SMS.');
         } catch (error) {
