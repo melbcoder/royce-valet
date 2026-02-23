@@ -11,6 +11,7 @@ import LuggageHistory from './pages/LuggageHistory';
 import AmenitiesHistory from './pages/AmenitiesHistory';
 import MaintenanceJobs from './pages/MaintenanceJobs';
 import ContractorSignIn from './pages/ContractorSignIn';
+import MaintenanceDashboard from './pages/MaintenanceDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
@@ -135,6 +136,14 @@ export default function App(){
                   <AmenitiesHistory />
                 </ProtectedRoute>
               } 
+            />
+            <Route
+              path="/maintenance"
+              element={
+                <ProtectedRoute>
+                  <MaintenanceDashboard />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/maintenance/jobs"

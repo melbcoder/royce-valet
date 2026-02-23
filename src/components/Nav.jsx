@@ -15,6 +15,7 @@ export default function Nav() {
     '/amenities',
     '/luggage-history',
     '/amenities-history',
+    '/maintenance',
     '/maintenance/jobs',
     '/maintenance/contractor-sign-in'
   ].includes(location.pathname);
@@ -68,7 +69,7 @@ export default function Nav() {
         style={{ position: 'relative', display: 'inline-block' }}
       >
         <NavLink
-          to="/maintenance/jobs"
+          to="/maintenance"
           style={() => navLinkStyle(isMaintenancePage)}
         >
           Maintenance ▾
