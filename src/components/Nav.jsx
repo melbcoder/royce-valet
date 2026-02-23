@@ -19,6 +19,7 @@ export default function Nav() {
     '/maintenance/contractor-sign-in'
   ].includes(location.pathname);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const isMaintenancePage = location.pathname.startsWith('/maintenance');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -68,7 +69,7 @@ export default function Nav() {
       >
         <NavLink
           to="/maintenance/jobs"
-          style={({ isActive }) => navLinkStyle(isActive)}
+          style={() => navLinkStyle(isMaintenancePage)}
         >
           Maintenance ▾
         </NavLink>
