@@ -356,6 +356,7 @@ export default function Luggage() {
             <thead>
               <tr>
                 <th>Tags</th>
+                <th>Type</th>
                 <th>Guest Name</th>
                 <th>Room</th>
                 <th>Room Status</th>
@@ -391,32 +392,50 @@ export default function Luggage() {
                       )) : '—'}
                     </div>
                   </td>
+                  <td>
+                    <span
+                      style={{
+                        backgroundColor: item.luggageType === 'departure' ? '#fff3e0' : '#e3f2fd',
+                        color: item.luggageType === 'departure' ? '#ef6c00' : '#1565c0',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 600
+                      }}
+                    >
+                      {item.luggageType === 'departure' ? 'Departure' : 'Arrival'}
+                    </span>
+                  </td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        backgroundColor: 
-                          item.roomStatus === 'clean' ? '#7fff7f' :
-                          item.roomStatus === 'dirty' ? '#ff7f7f' :
-                          item.roomStatus === 'occupied' ? '#f4c97a' :
-                          '#ddd',
-                        display: 'inline-block'
-                      }} />
-                      <select
-                        value={item.roomStatus || ''}
-                        onChange={(e) => updateLuggage(item.id, { roomStatus: e.target.value })}
-                        style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
-                      >
-                        <option value="">Select status</option>
-                        <option value="occupied">Occupied</option>
-                        <option value="dirty">Dirty</option>
-                        <option value="clean">Clean</option>
-                      </select>
-                    </div>
+                    {item.luggageType === 'departure' ? (
+                      <span style={{ opacity: 0.6 }}>—</span>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          backgroundColor: 
+                            item.roomStatus === 'clean' ? '#7fff7f' :
+                            item.roomStatus === 'dirty' ? '#ff7f7f' :
+                            item.roomStatus === 'occupied' ? '#f4c97a' :
+                            '#ddd',
+                          display: 'inline-block'
+                        }} />
+                        <select
+                          value={item.roomStatus || ''}
+                          onChange={(e) => updateLuggage(item.id, { roomStatus: e.target.value })}
+                          style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
+                        >
+                          <option value="">Select status</option>
+                          <option value="occupied">Occupied</option>
+                          <option value="dirty">Dirty</option>
+                          <option value="clean">Clean</option>
+                        </select>
+                      </div>
+                    )}
                   </td>
                   <td>{item.phone}</td>
                   <td>{item.numberOfBags}</td>
@@ -441,63 +460,6 @@ export default function Luggage() {
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
-                      <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Departed Luggage Tags */}
-      <section className="card pad" style={{ marginBottom: 16 }}>
-        <h3>Departed Luggage Tags ({departedItems.length})</h3>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Tags</th>
-                <th>Guest Name</th>
-                <th>Room</th>
-                <th>Departed At</th>
-                <th>Tag SMS</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {departedItems.length === 0 && (
-                <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
-                    No departed luggage tags
-                  </td>
-                </tr>
-              )}
-              {departedItems.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {item.tags?.length > 0 ? item.tags.map((tag, idx) => (
-                        <span key={idx} style={{
-                          backgroundColor: '#e8f5e9',
-                          color: '#2e7d32',
-                          padding: '4px 8px',
-                          borderRadius: 12,
-                          fontSize: 12,
-                          fontWeight: 500
-                        }}>
-                          {tag}
-                        </span>
-                      )) : '—'}
-                    </div>
-                  </td>
-                  <td>{item.guestName}</td>
-                  <td>{item.roomNumber}</td>
-                  <td>{item.departedAt ? new Date(item.departedAt.seconds * 1000).toLocaleString() : '—'}</td>
-                  <td>{item.tagMessageSent ? 'Sent' : '—'}</td>
-                  <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
@@ -565,6 +527,63 @@ export default function Luggage() {
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                      <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Departed Luggage Tags */}
+      <section className="card pad" style={{ marginTop: 16 }}>
+        <h3>Departed Luggage Tags ({departedItems.length})</h3>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tags</th>
+                <th>Guest Name</th>
+                <th>Room</th>
+                <th>Departed At</th>
+                <th>Tag SMS</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {departedItems.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
+                    No departed luggage tags
+                  </td>
+                </tr>
+              )}
+              {departedItems.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {item.tags?.length > 0 ? item.tags.map((tag, idx) => (
+                        <span key={idx} style={{
+                          backgroundColor: '#e8f5e9',
+                          color: '#2e7d32',
+                          padding: '4px 8px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}>
+                          {tag}
+                        </span>
+                      )) : '—'}
+                    </div>
+                  </td>
+                  <td>{item.guestName}</td>
+                  <td>{item.roomNumber}</td>
+                  <td>{item.departedAt ? new Date(item.departedAt.seconds * 1000).toLocaleString() : '—'}</td>
+                  <td>{item.tagMessageSent ? 'Sent' : '—'}</td>
+                  <td style={{ display: 'flex', gap: 6 }}>
                     <button className="btn secondary" onClick={() => handleDelete(item.id)}>
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
@@ -686,19 +705,21 @@ export default function Luggage() {
             {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
           </div>
 
-          <div>
-            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Status</label>
-            <select
-              value={newLuggage.roomStatus}
-              onChange={(e) => setNewLuggage({ ...newLuggage, roomStatus: e.target.value })}
-              style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid #ccc' }}
-            >
-              <option value="">Select status</option>
-              <option value="occupied">Occupied</option>
-              <option value="dirty">Dirty</option>
-              <option value="clean">Clean</option>
-            </select>
-          </div>
+          {newLuggage.luggageType !== 'departure' && (
+            <div>
+              <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Status</label>
+              <select
+                value={newLuggage.roomStatus}
+                onChange={(e) => setNewLuggage({ ...newLuggage, roomStatus: e.target.value })}
+                style={{ width: '100%', padding: '8px', borderRadius: 4, border: '1px solid #ccc' }}
+              >
+                <option value="">Select status</option>
+                <option value="occupied">Occupied</option>
+                <option value="dirty">Dirty</option>
+                <option value="clean">Clean</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 6, display: 'block' }}>Luggage Type</label>
