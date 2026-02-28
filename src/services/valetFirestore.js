@@ -908,4 +908,77 @@ export async function getAmenityAuditLog(amenityId) {
   }
 }
 
+// ===== CONTRACTOR MANAGEMENT =====
 
+const contractorsRef = collection(db, "contractors");
+const contractorHistoryRef = collection(db, "contractorHistory");
+
+// Create a new contractor sign-in record
+export async function createContractor(data) {
+  const docId = `contractor-${Date.now()}`;
+  const currentUser = getCurrentUser();
+
+  const item = {
+    name: sanitizeString(data.name, 200),
+    phone: sanitizeString(data.phone || '', 30),
+    company: sanitizeString(data.company, 200),
+    worksDescription: sanitizeString(data.worksDescription, 1000),
+    masterKeyNumber: sanitizeString(data.masterKeyNumber, 50),
+    photoUrl: null,
+    signedInAt: serverTimestamp(),
+    signedInAtMs: Date.now(),
+    signedInBy: currentUser
+      ? { id: currentUser.id, username: currentUser.username }
+      : { username: 'Unknown' },
+    status: 'active',
+    createdAt: serverTimestamp(),
+  };
+
+  await setDoc(doc(contractorsRef, docId), item);
+  return docId;
+}
+
+// Update a contractor record (e.g. attach photo URL after upload)
+export async function updateContractor(id, updates) {
+  await updateDoc(doc(contractorsRef, id), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Sign out a contractor — archives to history and removes from active list
+export async function markContractorSignedOut(id, item) {
+  const signedOutMs = Date.now();
+
+  const cleanItem = Object.entries(item).reduce((acc, [key, value]) => {
+    if (value !== undefined) acc[key] = value;
+    return acc;
+  }, {});
+
+  await setDoc(doc(contractorHistoryRef, `${id}-${signedOutMs}`), {
+    ...cleanItem,
+    status: 'signed-out',
+    signedOutAt: serverTimestamp(),
+    signedOutAtMs: signedOutMs,
+  });
+
+  await deleteDoc(doc(contractorsRef, id));
+}
+
+// Subscribe to currently signed-in contractors (real-time)
+export function subscribeActiveContractors(callback) {
+  return onSnapshot(contractorsRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
+    list.sort((a, b) => (b.signedInAtMs || 0) - (a.signedInAtMs || 0));
+    callback(list);
+  });
+}
+
+// Subscribe to contractor sign-out history (real-time)
+export function subscribeContractorHistory(callback) {
+  return onSnapshot(contractorHistoryRef, (snapshot) => {
+    const list = snapshot.docs.map((d) => ({ ...d.data(), _id: d.id }));
+    list.sort((a, b) => (b.signedOutAtMs || 0) - (a.signedOutAtMs || 0));
+    callback(list);
+  });
+}
