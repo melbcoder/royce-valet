@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Users collection - document ID MUST be the Firebase Auth UID
+    match /users/{uid} {
+      // Anyone authenticated can read their own document
+      allow read: if isAuthenticated() && request.auth.uid == uid;
+      
+      // Admins can read all users
+      allow read: if isAdmin();
+      
+      // Admins can create new users (for user management)
+      // OR users can create their own document during signup
+      allow create: if isAdmin() || 
+                      (request.auth != null && 
+                       request.auth.uid == uid &&
+                       request.resource.data.uid == uid);
+      
+      // Users can update their own data (including mustChangePassword)
+      // But they cannot change their role
+      allow update: if isAuthenticated() && 
+                      request.auth.uid == uid && 
+                      (!('role' in request.resource.data) ||
+                       request.resource.data.role == resource.data.role);
+      
+      // Admins can update any user
+      allow update: if isAdmin();
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // Vehicles - public read for guest access
+    match /vehicles/{vehicleId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    
+    // Valet history, luggage, amenities - authenticated only
+    match /valetHistory/{historyId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /luggage/{luggageId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /luggageHistory/{historyId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /amenities/{amenityId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /amenitiesHistory/{historyId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Settings
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    match /luggageAudit/{auditId} {
+      // Authenticated users can read audit logs
+      allow read: if request.auth != null;
+      
+      // Authenticated users can create audit logs (writes are done by the app)
+      allow create: if request.auth != null;
+      
+      // Prevent updates and deletes to maintain audit integrity
+      allow update, delete: if false;
+    }
+    
+    // Vehicle Audit Collection
+    match /vehicleAudit/{auditId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Amenities Audit Collection
+    match /amenitiesAudit/{auditId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Contractors (currently signed in on site)
+    match /contractors/{contractorId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Contractor sign-out history
+    match /contractorHistory/{historyId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
