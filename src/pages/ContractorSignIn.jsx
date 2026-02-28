@@ -254,7 +254,12 @@ export default function ContractorSignIn() {
 
       if (capturedPhoto) {
         try {
-          const blob = await fetch(capturedPhoto).then((r) => r.blob());
+          // Convert data URL to Blob without fetch (avoids CSP issues)
+          const byteString = atob(capturedPhoto.split(',')[1]);
+          const mimeType = capturedPhoto.split(',')[0].split(':')[1].split(';')[0];
+          const byteArray = new Uint8Array(byteString.length);
+          for (let i = 0; i < byteString.length; i++) byteArray[i] = byteString.charCodeAt(i);
+          const blob = new Blob([byteArray], { type: mimeType });
           const photoRef = ref(storage, `contractors/${docId}/photo.jpg`);
           await uploadBytes(photoRef, blob);
           const url = await getDownloadURL(photoRef);

@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Authenticated users can read and write vehicle photos
+    match /vehicles/{vehicleTag}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Authenticated users can read and write contractor photos
+    match /contractors/{contractorId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+
+  }
+}
