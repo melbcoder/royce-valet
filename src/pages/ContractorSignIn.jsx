@@ -203,6 +203,8 @@ export default function ContractorSignIn() {
   const [history, setHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState(null);
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
 
   // Subscribe to active contractors
   useEffect(() => {
@@ -451,93 +453,143 @@ export default function ContractorSignIn() {
           <span style={{ fontSize: 18, color: 'var(--muted)' }}>{historyOpen ? '▲' : '▼'}</span>
         </button>
 
-        {historyOpen && (
-          <section className="card pad">
-            {history.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
-                <p style={{ margin: 0 }}>No contractor history yet.</p>
+        {historyOpen && (() => {
+          // Derive filtered list inside render so it stays reactive
+          const fromMs = historyDateFrom ? new Date(historyDateFrom).setHours(0, 0, 0, 0) : null;
+          const toMs   = historyDateTo   ? new Date(historyDateTo).setHours(23, 59, 59, 999) : null;
+          const filtered = history.filter((c) => {
+            const t = c.signedOutAtMs || c.signedInAtMs || 0;
+            if (fromMs && t < fromMs) return false;
+            if (toMs   && t > toMs)   return false;
+            return true;
+          });
+          const isFiltered = historyDateFrom || historyDateTo;
+
+          return (
+            <section className="card pad">
+              {/* Date filter bar */}
+              <div className="row" style={{ marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                <div className="field" style={{ flex: '1 1 160px', gap: 4 }}>
+                  <label style={{ fontSize: 11 }}>From</label>
+                  <input
+                    type="date"
+                    value={historyDateFrom}
+                    onChange={(e) => setHistoryDateFrom(e.target.value)}
+                    style={{ padding: '8px 10px' }}
+                  />
+                </div>
+                <div className="field" style={{ flex: '1 1 160px', gap: 4 }}>
+                  <label style={{ fontSize: 11 }}>To</label>
+                  <input
+                    type="date"
+                    value={historyDateTo}
+                    onChange={(e) => setHistoryDateTo(e.target.value)}
+                  />
+                </div>
+                {isFiltered && (
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, paddingBottom: 1 }}>
+                    <span style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {filtered.length} of {history.length} shown
+                    </span>
+                    <button
+                      className="btn secondary"
+                      style={{ fontSize: 12, padding: '8px 14px' }}
+                      onClick={() => { setHistoryDateFrom(''); setHistoryDateTo(''); }}
+                    >
+                      Clear Filter
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Works</th>
-                      <th>Key #</th>
-                      <th>Signed In</th>
-                      <th>Signed Out</th>
-                      <th>Duration</th>
-                      <th>Authorised By</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((c) => {
-                      const photoExpired = isOlderThan30Days(c.signedOutAtMs);
-                      return (
-                        <tr key={c._id}>
-                          <td style={{ width: 52 }}>
-                            {c.photoUrl ? (
-                              <img
-                                src={c.photoUrl}
-                                alt={c.name}
-                                style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,.12)', display: 'block' }}
-                              />
-                            ) : (
-                              <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
-                                👤
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            <strong>{c.name}</strong>
-                            {c.phone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone}</div>}
-                          </td>
-                          <td>{c.company}</td>
-                          <td style={{ maxWidth: 180 }}>
-                            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                              {c.worksDescription}
-                            </span>
-                          </td>
-                          <td>
-                            <span style={{ fontFamily: 'monospace', background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>
-                              {c.masterKeyNumber}
-                            </span>
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(c.signedInAtMs)}</td>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(c.signedOutAtMs)}</td>
-                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDuration(c.signedInAtMs, c.signedOutAtMs)}</td>
-                          <td>{c.signedInBy?.username || '—'}</td>
-                          <td>
-                            {c.photoUrl && photoExpired && (
-                              <button
-                                className="btn secondary"
-                                style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap', borderColor: '#c0392b', color: '#c0392b' }}
-                                disabled={deletingPhotoId === c._id}
-                                onClick={() => handleDeleteHistoryPhoto(c)}
-                                title="Photo is older than 30 days — delete to free up storage"
-                              >
-                                {deletingPhotoId === c._id ? 'Deleting…' : '🗑️ Delete Photo'}
-                              </button>
-                            )}
-                            {c.photoUrl && !photoExpired && (
-                              <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                                Photo kept for {Math.ceil((THIRTY_DAYS_MS - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
+
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
+                  <p style={{ margin: 0 }}>
+                    {isFiltered ? 'No records match the selected date range.' : 'No contractor history yet.'}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Name</th>
+                        <th>Company</th>
+                        <th>Works</th>
+                        <th>Key #</th>
+                        <th>Signed In</th>
+                        <th>Signed Out</th>
+                        <th>Duration</th>
+                        <th>Authorised By</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((c) => {
+                        const photoExpired = isOlderThan30Days(c.signedOutAtMs);
+                        return (
+                          <tr key={c._id}>
+                            <td style={{ width: 52 }}>
+                              {c.photoUrl ? (
+                                <img
+                                  src={c.photoUrl}
+                                  alt={c.name}
+                                  style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,.12)', display: 'block' }}
+                                />
+                              ) : (
+                                <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                                  👤
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <strong>{c.name}</strong>
+                              {c.phone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone}</div>}
+                            </td>
+                            <td>{c.company}</td>
+                            <td style={{ maxWidth: 180 }}>
+                              <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {c.worksDescription}
                               </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        )}
+                            </td>
+                            <td>
+                              <span style={{ fontFamily: 'monospace', background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>
+                                {c.masterKeyNumber}
+                              </span>
+                            </td>
+                            <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(c.signedInAtMs)}</td>
+                            <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(c.signedOutAtMs)}</td>
+                            <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDuration(c.signedInAtMs, c.signedOutAtMs)}</td>
+                            <td>{c.signedInBy?.username || '—'}</td>
+                            <td>
+                              {c.photoUrl && photoExpired && (
+                                <button
+                                  className="btn secondary"
+                                  style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap', borderColor: '#c0392b', color: '#c0392b' }}
+                                  disabled={deletingPhotoId === c._id}
+                                  onClick={() => handleDeleteHistoryPhoto(c)}
+                                  title="Photo is older than 30 days — delete to free up storage"
+                                >
+                                  {deletingPhotoId === c._id ? 'Deleting…' : '🗑️ Delete Photo'}
+                                </button>
+                              )}
+                              {c.photoUrl && !photoExpired && (
+                                <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                                  Photo kept for {Math.ceil((THIRTY_DAYS_MS - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          );
+        })()}
       </div>
 
       {/* ---- Sign In Modal ---- */}
