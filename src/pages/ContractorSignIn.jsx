@@ -4,12 +4,14 @@ import { showToast } from '../components/Toast';
 import {
   createContractor,
   updateContractor,
+  updateContractorHistory,
   subscribeActiveContractors,
+  subscribeContractorHistory,
   markContractorSignedOut,
   storage,
   getCurrentUser,
 } from '../services/valetFirestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // ---- Helpers ----
 const escHtml = (s) =>
@@ -39,6 +41,18 @@ const fmtDate = (ms) => {
     year: 'numeric',
   });
 };
+
+const fmtDuration = (signedInMs, signedOutMs) => {
+  if (!signedInMs || !signedOutMs) return '—';
+  const diff = signedOutMs - signedInMs;
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+};
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const isOlderThan30Days = (ms) => Boolean(ms && Date.now() - ms > THIRTY_DAYS_MS);
 
 const EMPTY_FORM = {
   name: '',
@@ -185,11 +199,39 @@ export default function ContractorSignIn() {
   const [capturedPhoto, setCapturedPhoto] = useState(null); // base64 data URL
   const fileInputRef = useRef(null);
 
+  // History
+  const [history, setHistory] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState(null);
+
   // Subscribe to active contractors
   useEffect(() => {
     const unsub = subscribeActiveContractors(setContractors);
     return () => unsub && unsub();
   }, []);
+
+  // Subscribe to contractor history
+  useEffect(() => {
+    const unsub = subscribeContractorHistory(setHistory);
+    return () => unsub && unsub();
+  }, []);
+
+  // ---- Delete photo from a history record ----
+  const handleDeleteHistoryPhoto = async (record) => {
+    if (!record.id) return;
+    setDeletingPhotoId(record._id);
+    try {
+      const photoRef = ref(storage, `contractors/${record.id}/photo.jpg`);
+      await deleteObject(photoRef);
+      await updateContractorHistory(record._id, { photoUrl: null });
+      showToast('Photo deleted.');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to delete photo.');
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
 
   // ---- Photo selection (native file input — opens camera on mobile) ----
   const handleFileSelect = (e) => {
@@ -391,6 +433,112 @@ export default function ContractorSignIn() {
           </div>
         )}
       </section>
+
+      {/* ---- History Section ---- */}
+      <div style={{ marginTop: 32 }}>
+        <button
+          onClick={() => setHistoryOpen((o) => !o)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '4px 0', marginBottom: 12,
+          }}
+        >
+          <h2 style={{ margin: 0 }}>Contractor History</h2>
+          <span style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
+            {history.length} record{history.length !== 1 ? 's' : ''}
+          </span>
+          <span style={{ fontSize: 18, color: 'var(--muted)' }}>{historyOpen ? '▲' : '▼'}</span>
+        </button>
+
+        {historyOpen && (
+          <section className="card pad">
+            {history.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
+                <p style={{ margin: 0 }}>No contractor history yet.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>Name</th>
+                      <th>Company</th>
+                      <th>Works</th>
+                      <th>Key #</th>
+                      <th>Signed In</th>
+                      <th>Signed Out</th>
+                      <th>Duration</th>
+                      <th>Authorised By</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((c) => {
+                      const photoExpired = isOlderThan30Days(c.signedOutAtMs);
+                      return (
+                        <tr key={c._id}>
+                          <td style={{ width: 52 }}>
+                            {c.photoUrl ? (
+                              <img
+                                src={c.photoUrl}
+                                alt={c.name}
+                                style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,.12)', display: 'block' }}
+                              />
+                            ) : (
+                              <div style={{ width: 44, height: 44, borderRadius: 8, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                                👤
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <strong>{c.name}</strong>
+                            {c.phone && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{c.phone}</div>}
+                          </td>
+                          <td>{c.company}</td>
+                          <td style={{ maxWidth: 180 }}>
+                            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {c.worksDescription}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontFamily: 'monospace', background: '#f5f5f5', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>
+                              {c.masterKeyNumber}
+                            </span>
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(c.signedInAtMs)}</td>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDateTime(c.signedOutAtMs)}</td>
+                          <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{fmtDuration(c.signedInAtMs, c.signedOutAtMs)}</td>
+                          <td>{c.signedInBy?.username || '—'}</td>
+                          <td>
+                            {c.photoUrl && photoExpired && (
+                              <button
+                                className="btn secondary"
+                                style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap', borderColor: '#c0392b', color: '#c0392b' }}
+                                disabled={deletingPhotoId === c._id}
+                                onClick={() => handleDeleteHistoryPhoto(c)}
+                                title="Photo is older than 30 days — delete to free up storage"
+                              >
+                                {deletingPhotoId === c._id ? 'Deleting…' : '🗑️ Delete Photo'}
+                              </button>
+                            )}
+                            {c.photoUrl && !photoExpired && (
+                              <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                                Photo kept for {Math.ceil((THIRTY_DAYS_MS - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
 
       {/* ---- Sign In Modal ---- */}
       <Modal open={signInOpen} title="Contractor Sign In" onClose={handleCloseModal}>

@@ -946,6 +946,14 @@ export async function updateContractor(id, updates) {
   });
 }
 
+// Update a contractor history record (e.g. clear photoUrl after deletion)
+export async function updateContractorHistory(id, updates) {
+  await updateDoc(doc(contractorHistoryRef, id), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 // Sign out a contractor — archives to history and removes from active list
 export async function markContractorSignedOut(id, item) {
   const signedOutMs = Date.now();
