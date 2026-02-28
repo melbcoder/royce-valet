@@ -350,7 +350,7 @@ export default function ContractorSignIn() {
           </p>
         </div>
         <button className="btn" onClick={handleOpenModal}>
-          + Sign In Contractor
+          Add Contractor
         </button>
       </div>
 
@@ -413,11 +413,11 @@ export default function ContractorSignIn() {
                       <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
                         <button
                           className="btn secondary"
-                          style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap' }}
+                          style={{ padding: '6px 10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
                           onClick={() => printBadge(c)}
                           title="Print thermal ID badge"
                         >
-                          🖨️ Print Badge
+                          <img src="/id-card.png" alt="Print Badge" style={{ width: 20, height: 20 }} />
                         </button>
                         <button
                           className="btn"
