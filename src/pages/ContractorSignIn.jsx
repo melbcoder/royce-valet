@@ -413,7 +413,6 @@ export default function ContractorSignIn() {
                       <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
                         <button
                           className="btn secondary"
-                          style={{ padding: '6px 10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
                           onClick={() => printBadge(c)}
                           title="Print thermal ID badge"
                         >
