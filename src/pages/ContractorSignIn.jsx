@@ -163,11 +163,10 @@ function printBadge(contractor) {
         <div class="row"><span class="lbl">Works:</span><span class="val">${escHtml(contractor.worksDescription)}</span></div>
         <div class="row"><span class="lbl">Master Key #:</span><span class="val">${escHtml(contractor.masterKeyNumber)}</span></div>
         <div class="row"><span class="lbl">Sign-in Time:</span><span class="val">${escHtml(signedInTime)}</span></div>
-        <div class="row"><span class="lbl">Authorised By:</span><span class="val">${escHtml(contractor.signedInBy?.username || '—')}</span></div>
+        <div class="row"><span class="lbl" style="color:#c0392b;font-weight:900;">Valid Until:</span><span class="val" style="color:#c0392b;font-weight:700;">End of ${escHtml(date)}</span></div>
       </div>
     </div>
     <div class="footer">
-      <span>Date: ${escHtml(date)}</span>
       <span>This badge must be worn at all times and returned on departure</span>
     </div>
   </div>
