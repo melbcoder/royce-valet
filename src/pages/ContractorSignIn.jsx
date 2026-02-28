@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from '../components/Modal';
 import { showToast } from '../components/Toast';
 import {
@@ -181,12 +181,9 @@ export default function ContractorSignIn() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [formErrors, setFormErrors] = useState({});
 
-  // Camera state
-  const [cameraOpen, setCameraOpen] = useState(false);
+  // Photo state
   const [capturedPhoto, setCapturedPhoto] = useState(null); // base64 data URL
-  const streamRef = useRef(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Subscribe to active contractors
   useEffect(() => {
@@ -194,63 +191,23 @@ export default function ContractorSignIn() {
     return () => unsub && unsub();
   }, []);
 
-  // ---- Camera logic ----
-  const startCamera = useCallback(async () => {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
-      streamRef.current = s;
-      if (videoRef.current) {
-        videoRef.current.srcObject = s;
-      }
-    } catch {
-      showToast('Camera unavailable or permission denied.');
-      setCameraOpen(false);
+  // ---- Photo selection (native file input — opens camera on mobile) ----
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file.');
+      return;
     }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Image must be smaller than 10MB.');
+      return;
     }
-    if (videoRef.current) videoRef.current.srcObject = null;
-  }, []);
-
-  // Start camera whenever the section opens (and no photo yet captured)
-  useEffect(() => {
-    if (cameraOpen && !capturedPhoto && !streamRef.current) {
-      startCamera();
-    }
-  }, [cameraOpen, capturedPhoto, startCamera]);
-
-  const handleToggleCamera = () => {
-    if (cameraOpen) {
-      stopCamera();
-      setCameraOpen(false);
-      setCapturedPhoto(null);
-    } else {
-      setCameraOpen(true);
-    }
-  };
-
-  const handleCapture = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    setCapturedPhoto(dataUrl);
-    stopCamera();
-  };
-
-  const handleRetake = () => {
-    setCapturedPhoto(null);
-    // The useEffect will restart the camera stream
+    const reader = new FileReader();
+    reader.onloadend = () => setCapturedPhoto(reader.result);
+    reader.readAsDataURL(file);
+    // Reset so the same file can be re-selected
+    e.target.value = '';
   };
 
   // ---- Modal open/close ----
@@ -258,13 +215,10 @@ export default function ContractorSignIn() {
     setForm({ ...EMPTY_FORM });
     setFormErrors({});
     setCapturedPhoto(null);
-    setCameraOpen(false);
     setSignInOpen(true);
   };
 
   const handleCloseModal = () => {
-    stopCamera();
-    setCameraOpen(false);
     setCapturedPhoto(null);
     setForm({ ...EMPTY_FORM });
     setFormErrors({});
@@ -280,6 +234,7 @@ export default function ContractorSignIn() {
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = true;
+    if (!form.phone.trim()) e.phone = true;
     if (!form.company.trim()) e.company = true;
     if (!form.worksDescription.trim()) e.worksDescription = true;
     if (!form.masterKeyNumber.trim()) e.masterKeyNumber = true;
@@ -457,13 +412,15 @@ export default function ContractorSignIn() {
             </div>
 
             <div className="field">
-              <label>Phone Number</label>
+              <label>Phone Number *</label>
               <input
                 value={form.phone}
                 onChange={(e) => setField('phone', e.target.value)}
-                placeholder="Optional"
+                placeholder="Contractor's phone number"
                 type="tel"
+                style={formErrors.phone ? { borderColor: '#e53e3e' } : {}}
               />
+              {formErrors.phone && <span style={{ color: '#e53e3e', fontSize: 12 }}>Phone number is required</span>}
             </div>
 
             <div className="field">
@@ -501,71 +458,76 @@ export default function ContractorSignIn() {
             {formErrors.worksDescription && <span style={{ color: '#e53e3e', fontSize: 12 }}>Works description is required</span>}
           </div>
 
-          {/* ---- Camera Section ---- */}
-          <div style={{ border: '1px solid rgba(0,0,0,.12)', borderRadius: 12, overflow: 'hidden' }}>
-            <button
-              type="button"
-              onClick={handleToggleCamera}
-              style={{
-                width: '100%', padding: '12px 16px',
-                background: cameraOpen ? '#f5f5f5' : '#fafaf8',
-                border: 'none', cursor: 'pointer',
-                textAlign: 'left', fontWeight: 600, fontSize: 14,
-                display: 'flex', alignItems: 'center', gap: 10,
-              }}
-            >
-              <span style={{ fontSize: 20 }}>📷</span>
-              {capturedPhoto && !cameraOpen ? (
-                <span style={{ color: '#27ae60' }}>
-                  Photo captured ✓{' '}
-                  <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>
-                    — click to retake
-                  </span>
-                </span>
-              ) : cameraOpen ? (
-                <span>Close Camera</span>
-              ) : (
-                <span>
-                  Take Contractor Photo{' '}
-                  <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 12 }}>
-                    optional — printed on ID badge
-                  </span>
-                </span>
-              )}
-            </button>
-
-            {cameraOpen && (
-              <div style={{ padding: 14, background: '#111', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                {capturedPhoto ? (
-                  <>
-                    <img
-                      src={capturedPhoto}
-                      alt="Captured"
-                      style={{ width: '100%', maxWidth: 440, borderRadius: 8 }}
-                    />
-                    <button
-                      className="btn secondary"
-                      onClick={handleRetake}
-                      style={{ background: '#fff', color: '#000' }}
-                    >
-                      🔄 Retake Photo
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      style={{ width: '100%', maxWidth: 440, borderRadius: 8, background: '#333', display: 'block' }}
-                    />
-                    <button className="btn" onClick={handleCapture}>
-                      📸 Capture Photo
-                    </button>
-                  </>
-                )}
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
+          {/* ---- Photo Section ---- */}
+          <div className="field">
+            <label>
+              Contractor Photo{' '}
+              <span style={{ fontWeight: 400, color: 'var(--muted)', textTransform: 'none', letterSpacing: 0 }}>
+                (optional — printed on ID badge)
+              </span>
+            </label>
+            {/* Hidden file input — capture="user" opens front camera on mobile */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+            {capturedPhoto ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <img
+                  src={capturedPhoto}
+                  alt="Contractor"
+                  style={{
+                    width: '100%',
+                    maxHeight: 300,
+                    objectFit: 'cover',
+                    borderRadius: 10,
+                    border: '1px solid rgba(0,0,0,.12)',
+                  }}
+                />
+                <div className="row">
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    🔄 Replace Photo
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => setCapturedPhoto(null)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  border: '2px dashed rgba(0,0,0,.15)',
+                  borderRadius: 10,
+                  padding: '28px 20px',
+                  textAlign: 'center',
+                  background: '#fafaf8',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <span style={{ fontSize: 36 }}>📷</span>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>No photo taken yet</p>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Add Photo
+                </button>
               </div>
             )}
           </div>
