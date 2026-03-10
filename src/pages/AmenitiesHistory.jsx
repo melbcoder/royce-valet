@@ -63,7 +63,7 @@ export default function AmenitiesHistory() {
             />
           </label>
           {filterDate && (
-            <button className="btn secondary" onClick={() => setFilterDate('')}>
+            <button className="btn secondary" onClick={() => setFilterDate('')} title="Clear the date filter and show all history">
               Clear Filter
             </button>
           )}

@@ -615,10 +615,10 @@ export default function Staff() {
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button className="btn secondary" onClick={() => navigate('/valet-history')}>
+          <button className="btn secondary" onClick={() => navigate('/valet-history')} title="Go to valet history">
             View History
           </button>
-          <button className="btn primary" onClick={() => setNewOpen(true)}>
+          <button className="btn primary" onClick={() => setNewOpen(true)} title="Add a new vehicle">
             Add Vehicle
           </button>
         </div>
@@ -666,22 +666,22 @@ export default function Staff() {
                   <td style={{ display: "flex", gap: 6 }}>
                     {/* one button at a time */}
                     {v.status === "requested" && (
-                      <button className="btn secondary" onClick={() => ackRequest(v)}>
+                      <button className="btn secondary" onClick={() => ackRequest(v)} title="Acknowledge — start retrieving vehicle">
                         <AcknowledgeIcon />
                       </button>
                     )}
                     {v.status === "retrieving" && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)} title="Mark vehicle as ready for handover">
                         <ReadyIcon />
                       </button>
                     )}
                     {v.status === "ready" && (
-                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
+                      <button className="btn secondary" onClick={() => handOver(v.tag)} title="Hand over vehicle to guest">
                         <HandOverIcon />
                       </button>
                     )}
                     {v.status !== "out" && (
-                      <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)}>
+                      <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)} title="Cancel this request">
                         <CancelIcon />
                       </button>
                     )}
@@ -736,10 +736,10 @@ export default function Staff() {
                   </td>
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6 }}>
-                    <button className="btn secondary" onClick={() => queueNow(v)}>
+                    <button className="btn secondary" onClick={() => queueNow(v)} title="Move to request queue immediately">
                       Queue Now
                     </button>
-                    <button className="btn secondary" onClick={() => cancelSched(v.tag)}>
+                    <button className="btn secondary" onClick={() => cancelSched(v.tag)} title="Cancel scheduled pickup">
                       <CancelIcon />
                     </button>
                   </td>
@@ -949,26 +949,26 @@ export default function Staff() {
                     )} */}
 
                     {/* Park */}
-                    <button className="btn secondary" onClick={() => openPark(v)}>
+                    <button className="btn secondary" onClick={() => openPark(v)} title="Park / update parking details">
                       <ParkIcon />
                     </button>
 
                     {/* Ready */}
                     {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)}>
+                      <button className="btn secondary" onClick={() => setReady(v.tag)} title="Mark vehicle as ready for handover">
                         <ReadyIcon />
                       </button>
                     )}
                     
                     {/* Hand Over */}
                     {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
-                      <button className="btn secondary" onClick={() => handOver(v.tag)}>
+                      <button className="btn secondary" onClick={() => handOver(v.tag)} title="Hand over vehicle to guest">
                         <HandOverIcon />
                       </button>
                     )}
 
                     {/* Add & View Photos */}
-                    <button className="btn secondary" onClick={() => openPhotos(v.tag)}>
+                    <button className="btn secondary" onClick={() => openPhotos(v.tag)} title="View or add vehicle photos">
                       <CameraIcon />
                     </button>
 
@@ -1104,8 +1104,8 @@ export default function Staff() {
           </div>
 
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <button className="btn primary" onClick={handleCreate}>Create Vehicle</button>
-            <button className="btn secondary" onClick={() => setNewOpen(false)}>Cancel</button>
+            <button className="btn primary" onClick={handleCreate} title="Add this vehicle to the valet system">Create Vehicle</button>
+            <button className="btn secondary" onClick={() => setNewOpen(false)} title="Cancel and close">Cancel</button>
           </div>
         </div>
       </Modal>
@@ -1196,8 +1196,8 @@ export default function Staff() {
           </div>
 
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <button className="btn primary" onClick={confirmPark}>Save</button>
-            <button className="btn secondary" onClick={() => setParkOpen(false)}>Cancel</button>
+            <button className="btn primary" onClick={confirmPark} title="Save parking details">Save</button>
+            <button className="btn secondary" onClick={() => setParkOpen(false)} title="Cancel and close">Cancel</button>
           </div>
         </div>
       </Modal>
@@ -1209,10 +1209,10 @@ export default function Staff() {
             Mark this vehicle as departed? This will move this vehicle to the history page.
           </p>
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
-            <button className="btn primary" onClick={confirmDeparture}>
+            <button className="btn primary" onClick={confirmDeparture} title="Confirm departure and archive vehicle">
               Yes, Mark Departed
             </button>
-            <button className="btn secondary" onClick={declineDeparture}>
+            <button className="btn secondary" onClick={declineDeparture} title="Cancel — do not mark as departed">
               No
             </button>
           </div>
@@ -1279,7 +1279,7 @@ export default function Staff() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn secondary" onClick={() => setAuditModalOpen(false)}>
+            <button className="btn secondary" onClick={() => setAuditModalOpen(false)} title="Close audit log">
               Close
             </button>
           </div>
@@ -1572,23 +1572,23 @@ function ParkingMapView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAud
           </div>
 
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button className="btn secondary" onClick={() => { onPark(selectedVehicle); setSelectedVehicle(null); }}>
+            <button className="btn secondary" onClick={() => { onPark(selectedVehicle); setSelectedVehicle(null); }} title="Park / update parking details">
               <ParkIcon /> Park
             </button>
             {(selectedVehicle.status === "retrieving" || selectedVehicle.status === "parked" || selectedVehicle.status === "requested") && (
-              <button className="btn secondary" onClick={() => { onReady(selectedVehicle.tag); setSelectedVehicle(null); }}>
+              <button className="btn secondary" onClick={() => { onReady(selectedVehicle.tag); setSelectedVehicle(null); }} title="Mark vehicle as ready for handover">
                 <ReadyIcon /> Ready
               </button>
             )}
             {(selectedVehicle.status === "ready" || selectedVehicle.status === "parked" || selectedVehicle.status === "requested" || selectedVehicle.status === "retrieving") && (
-              <button className="btn secondary" onClick={() => { onHandOver(selectedVehicle.tag); setSelectedVehicle(null); }}>
+              <button className="btn secondary" onClick={() => { onHandOver(selectedVehicle.tag); setSelectedVehicle(null); }} title="Hand over vehicle to guest">
                 <HandOverIcon /> Hand Over
               </button>
             )}
-            <button className="btn secondary" onClick={() => { onPhotos(selectedVehicle.tag); setSelectedVehicle(null); }}>
+            <button className="btn secondary" onClick={() => { onPhotos(selectedVehicle.tag); setSelectedVehicle(null); }} title="View or add vehicle photos">
               <CameraIcon /> Photos
             </button>
-            <button className="btn secondary" onClick={() => { onAudit(selectedVehicle.tag); setSelectedVehicle(null); }}>
+            <button className="btn secondary" onClick={() => { onAudit(selectedVehicle.tag); setSelectedVehicle(null); }} title="View audit log">
               <AuditIcon /> Audit
             </button>
           </div>
@@ -1671,7 +1671,7 @@ function ScheduleInline({ v, onSet, onClear }) {
       {!open ? (
         <>
           {!v.scheduledAt ? (
-            <button className="btn secondary" onClick={() => setOpen(true)}>
+            <button className="btn secondary" onClick={() => setOpen(true)} title="Schedule a pickup time">
               <ScheduleIcon />
             </button>
           ) : (
@@ -1679,10 +1679,10 @@ function ScheduleInline({ v, onSet, onClear }) {
               <span style={{ fontSize: 12, opacity: 0.8 }}>
                 {new Date(Number(v.scheduledAt)).toLocaleString()}
               </span>
-              <button className="btn secondary" onClick={() => onClear(v.tag)}>
+              <button className="btn secondary" onClick={() => onClear(v.tag)} title="Clear scheduled pickup">
                 Clear
               </button>
-              <button className="btn secondary" onClick={() => setOpen(true)}>
+              <button className="btn secondary" onClick={() => setOpen(true)} title="Edit scheduled pickup time">
                 Edit
               </button>
             </>
@@ -1701,10 +1701,11 @@ function ScheduleInline({ v, onSet, onClear }) {
               onSet(v.tag, iso);
               setOpen(false);
             }}
+            title="Save scheduled pickup time"
           >
             Save
           </button>
-          <button className="btn secondary" onClick={() => setOpen(false)}>
+          <button className="btn secondary" onClick={() => setOpen(false)} title="Cancel editing schedule">
             Cancel
           </button>
         </>      )}

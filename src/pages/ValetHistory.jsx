@@ -169,13 +169,14 @@ export default function History() {
                         <button
                           className="btn secondary"
                           onClick={() => handleReinstate(v)}
+                          title="Reinstate this vehicle to the active list"
                         >
                           Reinstate
                         </button>
                       )}
 
                       {/* Add & View Photos */}
-                      <button className="btn secondary" onClick={() => openPhotos(v.tag)}>
+                      <button className="btn secondary" onClick={() => openPhotos(v.tag)} title="View or add vehicle photos">
                         <CameraIcon />
                       </button>
 
@@ -251,7 +252,7 @@ export default function History() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn secondary" onClick={() => setAuditModalOpen(false)}>
+            <button className="btn secondary" onClick={() => setAuditModalOpen(false)} title="Close audit log">
               Close
             </button>
           </div>

@@ -348,7 +348,7 @@ export default function ContractorSignIn() {
               : 'No contractors currently on site'}
           </p>
         </div>
-        <button className="btn" onClick={handleOpenModal}>
+        <button className="btn" onClick={handleOpenModal} title="Sign in a new contractor">
           Add Contractor
         </button>
       </div>
@@ -421,6 +421,7 @@ export default function ContractorSignIn() {
                           className="btn"
                           style={{ fontSize: 12, padding: '6px 12px', background: '#c0392b', borderColor: '#c0392b', whiteSpace: 'nowrap' }}
                           onClick={() => setSignOutConfirm(c)}
+                          title="Sign out this contractor"
                         >
                           Sign Out
                         </button>
@@ -493,6 +494,7 @@ export default function ContractorSignIn() {
                       className="btn secondary"
                       style={{ fontSize: 12, padding: '8px 14px' }}
                       onClick={() => { setHistoryDateFrom(''); setHistoryDateTo(''); }}
+                      title="Clear the date filter and show all records"
                     >
                       Clear Filter
                     </button>
@@ -696,6 +698,7 @@ export default function ContractorSignIn() {
                     type="button"
                     className="btn secondary"
                     onClick={() => fileInputRef.current?.click()}
+                    title="Replace the contractor's photo"
                   >
                     🔄 Replace Photo
                   </button>
@@ -703,6 +706,7 @@ export default function ContractorSignIn() {
                     type="button"
                     className="btn secondary"
                     onClick={() => setCapturedPhoto(null)}
+                    title="Remove the photo"
                   >
                     Remove
                   </button>
@@ -728,6 +732,7 @@ export default function ContractorSignIn() {
                   type="button"
                   className="btn secondary"
                   onClick={() => fileInputRef.current?.click()}
+                  title="Take or upload a photo of the contractor"
                 >
                   Add Photo
                 </button>
@@ -737,10 +742,10 @@ export default function ContractorSignIn() {
 
           {/* Submit row */}
           <div className="row" style={{ justifyContent: 'flex-end', paddingTop: 4 }}>
-            <button className="btn secondary" onClick={handleCloseModal} disabled={saving}>
+            <button className="btn secondary" onClick={handleCloseModal} disabled={saving} title="Cancel and close">
               Cancel
             </button>
-            <button className="btn" onClick={handleSignIn} disabled={saving}>
+            <button className="btn" onClick={handleSignIn} disabled={saving} title="Submit and sign in this contractor">
               {saving ? 'Signing In…' : 'Sign In Contractor'}
             </button>
           </div>
@@ -773,13 +778,14 @@ export default function ContractorSignIn() {
               before signing out.
             </div>
             <div className="row" style={{ justifyContent: 'flex-end' }}>
-              <button className="btn secondary" onClick={() => setSignOutConfirm(null)}>
+              <button className="btn secondary" onClick={() => setSignOutConfirm(null)} title="Cancel and keep contractor signed in">
                 Cancel
               </button>
               <button
                 className="btn"
                 style={{ background: '#c0392b', borderColor: '#c0392b' }}
                 onClick={() => handleSignOut(signOutConfirm)}
+                title="Confirm master key returned and sign out this contractor"
               >
                 Confirm Sign Out
               </button>

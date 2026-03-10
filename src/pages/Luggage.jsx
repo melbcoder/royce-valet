@@ -345,7 +345,7 @@ export default function Luggage() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Luggage Storage</h2>
-        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: 'auto' }}>
+        <button className="btn primary" onClick={() => setNewOpen(true)} style={{ marginLeft: 'auto' }} title="Add a new luggage item">
           Add Luggage
         </button>
       </div>
@@ -444,27 +444,27 @@ export default function Luggage() {
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
                     {!item.notified && item.luggageType !== 'departure' && (
-                      <button className="btn secondary" onClick={() => handleNotify(item)}>
+                      <button className="btn secondary" onClick={() => handleNotify(item)} title="Send SMS notification to guest">
                         <img src="/chat.png" alt="Message" style={{ width: 20, height: 20 }} />
                       </button>
                     )}
                     {item.luggageType === 'departure' && (
-                      <button className="btn secondary" onClick={() => handleDepart(item)}>
+                      <button className="btn secondary" onClick={() => handleDepart(item)} title="Mark luggage as departed with guest">
                         <img src="/passenger.png" alt="Departed" style={{ width: 20, height: 20 }} />
                       </button>
                     )}
-                    <button className="btn secondary" onClick={() => openEdit(item)}>
+                    <button className="btn secondary" onClick={() => openEdit(item)} title="Edit luggage details">
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
                     {item.luggageType !== 'departure' && (
-                      <button className="btn secondary" onClick={() => handleDeliver(item)}>
+                      <button className="btn secondary" onClick={() => handleDeliver(item)} title="Mark as delivered to room">
                         <img src="/tick.png" alt="Deliver" style={{ width: 20, height: 20 }} />
                       </button>
                     )}
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} title="Delete this luggage item">
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
@@ -524,14 +524,14 @@ export default function Luggage() {
                   <td>{item.notified ? 'Yes' : 'No'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
                     {!item.notified && (
-                      <button className="btn secondary" onClick={() => handleNotify(item)}>
+                      <button className="btn secondary" onClick={() => handleNotify(item)} title="Send SMS notification to guest">
                         <img src="/chat.png" alt="Notify" style={{ width: 20, height: 20 }} />
                       </button>
                     )}
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} title="Delete this luggage item">
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
@@ -588,7 +588,7 @@ export default function Luggage() {
                   <td>{item.departedAt ? new Date(item.departedAt.seconds * 1000).toLocaleString() : '—'}</td>
                   <td>{item.tagMessageSent ? 'Sent' : '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} title="Delete this luggage item">
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
@@ -805,8 +805,8 @@ export default function Luggage() {
           />
 
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn primary" onClick={handleCreate}>Create</button>
-            <button className="btn secondary" onClick={() => setNewOpen(false)}>Cancel</button>
+            <button className="btn primary" onClick={handleCreate} title="Add this luggage item">Create</button>
+            <button className="btn secondary" onClick={() => setNewOpen(false)} title="Cancel and close">Cancel</button>
           </div>
         </div>
       </Modal>
@@ -940,7 +940,7 @@ export default function Luggage() {
               />
             </div>
 
-            <button className="btn secondary" onClick={() => setEditOpen(false)}>Close</button>
+            <button className="btn secondary" onClick={() => setEditOpen(false)} title="Close edit modal">Close</button>
           </div>
         </Modal>
       )}
@@ -952,10 +952,10 @@ export default function Luggage() {
             Would you like to send an SMS notification to the guest that their room is ready?
           </p>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn primary" onClick={confirmNotification}>
+            <button className="btn primary" onClick={confirmNotification} title="Send SMS notification to guest">
               Yes, Send SMS
             </button>
-            <button className="btn secondary" onClick={declineNotification}>
+            <button className="btn secondary" onClick={declineNotification} title="Skip SMS notification">
               No
             </button>
           </div>
@@ -969,10 +969,10 @@ export default function Luggage() {
             Are you sure you want to delete this luggage item? This action cannot be undone.
           </p>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn primary" onClick={confirmDelete}>
+            <button className="btn primary" onClick={confirmDelete} title="Permanently delete this luggage item">
               Yes, Delete
             </button>
-            <button className="btn secondary" onClick={cancelDelete}>
+            <button className="btn secondary" onClick={cancelDelete} title="Cancel deletion">
               Cancel
             </button>
           </div>
@@ -1028,7 +1028,7 @@ export default function Luggage() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn secondary" onClick={() => setAuditModalOpen(false)}>
+            <button className="btn secondary" onClick={() => setAuditModalOpen(false)} title="Close audit log">
               Close
             </button>
           </div>

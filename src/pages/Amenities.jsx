@@ -504,7 +504,7 @@ export default function Amenities() {
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Amenities</h2>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button className="btn secondary" onClick={() => fileInputRef.current?.click()}>
+          <button className="btn secondary" onClick={() => fileInputRef.current?.click()} title="Import amenities from a CSV file">
             Upload CSV
           </button>
           <input
@@ -514,10 +514,10 @@ export default function Amenities() {
             onChange={handleCSVUpload}
             style={{ display: 'none' }}
           />
-          <button className="btn secondary" onClick={() => navigate('/amenities-history')}>
+          <button className="btn secondary" onClick={() => navigate('/amenities-history')} title="View amenities history">
             View History
           </button>
-          <button className="btn primary" onClick={() => { setNewOpen(true); setErrors({}); }}>
+          <button className="btn primary" onClick={() => { setNewOpen(true); setErrors({}); }} title="Add a new amenity item">
             Add Amenity
           </button>
         </div>
@@ -593,16 +593,16 @@ export default function Amenities() {
                   </td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn secondary" onClick={() => openEdit(item)}>
+                    <button className="btn secondary" onClick={() => openEdit(item)} title="Edit amenity details">
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDeliver(item)}>
+                    <button className="btn secondary" onClick={() => handleDeliver(item)} title="Mark amenity as delivered">
                       <img src="/tick.png" alt="Deliver" style={{ width: 20, height: 20 }} />
                     </button>
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} title="Delete this amenity">
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
@@ -654,7 +654,7 @@ export default function Amenities() {
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log" style={{ marginRight: 6 }}>
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} title="Delete this amenity">
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
@@ -722,13 +722,13 @@ export default function Amenities() {
                   </td>
                   <td>{item.notes || '—'}</td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn secondary" onClick={() => openEdit(item)}>
+                    <button className="btn secondary" onClick={() => openEdit(item)} title="Edit amenity details">
                       <img src="/edit.png" alt="Edit" style={{ width: 20, height: 20 }} />
                     </button>
                     <button className="btn secondary" onClick={() => handleViewAudit(item)} title="View Audit Log">
                       <img src="/audit.png" alt="Audit" style={{ width: 20, height: 20 }} />
                     </button>
-                    <button className="btn secondary" onClick={() => handleDelete(item.id)}>
+                    <button className="btn secondary" onClick={() => handleDelete(item.id)} title="Delete this amenity">
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
@@ -795,10 +795,10 @@ export default function Amenities() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <button className="btn primary" onClick={handleCreate}>
+          <button className="btn primary" onClick={handleCreate} title="Add this amenity item">
             Create
           </button>
-          <button className="btn secondary" onClick={() => { setNewOpen(false); setErrors({}); }}>
+          <button className="btn secondary" onClick={() => { setNewOpen(false); setErrors({}); }} title="Cancel and close">
             Cancel
           </button>
         </div>
@@ -875,10 +875,10 @@ export default function Amenities() {
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button className="btn primary" onClick={handleEdit}>
+              <button className="btn primary" onClick={handleEdit} title="Save changes to amenity">
                 Save
               </button>
-              <button className="btn secondary" onClick={() => { setEditOpen(false); setEditingItem(null); setErrors({}); }}>
+              <button className="btn secondary" onClick={() => { setEditOpen(false); setEditingItem(null); setErrors({}); }} title="Cancel and close">
                 Cancel
               </button>
             </div>
@@ -891,10 +891,10 @@ export default function Amenities() {
         <h2>Delete Amenity</h2>
         <p>Are you sure you want to delete this amenity item?</p>
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          <button className="btn primary" onClick={confirmDelete}>
+          <button className="btn primary" onClick={confirmDelete} title="Permanently delete this amenity">
             Delete
           </button>
-          <button className="btn secondary" onClick={cancelDelete}>
+          <button className="btn secondary" onClick={cancelDelete} title="Cancel deletion">
             Cancel
           </button>
         </div>
@@ -949,7 +949,7 @@ export default function Amenities() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button className="btn secondary" onClick={() => setAuditModalOpen(false)}>
+            <button className="btn secondary" onClick={() => setAuditModalOpen(false)} title="Close audit log">
               Close
             </button>
           </div>
