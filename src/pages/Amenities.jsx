@@ -343,12 +343,12 @@ export default function Amenities() {
       // Parse CSV with security checks
       const headers = lines[0].split(',').map(h => sanitizeInput(h));
       const dateIndex = headers.findIndex(h => h.toLowerCase().includes('date'));
-      const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
+      const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('requirement'));
       const roomIndex = headers.findIndex(h => h.toLowerCase().includes('room'));
       const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
 
       if (descIndex === -1 || roomIndex === -1 || nameIndex === -1) {
-        setUploadError('CSV must contain Description, Room No, and Name columns');
+        setUploadError('CSV must contain Description (or Requirement), Room No, and Name columns');
         return;
       }
 
