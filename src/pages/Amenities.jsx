@@ -80,6 +80,7 @@ export default function Amenities() {
     guestName: '',
     roomNumber: '',
     roomStatus: '',
+    pax: '',
     deliveryDate: '',
     notes: '',
   });
@@ -172,6 +173,7 @@ export default function Amenities() {
         guestName: '',
         roomNumber: '',
         roomStatus: '',
+        pax: '',
         deliveryDate: '',
         notes: '',
       });
@@ -218,6 +220,7 @@ export default function Amenities() {
         guestName: sanitizedItem.guestName,
         roomNumber: sanitizedItem.roomNumber,
         roomStatus: sanitizedItem.roomStatus,
+        pax: sanitizedItem.pax || '',
         deliveryDate: sanitizedItem.deliveryDate,
         notes: sanitizedItem.notes,
       });
@@ -346,6 +349,7 @@ export default function Amenities() {
       const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('requirement'));
       const roomIndex = headers.findIndex(h => h.toLowerCase().includes('room'));
       const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
+      const qtyIndex = headers.findIndex(h => h.toLowerCase() === 'qty');
 
       if (descIndex === -1 || roomIndex === -1 || nameIndex === -1) {
         setUploadError('CSV must contain Description (or Requirement), Room No, and Name columns');
@@ -440,12 +444,15 @@ export default function Amenities() {
           }
         }
 
+        const pax = qtyIndex !== -1 ? sanitizeInput(values[qtyIndex] || '') : '';
+
         if (description && roomNumber && guestName) {
           amenities.push({
             description: sanitizeInput(description),
             roomNumber: sanitizeInput(roomNumber),
             guestName: sanitizeInput(guestName),
             roomStatus: '',
+            pax,
             deliveryDate,
             notes: '',
           });
@@ -547,6 +554,7 @@ export default function Amenities() {
                 <th>Description</th>
                 <th>Guest Name</th>
                 <th>Room</th>
+                <th>Pax</th>
                 <th>Room Status</th>
                 <th>Notes</th>
                 <th>Actions</th>
@@ -555,7 +563,7 @@ export default function Amenities() {
             <tbody>
               {todayOutstanding.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan="8" style={{ textAlign: 'center', opacity: 0.7 }}>
                     No outstanding amenities for today
                   </td>
                 </tr>
@@ -566,6 +574,7 @@ export default function Amenities() {
                   <td>{item.description}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
+                  <td>{item.pax || '—'}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
@@ -624,6 +633,7 @@ export default function Amenities() {
                 <th>Description</th>
                 <th>Guest Name</th>
                 <th>Room</th>
+                <th>Pax</th>
                 <th>Delivered At</th>
                 <th>Actions</th>
               </tr>
@@ -631,7 +641,7 @@ export default function Amenities() {
             <tbody>
               {todayDelivered.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
                     No amenities delivered today
                   </td>
                 </tr>
@@ -642,6 +652,7 @@ export default function Amenities() {
                   <td>{item.description}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
+                  <td>{item.pax || '—'}</td>
                   <td>
                     {item.deliveredAt ? 
                       new Date(item.deliveredAt.seconds * 1000).toLocaleTimeString('en-US', {
@@ -676,6 +687,7 @@ export default function Amenities() {
                 <th>Description</th>
                 <th>Guest Name</th>
                 <th>Room</th>
+                <th>Pax</th>
                 <th>Room Status</th>
                 <th>Notes</th>
                 <th>Actions</th>
@@ -684,7 +696,7 @@ export default function Amenities() {
             <tbody>
               {tomorrowAmenities.length === 0 && (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', opacity: 0.7 }}>
+                  <td colSpan="8" style={{ textAlign: 'center', opacity: 0.7 }}>
                     No amenities scheduled for tomorrow
                   </td>
                 </tr>
@@ -695,6 +707,7 @@ export default function Amenities() {
                   <td>{item.description}</td>
                   <td>{item.guestName}</td>
                   <td>{item.roomNumber}</td>
+                  <td>{item.pax || '—'}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
@@ -774,6 +787,17 @@ export default function Amenities() {
         </div>
 
         <div style={{ marginBottom: 16 }}>
+          <input
+            type="number"
+            value={newAmenity.pax}
+            onChange={(e) => setNewAmenity({ ...newAmenity, pax: e.target.value })}
+            placeholder="Pax (optional)"
+            min="0"
+            style={{ width: '100%' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Delivery Date*</label>
           <input
             type="date"
@@ -837,6 +861,17 @@ export default function Amenities() {
                 style={{ width: '100%', borderColor: errors.roomNumber ? '#ff4444' : undefined }}
               />
               {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <input
+                type="number"
+                value={editingItem.pax || ''}
+                onChange={(e) => setEditingItem({ ...editingItem, pax: e.target.value })}
+                placeholder="Pax (optional)"
+                min="0"
+                style={{ width: '100%' }}
+              />
             </div>
 
             <div style={{ marginBottom: 16 }}>
