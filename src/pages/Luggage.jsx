@@ -604,21 +604,6 @@ export default function Luggage() {
       {/* Create Modal */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Luggage">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
-            <input
-              type="checkbox"
-              checked={newLuggage.noBaggage}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setNewLuggage({ ...newLuggage, noBaggage: checked, tags: checked ? [] : newLuggage.tags, numberOfBags: checked ? '0' : newLuggage.numberOfBags });
-                setTagInput('');
-                if (checked && errors.tags) setErrors({ ...errors, tags: false });
-              }}
-              style={{ width: 16, height: 16, cursor: 'pointer' }}
-            />
-            <span style={{ fontSize: 14, fontWeight: 500 }}>No Baggage</span>
-          </label>
-
           {!newLuggage.noBaggage && (
           <div>
             <div style={{ 
@@ -701,6 +686,21 @@ export default function Luggage() {
             </div>
           </div>
           )}
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={newLuggage.noBaggage}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setNewLuggage({ ...newLuggage, noBaggage: checked, tags: checked ? [] : newLuggage.tags, numberOfBags: checked ? '0' : newLuggage.numberOfBags });
+                setTagInput('');
+                if (checked && errors.tags) setErrors({ ...errors, tags: false });
+              }}
+              style={{ width: 16, height: 16, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 500 }}>No Baggage</span>
+          </label>
 
           <div>
             <input
