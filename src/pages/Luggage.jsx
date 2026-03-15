@@ -65,6 +65,7 @@ export default function Luggage() {
     luggageType: 'arrival',
     numberOfBags: '',
     notes: '',
+    noBaggage: false,
   });
   const [luggageTypeManual, setLuggageTypeManual] = useState(false);
 
@@ -131,7 +132,7 @@ export default function Luggage() {
     console.log('handleCreate called', newLuggage);
     
     const validationErrors = {
-      tags: newLuggage.tags.length === 0,
+      tags: !newLuggage.noBaggage && newLuggage.tags.length === 0,
       guestName: !String(newLuggage.guestName).trim(),
       roomNumber: !String(newLuggage.roomNumber).trim(),
       countryCode: Boolean(newLuggage.countryCode && !resolveCountryCode(newLuggage.countryCode)),
@@ -186,6 +187,7 @@ export default function Luggage() {
         luggageType: 'arrival',
         numberOfBags: '',
         notes: '',
+        noBaggage: false,
       });
       setLuggageTypeManual(false);
       setTagInput('');
@@ -602,6 +604,22 @@ export default function Luggage() {
       {/* Create Modal */}
       <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Luggage">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={newLuggage.noBaggage}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setNewLuggage({ ...newLuggage, noBaggage: checked, tags: checked ? [] : newLuggage.tags, numberOfBags: checked ? '0' : newLuggage.numberOfBags });
+                setTagInput('');
+                if (checked && errors.tags) setErrors({ ...errors, tags: false });
+              }}
+              style={{ width: 16, height: 16, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 14, fontWeight: 500 }}>No Baggage</span>
+          </label>
+
+          {!newLuggage.noBaggage && (
           <div>
             <div style={{ 
               border: `1px solid ${errors.tags ? '#ff4444' : '#ccc'}`, 
@@ -682,6 +700,7 @@ export default function Luggage() {
               Press space after each tag number
             </div>
           </div>
+          )}
 
           <div>
             <input
