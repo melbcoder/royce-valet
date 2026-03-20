@@ -346,7 +346,11 @@ export default function Amenities() {
       // Parse CSV with security checks
       const headers = lines[0].split(',').map(h => sanitizeInput(h));
       const dateIndex = headers.findIndex(h => h.toLowerCase().includes('date'));
-      const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('requirement'));
+      const descIndex = headers.findIndex(h => {
+        const lower = h.toLowerCase();
+        return lower.includes('description') ||
+               (lower.includes('requirement') && !lower.includes('date') && !lower.includes('status'));
+      });
       const roomIndex = headers.findIndex(h => h.toLowerCase().includes('room'));
       const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
       const qtyIndex = headers.findIndex(h => h.toLowerCase() === 'qty');
@@ -551,7 +555,7 @@ export default function Amenities() {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Description</th>
+                <th>Requirement</th>
                 <th>Guest Name</th>
                 <th>Room</th>
                 <th>Pax</th>
