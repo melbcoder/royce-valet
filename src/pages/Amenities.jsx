@@ -555,7 +555,7 @@ export default function Amenities() {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Requirement</th>
+                <th>Description</th>
                 <th>Guest Name</th>
                 <th>Room</th>
                 <th>Pax</th>
