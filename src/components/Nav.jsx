@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
@@ -244,7 +245,7 @@ export default function Nav() {
       )}
 
       {/* ── QR Modal ── */}
-      {qrOpen && (
+      {qrOpen && ReactDOM.createPortal(
         <div
           style={{
             position: 'fixed', inset: 0,
@@ -320,7 +321,8 @@ export default function Nav() {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
