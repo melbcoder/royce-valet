@@ -251,12 +251,14 @@ export default function Nav() {
             background: 'rgba(0,0,0,.45)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 1000,
+            overflow: 'auto',
+            padding: '24px 0',
           }}
           onClick={closeQR}
         >
           <div
             className="card pad"
-            style={{ width: 'min(340px, 92vw)', textAlign: 'center', padding: 28 }}
+            style={{ width: 'min(340px, 92vw)', textAlign: 'center', padding: 28, margin: 'auto', flexShrink: 0 }}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
