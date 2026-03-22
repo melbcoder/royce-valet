@@ -31,6 +31,7 @@ export default function Nav() {
   const [secondsLeft, setSecondsLeft] = useState(TOKEN_TTL);
   const canvasRef = useRef(null);
   const countdownRef = useRef(null);
+  const qrUrlRef = useRef(null); // store the generated URL to draw later
 
   const stopCountdown = useCallback(() => {
     if (countdownRef.current) {
@@ -44,14 +45,38 @@ export default function Nav() {
     setQrOpen(false);
     setQrError('');
     setSecondsLeft(TOKEN_TTL);
+    qrUrlRef.current = null;
   }, [stopCountdown]);
+
+  // Draw the QR onto the canvas element once it's available
+  const drawQR = useCallback(async (canvas, url) => {
+    if (!canvas || !url) return;
+    try {
+      const QRCode = (await import('qrcode')).default;
+      await QRCode.toCanvas(canvas, url, {
+        width: 220,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' },
+      });
+    } catch (err) {
+      console.error('QR draw error:', err);
+    }
+  }, []);
+
+  // Callback ref: fires when the canvas mounts into the DOM
+  const canvasCallbackRef = useCallback((node) => {
+    canvasRef.current = node;
+    if (node && qrUrlRef.current) {
+      drawQR(node, qrUrlRef.current);
+    }
+  }, [drawQR]);
 
   const generateQR = useCallback(async () => {
     setQrLoading(true);
     setQrError('');
+    qrUrlRef.current = null;
 
     try {
-      // Get the current user's Firebase ID token to authenticate the request
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('Not authenticated');
       const idToken = await currentUser.getIdToken();
@@ -68,19 +93,13 @@ export default function Nav() {
       if (!res.ok) throw new Error(data.error || 'Failed to generate QR');
 
       const url = `${window.location.origin}/qr-login?t=${data.token}`;
+      qrUrlRef.current = url;
 
-      // Dynamically import qrcode so it doesn't bloat the initial bundle
-      const QRCode = (await import('qrcode')).default;
-
-      // Wait for canvas to be in the DOM
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // If the canvas is already in the DOM, draw immediately
       if (canvasRef.current) {
-        QRCode.toCanvas(canvasRef.current, url, {
-          width: 220,
-          margin: 2,
-          color: { dark: '#000000', light: '#ffffff' },
-        });
+        await drawQR(canvasRef.current, url);
       }
+      // Otherwise, canvasCallbackRef will draw it when the canvas mounts
 
       // Start 60-second countdown
       stopCountdown();
@@ -100,7 +119,7 @@ export default function Nav() {
     } finally {
       setQrLoading(false);
     }
-  }, [stopCountdown]);
+  }, [stopCountdown, drawQR]);
 
   // Generate QR when modal first opens
   useEffect(() => {
@@ -263,7 +282,7 @@ export default function Nav() {
                   opacity: secondsLeft === 0 ? 0.2 : 1,
                   transition: 'opacity 0.4s',
                 }}>
-                  <canvas ref={canvasRef} />
+                  <canvas ref={canvasCallbackRef} />
                 </div>
 
                 {secondsLeft > 0 ? (
