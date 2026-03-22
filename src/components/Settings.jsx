@@ -2,11 +2,23 @@ import React, { useEffect, useState } from 'react'
 import { subscribeUsers, createUser, updateUser, deleteUser, subscribeSettings, updateSettings } from '../services/valetFirestore'
 import { COMMON_TIMEZONES } from '../utils/timezoneUtils'
 
+// Define available pages/permissions
+const AVAILABLE_PAGES = [
+  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'valet', label: 'Valet', icon: '🚗' },
+  { id: 'valet-history', label: 'Valet History', icon: '📋' },
+  { id: 'luggage', label: 'Luggage', icon: '🧳' },
+  { id: 'luggage-history', label: 'Luggage History', icon: '📋' },
+  { id: 'amenities', label: 'Amenities', icon: '🎁' },
+  { id: 'amenities-history', label: 'Amenities History', icon: '📋' },
+  { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
+]
+
 export default function Settings({open, onClose}){
   const [users, setUsers] = useState([])
   const [showAddUser, setShowAddUser] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
-  const [formData, setFormData] = useState({ username: '', password: '', role: 'user', phone: '' })
+  const [formData, setFormData] = useState({ username: '', password: '', role: 'user', phone: '', pages: [] })
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -151,6 +163,12 @@ export default function Settings({open, onClose}){
       return
     }
 
+    // For new users, require at least one page access
+    if (!editingUser && formData.pages.length === 0) {
+      setError('User must have access to at least one page')
+      return
+    }
+
     // Validate phone number for new users
     if (!editingUser) {
       if (!formData.phone) {
@@ -158,7 +176,6 @@ export default function Settings({open, onClose}){
         return
       }
       
-      // Basic phone validation (accepts formats like +1234567890 or 1234567890)
       const phoneRegex = /^\+?[1-9]\d{9,14}$/
       const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '')
       if (!phoneRegex.test(cleanPhone)) {
@@ -169,29 +186,26 @@ export default function Settings({open, onClose}){
 
     try {
       if (editingUser) {
-        // Only update role for existing users (password changes done through "Change Password")
         await updateUser(editingUser.id, {
           username: formData.username.toLowerCase().trim(),
-          role: formData.role
+          role: formData.role,
+          pages: formData.pages
         })
       } else {
-        // Generate random password for new user
         const randomPassword = generateRandomPassword()
         
-        // Create new user with generated password
         await createUser({
           username: formData.username.toLowerCase().trim(),
           password: randomPassword,
           role: formData.role,
+          pages: formData.pages,
           mustChangePassword: true
         })
         
-        // Send SMS with credentials
         try {
           const siteUrl = window.location.origin
           const message = `Welcome to Royce Valet!\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nLogin at: ${siteUrl}\n\nYou will be required to change your password on first login.`
           
-          // Use the SMS service
           const { sendSMS } = await import('../services/smsService')
           await sendSMS(formData.phone, message)
           
@@ -202,7 +216,7 @@ export default function Settings({open, onClose}){
         }
       }
       
-      setFormData({ username: '', password: '', role: 'user', phone: '' })
+      setFormData({ username: '', password: '', role: 'user', phone: '', pages: [] })
       setShowAddUser(false)
       setEditingUser(null)
     } catch (err) {
@@ -221,9 +235,19 @@ export default function Settings({open, onClose}){
       username: user.username,
       password: '', // Don't populate password for edit
       role: user.role,
-      phone: '' // Don't populate phone for edit
+      phone: '', // Don't populate phone for edit
+      pages: user.pages || []
     })
     setShowAddUser(true)
+  }
+
+  function togglePageAccess(pageId) {
+    setFormData(prev => ({
+      ...prev,
+      pages: prev.pages.includes(pageId)
+        ? prev.pages.filter(p => p !== pageId)
+        : [...prev.pages, pageId]
+    }))
   }
 
   async function handleDeleteUser(userId) {
@@ -259,7 +283,7 @@ export default function Settings({open, onClose}){
   }
 
   function cancelForm() {
-    setFormData({ username: '', password: '', role: 'user', phone: '' })
+    setFormData({ username: '', password: '', role: 'user', phone: '', pages: [] })
     setShowAddUser(false)
     setEditingUser(null)
     setError('')
@@ -538,6 +562,32 @@ export default function Settings({open, onClose}){
                       <option value="admin">Admin</option>
                     </select>
                   </div>
+
+                  {/* Page Access Permissions */}
+                  <div style={{marginBottom: 12, padding: 12, background: '#f9f9f9', borderRadius: 4, border: '1px solid #eee'}}>
+                    <label style={{display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14}}>
+                      Page Access Permissions:
+                    </label>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8}}>
+                      {AVAILABLE_PAGES.map(page => (
+                        <label key={page.id} style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}}>
+                          <input
+                            type="checkbox"
+                            checked={formData.pages.includes(page.id)}
+                            onChange={() => togglePageAccess(page.id)}
+                            style={{marginRight: 8, cursor: 'pointer'}}
+                          />
+                          <span style={{fontSize: 13}}>
+                            {page.icon} {page.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 8}}>
+                      Select which pages this user can access
+                    </small>
+                  </div>
+
                   {error && (
                     <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{error}</div>
                   )}
@@ -569,6 +619,7 @@ export default function Settings({open, onClose}){
                     <tr style={{background: '#f5f5f5'}}>
                       <th style={{padding: 12, textAlign: 'left', borderBottom: '1px solid #ddd'}}>Username</th>
                       <th style={{padding: 12, textAlign: 'left', borderBottom: '1px solid #ddd'}}>Role</th>
+                      <th style={{padding: 12, textAlign: 'left', borderBottom: '1px solid #ddd'}}>Pages</th>
                       <th style={{padding: 12, textAlign: 'right', borderBottom: '1px solid #ddd'}}>Actions</th>
                     </tr>
                   </thead>
@@ -577,6 +628,7 @@ export default function Settings({open, onClose}){
                       const isCurrentUser = user.id === currentUser?.id;
                       const isLastAdmin = user.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
                       const canDelete = !isCurrentUser && !isLastAdmin;
+                      const userPages = user.pages || [];
                       
                       return (
                         <tr key={user.id} style={{borderBottom: '1px solid #eee'}}>
@@ -607,6 +659,28 @@ export default function Settings({open, onClose}){
                             }}>
                               {user.role}
                             </span>
+                          </td>
+                          <td style={{padding: 12, fontSize: 12}}>
+                            {userPages.length === 0 ? (
+                              <span style={{color: '#999'}}>No access</span>
+                            ) : (
+                              <div style={{display: 'flex', flexWrap: 'wrap', gap: 4}}>
+                                {userPages.map(pageId => {
+                                  const page = AVAILABLE_PAGES.find(p => p.id === pageId)
+                                  return page ? (
+                                    <span key={pageId} style={{
+                                      padding: '2px 6px',
+                                      borderRadius: 3,
+                                      background: '#e3f2fd',
+                                      color: '#1976d2',
+                                      fontSize: 11
+                                    }}>
+                                      {page.label}
+                                    </span>
+                                  ) : null
+                                })}
+                              </div>
+                            )}
                           </td>
                           <td style={{padding: 12, textAlign: 'right'}}>
                             <button 
