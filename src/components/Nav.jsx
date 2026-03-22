@@ -238,9 +238,13 @@ export default function Nav() {
           onClick={() => setQrOpen(true)}
           className="tag"
           title="Generate mobile login QR code"
-          style={{ cursor: 'pointer', marginLeft: 4 }}
+          style={{ cursor: 'pointer', marginLeft: 4, background: 'none', border: 'none', padding: 0 }}
         >
-          📱
+          <img 
+            src="/qr-code.png" 
+            alt="Generate QR code" 
+            style={{ width: 24, height: 24, display: 'block' }}
+          />
         </button>
       )}
 
