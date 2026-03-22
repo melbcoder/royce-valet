@@ -223,29 +223,29 @@ export default function Nav() {
       </div>
       
       {isStaffPage && (
-        <button 
-          onClick={handleLogout}
-          className="btn secondary"
-          style={{ padding: '8px 16px', fontSize: '14px', marginLeft: '8px' }}
-        >
-          Logout
-        </button>
-      )}
+        <>
+          {/* ── Mobile Login QR button ── */}
+          <button
+            onClick={() => setQrOpen(true)}
+            className="tag"
+            title="Generate mobile login QR code"
+            style={{ cursor: 'pointer', marginLeft: 4, background: 'none', border: 'none', padding: 0 }}
+          >
+            <img 
+              src="/qr-code.png" 
+              alt="Generate QR code" 
+              style={{ width: 24, height: 24, display: 'block' }}
+            />
+          </button>
 
-      {/* ── Mobile Login QR button ── */}
-      {isStaffPage && (
-        <button
-          onClick={() => setQrOpen(true)}
-          className="tag"
-          title="Generate mobile login QR code"
-          style={{ cursor: 'pointer', marginLeft: 4, background: 'none', border: 'none', padding: 0 }}
-        >
-          <img 
-            src="/qr-code.png" 
-            alt="Generate QR code" 
-            style={{ width: 24, height: 24, display: 'block' }}
-          />
-        </button>
+          <button 
+            onClick={handleLogout}
+            className="btn secondary"
+            style={{ padding: '8px 16px', fontSize: '14px', marginLeft: '8px' }}
+          >
+            Logout
+          </button>
+        </>
       )}
 
       {/* ── QR Modal ── */}
