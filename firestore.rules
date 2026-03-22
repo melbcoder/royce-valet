@@ -113,5 +113,11 @@ service cloud.firestore {
     match /maintenanceJobs/{jobId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Login tokens — only writable by the server (Firebase Admin SDK bypasses these rules).
+    // Explicitly deny all direct client access as a defence-in-depth measure.
+    match /loginTokens/{tokenId} {
+      allow read, write: if false;
+    }
   }
 }

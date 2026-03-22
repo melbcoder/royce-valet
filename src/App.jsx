@@ -12,6 +12,7 @@ import AmenitiesHistory from './pages/AmenitiesHistory';
 import MaintenanceJobs from './pages/MaintenanceJobs';
 import ContractorSignIn from './pages/ContractorSignIn';
 import MaintenanceDashboard from './pages/MaintenanceDashboard';
+import QRLogin from './pages/QRLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
 import ToastHost from './components/Toast';
@@ -80,6 +81,7 @@ export default function App(){
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/force-change-password" element={<ForceChangePassword />} />
+            <Route path="/qr-login" element={<QRLogin />} />
             <Route path="/guest/:tag" element={<Guest />} />
             <Route 
               path="/dashboard" 

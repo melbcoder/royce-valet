@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
+
+const TOKEN_TTL = 60; // seconds the QR code stays valid
 
 export default function Nav() {
   const navigate = useNavigate();
@@ -21,6 +23,93 @@ export default function Nav() {
   ].includes(location.pathname);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
+
+  // ── QR modal state ──────────────────────────────────────────────────────────
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(TOKEN_TTL);
+  const canvasRef = useRef(null);
+  const countdownRef = useRef(null);
+
+  const stopCountdown = useCallback(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+  }, []);
+
+  const closeQR = useCallback(() => {
+    stopCountdown();
+    setQrOpen(false);
+    setQrError('');
+    setSecondsLeft(TOKEN_TTL);
+  }, [stopCountdown]);
+
+  const generateQR = useCallback(async () => {
+    setQrLoading(true);
+    setQrError('');
+
+    try {
+      // Get the current user's Firebase ID token to authenticate the request
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not authenticated');
+      const idToken = await currentUser.getIdToken();
+
+      const res = await fetch('/api/generate-login-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate QR');
+
+      const url = `${window.location.origin}/qr-login?t=${data.token}`;
+
+      // Dynamically import qrcode so it doesn't bloat the initial bundle
+      const QRCode = (await import('qrcode')).default;
+
+      // Wait for canvas to be in the DOM
+      await new Promise(resolve => setTimeout(resolve, 50));
+      if (canvasRef.current) {
+        QRCode.toCanvas(canvasRef.current, url, {
+          width: 220,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+      }
+
+      // Start 60-second countdown
+      stopCountdown();
+      setSecondsLeft(TOKEN_TTL);
+      countdownRef.current = setInterval(() => {
+        setSecondsLeft(prev => {
+          if (prev <= 1) {
+            stopCountdown();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('QR generation error:', err);
+      setQrError(err.message || 'Failed to generate QR code');
+    } finally {
+      setQrLoading(false);
+    }
+  }, [stopCountdown]);
+
+  // Generate QR when modal first opens
+  useEffect(() => {
+    if (qrOpen) generateQR();
+    return () => { if (!qrOpen) stopCountdown(); };
+  }, [qrOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clean up on unmount
+  useEffect(() => () => stopCountdown(), [stopCountdown]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -121,6 +210,96 @@ export default function Nav() {
         >
           Logout
         </button>
+      )}
+
+      {/* ── Mobile Login QR button ── */}
+      {isStaffPage && (
+        <button
+          onClick={() => setQrOpen(true)}
+          className="tag"
+          title="Generate mobile login QR code"
+          style={{ cursor: 'pointer', marginLeft: 4 }}
+        >
+          📱
+        </button>
+      )}
+
+      {/* ── QR Modal ── */}
+      {qrOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={closeQR}
+        >
+          <div
+            className="card pad"
+            style={{ width: 'min(340px, 92vw)', textAlign: 'center', padding: 28 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 20 }}>Mobile Login</h2>
+              <button onClick={closeQR} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+
+            {qrLoading ? (
+              <div style={{ padding: '40px 0', color: 'var(--muted)' }}>Generating QR code…</div>
+            ) : qrError ? (
+              <div>
+                <p style={{ color: '#c93030', marginBottom: 16 }}>{qrError}</p>
+                <button className="btn" onClick={generateQR}>Try Again</button>
+              </div>
+            ) : (
+              <>
+                {/* QR canvas */}
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 12, borderRadius: 16, border: '1px solid rgba(0,0,0,.1)',
+                  marginBottom: 16,
+                  opacity: secondsLeft === 0 ? 0.2 : 1,
+                  transition: 'opacity 0.4s',
+                }}>
+                  <canvas ref={canvasRef} />
+                </div>
+
+                {secondsLeft > 0 ? (
+                  <>
+                    {/* Countdown bar */}
+                    <div style={{
+                      height: 4, borderRadius: 999,
+                      background: 'rgba(0,0,0,.1)',
+                      marginBottom: 8,
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${(secondsLeft / TOKEN_TTL) * 100}%`,
+                        borderRadius: 999,
+                        background: secondsLeft > 15 ? 'var(--gold)' : '#c93030',
+                        transition: 'width 1s linear, background 0.5s',
+                      }} />
+                    </div>
+                    <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 4px 0' }}>
+                      Expires in <strong style={{ color: secondsLeft <= 15 ? '#c93030' : 'inherit' }}>{secondsLeft}s</strong>
+                    </p>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+                      Scan with your phone to sign in instantly
+                    </p>
+                  </>
+                ) : (
+                  <div>
+                    <p style={{ color: '#c93030', marginBottom: 12, fontWeight: 600 }}>QR code expired</p>
+                    <button className="btn" onClick={generateQR}>Generate New QR</button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
     </>
   );
