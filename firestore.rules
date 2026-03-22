@@ -108,5 +108,10 @@ service cloud.firestore {
     match /contractorHistory/{historyId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Maintenance jobs
+    match /maintenanceJobs/{jobId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

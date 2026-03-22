@@ -11,6 +11,7 @@ import {
   where,
   serverTimestamp,
   getDocs,
+  arrayUnion,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -33,6 +34,7 @@ const amenitiesRef = collection(db, "amenities");
 const amenitiesHistoryRef = collection(db, "amenitiesHistory");
 const amenitiesAuditRef = collection(db, "amenitiesAudit");
 const settingsRef = collection(db, "settings");
+const maintenanceJobsRef = collection(db, "maintenanceJobs");
 
 // ===== SETTINGS MANAGEMENT =====
 
@@ -988,5 +990,85 @@ export function subscribeContractorHistory(callback) {
     const list = snapshot.docs.map((d) => ({ ...d.data(), _id: d.id }));
     list.sort((a, b) => (b.signedOutAtMs || 0) - (a.signedOutAtMs || 0));
     callback(list);
+  });
+}
+
+// ===== MAINTENANCE JOBS =====
+
+const PRIORITY_ORDER = { urgent: 0, high: 1, normal: 2, low: 3 };
+
+export async function createMaintenanceJob(data) {
+  const currentUser = getCurrentUser();
+  const id = `job-${Date.now()}`;
+  await setDoc(doc(maintenanceJobsRef, id), {
+    title: sanitizeString(data.title || '', 200),
+    description: sanitizeString(data.description || '', 1000),
+    location: sanitizeString(data.location || '', 100),
+    priority: ['low', 'normal', 'high', 'urgent'].includes(data.priority) ? data.priority : 'normal',
+    status: 'open',
+    createdBy: currentUser?.username || 'unknown',
+    createdAt: serverTimestamp(),
+    createdAtMs: Date.now(),
+    acceptedBy: null,
+    acceptedAtMs: null,
+    completedBy: null,
+    completedAtMs: null,
+    photoUrls: Array.isArray(data.photoUrls) ? data.photoUrls : [],
+    updates: [],
+  });
+  return id;
+}
+
+export async function updateMaintenanceJob(id, updates) {
+  await updateDoc(doc(maintenanceJobsRef, id), updates);
+}
+
+export async function acceptMaintenanceJob(id) {
+  const currentUser = getCurrentUser();
+  await updateDoc(doc(maintenanceJobsRef, id), {
+    status: 'accepted',
+    acceptedBy: currentUser?.username || 'unknown',
+    acceptedAtMs: Date.now(),
+  });
+}
+
+export async function addJobUpdate(id, text, photoUrls = []) {
+  const currentUser = getCurrentUser();
+  await updateDoc(doc(maintenanceJobsRef, id), {
+    updates: arrayUnion({
+      text: sanitizeString(text, 1000),
+      user: currentUser?.username || 'unknown',
+      timestamp: Date.now(),
+      photoUrls,
+    }),
+  });
+}
+
+export async function completeMaintenanceJob(id) {
+  const currentUser = getCurrentUser();
+  await updateDoc(doc(maintenanceJobsRef, id), {
+    status: 'completed',
+    completedBy: currentUser?.username || 'unknown',
+    completedAtMs: Date.now(),
+  });
+}
+
+export async function deleteMaintenanceJob(id) {
+  await deleteDoc(doc(maintenanceJobsRef, id));
+}
+
+export function subscribeMaintenanceJobs(callback) {
+  return onSnapshot(maintenanceJobsRef, (snapshot) => {
+    const jobs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    jobs.sort((a, b) => {
+      // Sort by status (open first, then accepted, then completed), then by priority, then newest first
+      const statusOrder = { open: 0, accepted: 1, completed: 2 };
+      const sDiff = (statusOrder[a.status] ?? 0) - (statusOrder[b.status] ?? 0);
+      if (sDiff !== 0) return sDiff;
+      const pDiff = (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2);
+      if (pDiff !== 0) return pDiff;
+      return (b.createdAtMs || 0) - (a.createdAtMs || 0);
+    });
+    callback(jobs);
   });
 }
