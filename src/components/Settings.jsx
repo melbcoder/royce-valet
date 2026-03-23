@@ -686,7 +686,7 @@ export default function Settings({open, onClose}){
                           Select All
                         </button>
                         <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(false)}>
-                          Clear
+                          Clear All
                         </button>
                       </div>
                     </div>
@@ -730,7 +730,10 @@ export default function Settings({open, onClose}){
                             {expandedSections[section.id] && (
                               <div style={{ padding: '0 12px 12px 12px', display: 'grid', gap: 6 }}>
                                 {section.pages.map(page => (
-                                  <label key={page.id} style={{display:'flex', alignItems:'center', cursor:'pointer'}}>
+                                  <label
+                                    key={page.id}
+                                    style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}
+                                  >
                                     <input
                                       type="checkbox"
                                       checked={formData.pages.includes(page.id)}
