@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { subscribeUsers, createUser, updateUser, deleteUser, subscribeSettings, updateSettings } from '../services/valetFirestore'
 import { COMMON_TIMEZONES } from '../utils/timezoneUtils'
 
@@ -161,9 +161,25 @@ export default function Settings({open, onClose}){
     checkUserDocument()
   }, [open, currentUser])
 
+  const sectionCheckboxRefs = useRef({})
+
   const [expandedSections, setExpandedSections] = useState(() =>
-    AVAILABLE_SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: true }), {})
+    AVAILABLE_SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: false }), {})
   )
+
+  // Keep section checkboxes in sync with partial selection state
+  useEffect(() => {
+    AVAILABLE_SECTIONS.forEach(section => {
+      const el = sectionCheckboxRefs.current[section.id]
+      if (!el) return
+
+      const sectionPageIds = section.pages.map(p => p.id)
+      const selectedCount = sectionPageIds.filter(id => formData.pages.includes(id)).length
+      const isPartial = selectedCount > 0 && selectedCount < sectionPageIds.length
+
+      el.indeterminate = isPartial
+    })
+  }, [formData.pages])
 
   const allPageIds = useMemo(
     () => AVAILABLE_SECTIONS.flatMap(section => section.pages.map(p => p.id)),
@@ -642,7 +658,16 @@ export default function Settings({open, onClose}){
                   </div>
 
                   {/* Page Access Permissions */}
-                  <div style={{marginBottom: 12, padding: 12, background: '#f9f9f9', borderRadius: 4, border: '1px solid #eee'}}>
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      padding: 12,
+                      background: '#f9f9f9',
+                      borderRadius: 4,
+                      border: '1px solid #eee',
+                      textAlign: 'left'
+                    }}
+                  >
                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 8}}>
                       <label style={{fontWeight: 600, fontSize: 14, margin: 0}}>
                         Page Access Permissions:
@@ -669,7 +694,9 @@ export default function Settings({open, onClose}){
                               <label style={{display:'flex', alignItems:'center', cursor:'pointer', gap: 8, margin: 0}}>
                                 <input
                                   type="checkbox"
+                                  ref={(el) => { sectionCheckboxRefs.current[section.id] = el }}
                                   checked={allSelected}
+                                  aria-checked={selectedCount > 0 && selectedCount < sectionPageIds.length ? 'mixed' : allSelected}
                                   onChange={() => toggleSectionAccess(section)}
                                 />
                                 <span style={{fontSize: 13, fontWeight: 600}}>
@@ -691,7 +718,7 @@ export default function Settings({open, onClose}){
                             </div>
 
                             {expandedSections[section.id] && (
-                              <div style={{padding:'0 10px 10px 30px', display:'grid', gap: 6}}>
+                              <div style={{ padding: '0 12px 12px 12px', display: 'grid', gap: 6 }}>
                                 {section.pages.map(page => (
                                   <label key={page.id} style={{display:'flex', alignItems:'center', cursor:'pointer'}}>
                                     <input
