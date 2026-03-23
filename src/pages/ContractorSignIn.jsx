@@ -107,40 +107,40 @@ function printBadge(contractor) {
       border-bottom: 1px solid #000;
       margin-bottom: 2.5mm;
     }
-    .hotel { font-size: 8.5pt; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
+    .hotel { font-size: 9.5pt; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
     .badge-type {
-      font-size: 6.5pt; font-weight: bold;
+      font-size: 7.5pt; font-weight: bold;
       background: #000; color: #fff;
       padding: 1px 5px; border-radius: 2px;
       text-transform: uppercase; letter-spacing: .06em;
     }
     .body { display: flex; flex: 1; gap: 3mm; overflow: hidden; }
     .photo {
-      width: 68px; height: 68px;
+      width: 76px; height: 76px;
       object-fit: cover;
       border-radius: 4px;
       border: 1.5px solid #999;
       flex-shrink: 0;
     }
     .no-photo {
-      width: 68px; height: 68px;
+      width: 76px; height: 76px;
       border-radius: 4px;
       border: 1.5px solid #999;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26pt;
+      font-size: 32pt;
       background: #f0f0f0;
       flex-shrink: 0;
     }
     .details { flex: 1; display: flex; flex-direction: column; gap: 1.3mm; overflow: hidden; }
-    .name { font-size: 10pt; font-weight: 900; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .company { font-size: 7pt; color: #444; margin-bottom: .5mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row { display: flex; gap: 1.5mm; font-size: 6.5pt; line-height: 1.3; align-items: flex-start; }
+    .name { font-size: 11pt; font-weight: 900; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .company { font-size: 8pt; color: #444; margin-bottom: .5mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row { display: flex; gap: 1.5mm; font-size: 7pt; line-height: 1.3; align-items: flex-start; }
     .lbl { font-weight: bold; white-space: nowrap; min-width: 22mm; flex-shrink: 0; }
     .val { color: #222; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .footer {
-      font-size: 5.5pt; color: #666;
+      font-size: 6pt; color: #666;
       border-top: 1px solid #ccc;
       padding-top: 1.5mm; margin-top: 1.5mm;
       display: flex;
