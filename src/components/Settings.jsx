@@ -161,6 +161,15 @@ export default function Settings({open, onClose}){
     checkUserDocument()
   }, [open, currentUser])
 
+  const checkboxStyle = {
+    width: 16,
+    height: 16,
+    minWidth: 16,
+    flex: '0 0 16px',
+    margin: 0,
+    cursor: 'pointer'
+  }
+
   const sectionCheckboxRefs = useRef({})
 
   const [expandedSections, setExpandedSections] = useState(() =>
@@ -698,6 +707,7 @@ export default function Settings({open, onClose}){
                                   checked={allSelected}
                                   aria-checked={selectedCount > 0 && selectedCount < sectionPageIds.length ? 'mixed' : allSelected}
                                   onChange={() => toggleSectionAccess(section)}
+                                  style={checkboxStyle}
                                 />
                                 <span style={{fontSize: 13, fontWeight: 600}}>
                                   {section.icon} {section.label}
@@ -725,7 +735,7 @@ export default function Settings({open, onClose}){
                                       type="checkbox"
                                       checked={formData.pages.includes(page.id)}
                                       onChange={() => togglePageAccess(page.id)}
-                                      style={{marginRight: 8, cursor: 'pointer'}}
+                                      style={checkboxStyle}
                                     />
                                     <span style={{fontSize: 13}}>{page.label}</span>
                                   </label>
