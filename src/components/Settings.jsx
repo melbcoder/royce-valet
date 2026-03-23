@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { subscribeUsers, createUser, updateUser, deleteUser, subscribeSettings, updateSettings } from '../services/valetFirestore'
 import { COMMON_TIMEZONES } from '../utils/timezoneUtils'
 
@@ -13,6 +13,53 @@ const AVAILABLE_PAGES = [
   { id: 'amenities-history', label: 'Amenities History', icon: '📋' },
   { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
 ]
+
+// Group permissions by section
+const AVAILABLE_SECTIONS = [
+  {
+    id: 'valet-section',
+    label: 'Valet',
+    icon: '🚗',
+    pages: [
+      { id: 'valet', label: 'Valet' },
+      { id: 'valet-history', label: 'Valet History' },
+    ],
+  },
+  {
+    id: 'luggage-section',
+    label: 'Luggage',
+    icon: '🧳',
+    pages: [
+      { id: 'luggage', label: 'Luggage' },
+      { id: 'luggage-history', label: 'Luggage History' },
+    ],
+  },
+  {
+    id: 'amenities-section',
+    label: 'Amenities',
+    icon: '🎁',
+    pages: [
+      { id: 'amenities', label: 'Amenities' },
+      { id: 'amenities-history', label: 'Amenities History' },
+    ],
+  },
+  {
+    id: 'maintenance-section',
+    label: 'Maintenance',
+    icon: '🔧',
+    pages: [
+      { id: 'maintenance', label: 'Maintenance' },
+      { id: 'maintenance/jobs', label: 'Maintenance Jobs' },
+      { id: 'maintenance/contractor-sign-in', label: 'Contractor Sign In' },
+    ],
+  },
+]
+
+// Fast lookup for page label in user table
+const PAGE_LABEL_MAP = AVAILABLE_SECTIONS.flatMap(s => s.pages).reduce((acc, p) => {
+  acc[p.id] = p.label
+  return acc
+}, {})
 
 export default function Settings({open, onClose}){
   const [users, setUsers] = useState([])
@@ -113,6 +160,15 @@ export default function Settings({open, onClose}){
     
     checkUserDocument()
   }, [open, currentUser])
+
+  const [expandedSections, setExpandedSections] = useState(() =>
+    AVAILABLE_SECTIONS.reduce((acc, s) => ({ ...acc, [s.id]: true }), {})
+  )
+
+  const allPageIds = useMemo(
+    () => AVAILABLE_SECTIONS.flatMap(section => section.pages.map(p => p.id)),
+    []
+  )
 
   if(!open) return null
 
@@ -389,6 +445,28 @@ export default function Settings({open, onClose}){
     }
   }
 
+  function toggleSectionExpanded(sectionId) {
+    setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }))
+  }
+
+  function toggleSectionAccess(section) {
+    const sectionPageIds = section.pages.map(p => p.id)
+
+    setFormData(prev => {
+      const hasAll = sectionPageIds.every(id => prev.pages.includes(id))
+      const nextPages = hasAll
+        ? prev.pages.filter(id => !sectionPageIds.includes(id))
+        : Array.from(new Set([...prev.pages, ...sectionPageIds]))
+
+      return { ...prev, pages: nextPages }
+    })
+  }
+
+  // Optional: quick select/deselect all pages
+  function setAllPages(enabled) {
+    setFormData(prev => ({ ...prev, pages: enabled ? allPageIds : [] }))
+  }
+
   return (
     <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000}} onClick={onClose}>
       <div className="card pad" style={{width:'min(700px, 94vw)', maxHeight:'90vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
@@ -565,26 +643,75 @@ export default function Settings({open, onClose}){
 
                   {/* Page Access Permissions */}
                   <div style={{marginBottom: 12, padding: 12, background: '#f9f9f9', borderRadius: 4, border: '1px solid #eee'}}>
-                    <label style={{display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14}}>
-                      Page Access Permissions:
-                    </label>
-                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8}}>
-                      {AVAILABLE_PAGES.map(page => (
-                        <label key={page.id} style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}}>
-                          <input
-                            type="checkbox"
-                            checked={formData.pages.includes(page.id)}
-                            onChange={() => togglePageAccess(page.id)}
-                            style={{marginRight: 8, cursor: 'pointer'}}
-                          />
-                          <span style={{fontSize: 13}}>
-                            {page.icon} {page.label}
-                          </span>
-                        </label>
-                      ))}
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 8}}>
+                      <label style={{fontWeight: 600, fontSize: 14, margin: 0}}>
+                        Page Access Permissions:
+                      </label>
+                      <div style={{display: 'flex', gap: 8}}>
+                        <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(true)}>
+                          Select All
+                        </button>
+                        <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(false)}>
+                          Clear
+                        </button>
+                      </div>
                     </div>
+
+                    <div style={{display: 'grid', gap: 8}}>
+                      {AVAILABLE_SECTIONS.map(section => {
+                        const sectionPageIds = section.pages.map(p => p.id)
+                        const selectedCount = sectionPageIds.filter(id => formData.pages.includes(id)).length
+                        const allSelected = selectedCount === sectionPageIds.length && sectionPageIds.length > 0
+
+                        return (
+                          <div key={section.id} style={{border: '1px solid #e5e5e5', borderRadius: 6, background: '#fff'}}>
+                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px'}}>
+                              <label style={{display:'flex', alignItems:'center', cursor:'pointer', gap: 8, margin: 0}}>
+                                <input
+                                  type="checkbox"
+                                  checked={allSelected}
+                                  onChange={() => toggleSectionAccess(section)}
+                                />
+                                <span style={{fontSize: 13, fontWeight: 600}}>
+                                  {section.icon} {section.label}
+                                </span>
+                                <span style={{fontSize: 11, color: '#666'}}>
+                                  ({selectedCount}/{sectionPageIds.length})
+                                </span>
+                              </label>
+
+                              <button
+                                type="button"
+                                className="btn secondary"
+                                style={{padding:'2px 8px', fontSize: 12}}
+                                onClick={() => toggleSectionExpanded(section.id)}
+                              >
+                                {expandedSections[section.id] ? 'Hide' : 'Show'}
+                              </button>
+                            </div>
+
+                            {expandedSections[section.id] && (
+                              <div style={{padding:'0 10px 10px 30px', display:'grid', gap: 6}}>
+                                {section.pages.map(page => (
+                                  <label key={page.id} style={{display:'flex', alignItems:'center', cursor:'pointer'}}>
+                                    <input
+                                      type="checkbox"
+                                      checked={formData.pages.includes(page.id)}
+                                      onChange={() => togglePageAccess(page.id)}
+                                      style={{marginRight: 8, cursor: 'pointer'}}
+                                    />
+                                    <span style={{fontSize: 13}}>{page.label}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
                     <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 8}}>
-                      Select which pages this user can access
+                      Select a section to grant all pages in that section, or expand for granular page-level access.
                     </small>
                   </div>
 
@@ -666,8 +793,8 @@ export default function Settings({open, onClose}){
                             ) : (
                               <div style={{display: 'flex', flexWrap: 'wrap', gap: 4}}>
                                 {userPages.map(pageId => {
-                                  const page = AVAILABLE_PAGES.find(p => p.id === pageId)
-                                  return page ? (
+                                  const pageLabel = PAGE_LABEL_MAP[pageId]
+                                  return pageLabel ? (
                                     <span key={pageId} style={{
                                       padding: '2px 6px',
                                       borderRadius: 3,
@@ -675,7 +802,7 @@ export default function Settings({open, onClose}){
                                       color: '#1976d2',
                                       fontSize: 11
                                     }}>
-                                      {page.label}
+                                      {pageLabel}
                                     </span>
                                   ) : null
                                 })}
