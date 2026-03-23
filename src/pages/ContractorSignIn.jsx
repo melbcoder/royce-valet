@@ -109,7 +109,7 @@ function printBadge(contractor) {
     }
     .hotel { font-size: 11.5pt; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; }
     .badge-type {
-      font-size: 9.5pt; font-weight: bold;
+      font-size: 8.5pt; font-weight: bold;
       background: #000; color: #fff;
       padding: 1px 5px; border-radius: 2px;
       text-transform: uppercase; letter-spacing: .06em;
