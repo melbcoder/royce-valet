@@ -279,6 +279,7 @@ export default function Settings({open, onClose}){
           username: formData.username.toLowerCase().trim(),
           password: randomPassword,
           role: formData.role,
+          phoneNumber: formData.phone,
           pages: formData.pages,
           mustChangePassword: true
         })

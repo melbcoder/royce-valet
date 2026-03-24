@@ -18,6 +18,7 @@ import Nav from './components/Nav';
 import ToastHost from './components/Toast';
 import Settings from './components/Settings';
 import ForceChangePassword from './components/ForceChangePassword';
+import ForgotPassword from './components/ForgotPassword';
 import { sessionManager } from './utils/sessionManager';
 import { getCurrentUser } from './services/valetFirestore';
 
@@ -80,6 +81,7 @@ export default function App(){
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/force-change-password" element={<ForceChangePassword />} />
             <Route path="/qr-login" element={<QRLogin />} />
             <Route path="/guest/:tag" element={<Guest />} />

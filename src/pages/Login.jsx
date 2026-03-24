@@ -361,6 +361,18 @@ export default function Login() {
                 {MAX_LOGIN_ATTEMPTS - loginAttempts} attempts remaining
               </div>
             )}
+            <div style={{ marginTop: '12px' }}>
+              <a 
+                href="/forgot-password"
+                style={{ 
+                  color: '#2196F3', 
+                  fontSize: '14px',
+                  textDecoration: 'none'
+                }}
+              >
+                Forgot password?
+              </a>
+            </div>
           </div>
 
           <button 

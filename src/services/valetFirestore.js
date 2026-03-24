@@ -473,6 +473,7 @@ export async function initializeDefaultAdmin() {
       uid: userCredential.user.uid,
       username: "admin",
       role: "admin",
+      phoneNumber: "+61000000000", // Default placeholder phone number
       isDefaultAdmin: true, // Mark as default admin
       createdAt: serverTimestamp(),
     });
@@ -554,7 +555,7 @@ export async function authenticateUser(username, password) {
 }
 
 // Create new user with Firebase Auth
-export async function createUser({ username, password, role, mustChangePassword = false }) {
+export async function createUser({ username, password, role, phoneNumber, mustChangePassword = false }) {
   const cleanUsername = username.toLowerCase().trim()
   const email = `${cleanUsername}@royce-valet.internal`
   
@@ -570,6 +571,7 @@ export async function createUser({ username, password, role, mustChangePassword 
       username: cleanUsername,
       email,
       role,
+      phoneNumber: phoneNumber || '',
       mustChangePassword,
       createdAt: serverTimestamp()
     })
