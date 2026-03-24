@@ -114,9 +114,15 @@ export default function Settings({open, onClose}){
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
-  const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles' })
+  const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles', contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7 })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
+  const [retentionDaysInput, setRetentionDaysInput] = useState('7')
+  const [retentionSuccess, setRetentionSuccess] = useState(false)
+  const [retentionError, setRetentionError] = useState('')
+  const [vehicleRetentionDaysInput, setVehicleRetentionDaysInput] = useState('7')
+  const [vehicleRetentionSuccess, setVehicleRetentionSuccess] = useState(false)
+  const [vehicleRetentionError, setVehicleRetentionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(false)
   
@@ -175,6 +181,14 @@ export default function Settings({open, onClose}){
     const unsubscribe = subscribeSettings(setSettings)
     return () => unsubscribe()
   }, [open])
+
+  useEffect(() => {
+    setRetentionDaysInput(String(settings.contractorPhotoRetentionDays || 7))
+  }, [settings.contractorPhotoRetentionDays])
+
+  useEffect(() => {
+    setVehicleRetentionDaysInput(String(settings.vehiclePhotoRetentionDays || 7))
+  }, [settings.vehiclePhotoRetentionDays])
 
   // Debug function to check user document
   useEffect(() => {
@@ -459,6 +473,46 @@ export default function Settings({open, onClose}){
     }
   }
 
+  async function handleSavePhotoRetentionDays() {
+    try {
+      setRetentionError('')
+      setRetentionSuccess(false)
+
+      const parsed = Number(retentionDaysInput)
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 365) {
+        setRetentionError('Please enter a whole number between 1 and 365 days.')
+        return
+      }
+
+      await updateSettings({ contractorPhotoRetentionDays: parsed })
+      setRetentionSuccess(true)
+      setTimeout(() => setRetentionSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating photo retention days:', err)
+      setRetentionError('Failed to update photo retention days.')
+    }
+  }
+
+  async function handleSaveVehiclePhotoRetentionDays() {
+    try {
+      setVehicleRetentionError('')
+      setVehicleRetentionSuccess(false)
+
+      const parsed = Number(vehicleRetentionDaysInput)
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 365) {
+        setVehicleRetentionError('Please enter a whole number between 1 and 365 days.')
+        return
+      }
+
+      await updateSettings({ vehiclePhotoRetentionDays: parsed })
+      setVehicleRetentionSuccess(true)
+      setTimeout(() => setVehicleRetentionSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating vehicle photo retention days:', err)
+      setVehicleRetentionError('Failed to update vehicle photo retention days.')
+    }
+  }
+
   async function handleChangePassword(e) {
     e.preventDefault()
     setPasswordError('')
@@ -659,6 +713,60 @@ export default function Settings({open, onClose}){
             {timezoneSuccess && (
               <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Time zone updated successfully!</div>
             )}
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Contractor Photo Retention</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                Choose how many days contractor photos stay in history after sign-out.
+              </p>
+              <div className="row" style={{gap: 8, alignItems: 'center'}}>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={retentionDaysInput}
+                  onChange={(e) => setRetentionDaysInput(e.target.value)}
+                  style={{width: 120}}
+                />
+                <span style={{fontSize: 13, color: '#666'}}>days</span>
+                <button type="button" className="btn secondary" onClick={handleSavePhotoRetentionDays}>
+                  Save
+                </button>
+              </div>
+              {retentionError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{retentionError}</div>
+              )}
+              {retentionSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Photo retention updated successfully!</div>
+              )}
+            </div>
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Vehicle Photo Retention</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                Choose how many days vehicle photos stay available in valet history.
+              </p>
+              <div className="row" style={{gap: 8, alignItems: 'center'}}>
+                <input
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={vehicleRetentionDaysInput}
+                  onChange={(e) => setVehicleRetentionDaysInput(e.target.value)}
+                  style={{width: 120}}
+                />
+                <span style={{fontSize: 13, color: '#666'}}>days</span>
+                <button type="button" className="btn secondary" onClick={handleSaveVehiclePhotoRetentionDays}>
+                  Save
+                </button>
+              </div>
+              {vehicleRetentionError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{vehicleRetentionError}</div>
+              )}
+              {vehicleRetentionSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Vehicle photo retention updated successfully!</div>
+              )}
+            </div>
           </div>
         )}
 

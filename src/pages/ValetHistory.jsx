@@ -3,10 +3,13 @@ import {
   subscribeHistory,
   reinstateVehicle,
   getVehicleAuditLogFromHistory,
+  subscribeSettings,
+  storage,
 } from "../services/valetFirestore";
 import { showToast } from "../components/Toast";
 import PhotoModal from "../components/PhotoModal";
 import Modal from "../components/Modal";
+import { ref, deleteObject } from "firebase/storage";
 
 // Reusable Photo Icon Component
 const CameraIcon = () => (
@@ -23,6 +26,8 @@ export default function History() {
   const [search, setSearch] = useState("");
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [photoTag, setPhotoTag] = useState(null);
+  const [vehiclePhotoRetentionDays, setVehiclePhotoRetentionDays] = useState(7);
+  const [autoCleanupProcessed, setAutoCleanupProcessed] = useState({});
   
   // Audit modal state
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -37,6 +42,57 @@ export default function History() {
     });
     return unsub;
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSettings((appSettings) => {
+      const parsed = Number(appSettings?.vehiclePhotoRetentionDays);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        setVehiclePhotoRetentionDays(parsed);
+      } else {
+        setVehiclePhotoRetentionDays(7);
+      }
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const cleanupExpiredVehiclePhotos = async () => {
+      const retentionMs = vehiclePhotoRetentionDays * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const candidates = history.filter((v) => {
+        if (!v?.tag || !v?._id) return false;
+        if (autoCleanupProcessed[v._id]) return false;
+        const archivedMs = v.archivedAt?.toDate ? v.archivedAt.toDate().getTime() : null;
+        if (!archivedMs) return false;
+        return now - archivedMs > retentionMs;
+      });
+
+      for (const vehicle of candidates) {
+        const angles = ["front", "rear", "left", "right"];
+        try {
+          await Promise.all(
+            angles.map(async (angle) => {
+              const photoRef = ref(storage, `vehicles/${vehicle.tag}/${angle}.jpg`);
+              try {
+                await deleteObject(photoRef);
+              } catch (err) {
+                // object-not-found is fine; other errors are logged for visibility
+                if (err?.code !== 'storage/object-not-found') {
+                  console.error(`Failed deleting ${angle} photo for tag ${vehicle.tag}:`, err);
+                }
+              }
+            })
+          );
+        } finally {
+          setAutoCleanupProcessed((prev) => ({ ...prev, [vehicle._id]: true }));
+        }
+      }
+    };
+
+    if (history.length > 0) {
+      cleanupExpiredVehiclePhotos();
+    }
+  }, [history, vehiclePhotoRetentionDays, autoCleanupProcessed]);
 
   const handleReinstate = async (vehicle) => {
     try {
@@ -125,6 +181,10 @@ export default function History() {
   return (
     <section className="card pad">
       <h2>Departed Vehicles History</h2>
+
+      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
+        Note: Vehicle photos are retained for {vehiclePhotoRetentionDays} days after archiving, then removed automatically.
+      </div>
 
       <input
         className="field"

@@ -8,6 +8,7 @@ import {
   updateContractorHistory,
   subscribeActiveContractors,
   subscribeContractorHistory,
+  subscribeSettings,
   markContractorSignedOut,
   storage,
   getCurrentUser,
@@ -53,9 +54,9 @@ const fmtDuration = (signedInMs, signedOutMs) => {
   return `${m}m`;
 };
 
-const PHOTO_RETENTION_DAYS = 7;
-const PHOTO_RETENTION_MS = PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-const isOlderThanPhotoRetention = (ms) => Boolean(ms && Date.now() - ms > PHOTO_RETENTION_MS);
+const DEFAULT_PHOTO_RETENTION_DAYS = 7;
+const isOlderThanPhotoRetention = (ms, retentionDays) =>
+  Boolean(ms && Date.now() - ms > retentionDays * 24 * 60 * 60 * 1000);
 
 const EMPTY_FORM = {
   name: '',
@@ -211,6 +212,7 @@ export default function ContractorSignIn() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState(null);
   const autoCleanupInProgress = useRef(new Set());
+  const [photoRetentionDays, setPhotoRetentionDays] = useState(DEFAULT_PHOTO_RETENTION_DAYS);
   const [historyDateFrom, setHistoryDateFrom] = useState('');
   const [historyDateTo, setHistoryDateTo] = useState('');
 
@@ -226,13 +228,26 @@ export default function ContractorSignIn() {
     return () => unsub && unsub();
   }, []);
 
+  // Subscribe to app settings for photo retention
+  useEffect(() => {
+    const unsubscribe = subscribeSettings((appSettings) => {
+      const parsed = Number(appSettings?.contractorPhotoRetentionDays);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        setPhotoRetentionDays(parsed);
+      } else {
+        setPhotoRetentionDays(DEFAULT_PHOTO_RETENTION_DAYS);
+      }
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
+
   // ---- Automatically remove expired history photos ----
   useEffect(() => {
     const cleanupExpiredPhotos = async () => {
       const expiredWithPhotos = history.filter(
         (record) =>
           Boolean(record?.photoUrl) &&
-          isOlderThanPhotoRetention(record?.signedOutAtMs) &&
+          isOlderThanPhotoRetention(record?.signedOutAtMs, photoRetentionDays) &&
           !autoCleanupInProgress.current.has(record._id)
       );
 
@@ -256,7 +271,7 @@ export default function ContractorSignIn() {
     if (history.length > 0) {
       cleanupExpiredPhotos();
     }
-  }, [history]);
+  }, [history, photoRetentionDays]);
 
   // ---- Delete photo from a history record ----
   const handleDeleteHistoryPhoto = async (record) => {
@@ -527,6 +542,10 @@ export default function ContractorSignIn() {
           <span style={{ fontSize: 18, color: 'var(--muted)' }}>{historyOpen ? '▲' : '▼'}</span>
         </button>
 
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
+          Note: Contractor photos are retained for {photoRetentionDays} days after sign-out, then removed automatically.
+        </div>
+
         {historyOpen && (() => {
           // Derive filtered list inside render so it stays reactive
           const fromMs = historyDateFrom ? new Date(historyDateFrom).setHours(0, 0, 0, 0) : null;
@@ -602,7 +621,8 @@ export default function ContractorSignIn() {
                     </thead>
                     <tbody>
                       {filtered.map((c) => {
-                        const photoExpired = isOlderThanPhotoRetention(c.signedOutAtMs);
+                        const photoExpired = isOlderThanPhotoRetention(c.signedOutAtMs, photoRetentionDays);
+                        const retentionMs = photoRetentionDays * 24 * 60 * 60 * 1000;
                         return (
                           <tr key={c._id}>
                             <td style={{ width: 52 }}>
@@ -644,14 +664,14 @@ export default function ContractorSignIn() {
                                   style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap', borderColor: '#c0392b', color: '#c0392b' }}
                                   disabled={deletingPhotoId === c._id}
                                   onClick={() => handleDeleteHistoryPhoto(c)}
-                                  title={`Photo is older than ${PHOTO_RETENTION_DAYS} days — delete to free up storage`}
+                                  title={`Photo is older than ${photoRetentionDays} days — delete to free up storage`}
                                 >
                                   {deletingPhotoId === c._id ? 'Deleting…' : '🗑️ Delete Photo'}
                                 </button>
                               )}
                               {c.photoUrl && !photoExpired && (
                                 <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                                  Photo kept for {Math.ceil((PHOTO_RETENTION_MS - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
+                                  Photo kept for {Math.ceil((retentionMs - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
                                 </span>
                               )}
                             </td>

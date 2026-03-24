@@ -43,15 +43,26 @@ export async function getSettings() {
   try {
     const settingsDoc = await getDoc(doc(settingsRef, "app"));
     if (settingsDoc.exists()) {
-      return settingsDoc.data();
+      const data = settingsDoc.data();
+      return {
+        timezone: data.timezone || "Australia/Melbourne",
+        contractorPhotoRetentionDays: Number.isInteger(data.contractorPhotoRetentionDays)
+          ? data.contractorPhotoRetentionDays
+          : 7,
+        vehiclePhotoRetentionDays: Number.isInteger(data.vehiclePhotoRetentionDays)
+          ? data.vehiclePhotoRetentionDays
+          : 7,
+      };
     }
     // Return defaults if no settings exist
     return {
       timezone: "Australia/Melbourne", // Default to Melbourne, Australia
+      contractorPhotoRetentionDays: 7,
+      vehiclePhotoRetentionDays: 7,
     };
   } catch (error) {
     console.error("Error getting settings:", error);
-    return { timezone: "Australia/Melbourne" };
+    return { timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7 };
   }
 }
 
@@ -67,9 +78,19 @@ export async function updateSettings(updates) {
 export function subscribeSettings(callback) {
   return onSnapshot(doc(settingsRef, "app"), (snap) => {
     if (snap.exists()) {
-      callback(snap.data());
+      const data = snap.data();
+      callback({
+        ...data,
+        timezone: data.timezone || "Australia/Melbourne",
+        contractorPhotoRetentionDays: Number.isInteger(data.contractorPhotoRetentionDays)
+          ? data.contractorPhotoRetentionDays
+          : 7,
+        vehiclePhotoRetentionDays: Number.isInteger(data.vehiclePhotoRetentionDays)
+          ? data.vehiclePhotoRetentionDays
+          : 7,
+      });
     } else {
-      callback({ timezone: "Australia/Melbourne" });
+      callback({ timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7 });
     }
   });
 }
