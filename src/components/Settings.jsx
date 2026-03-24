@@ -4,6 +4,7 @@ import { COMMON_TIMEZONES } from '../utils/timezoneUtils'
 import { formatPhoneNumber } from '../utils/phoneFormatter'
 import { countryCodes } from '../utils/countryCodes'
 import CountryCodeSelect from './CountryCodeSelect'
+import Modal from './Modal'
 
 const getPrimaryCode = (codeStr) => String(codeStr || '').split(',')[0]?.trim() || ''
 
@@ -107,7 +108,11 @@ const PAGE_LABEL_MAP = AVAILABLE_SECTIONS.flatMap(s => s.pages).reduce((acc, p) 
 export default function Settings({open = false, onClose, asPage = false}){
   const [users, setUsers] = useState([])
   const [showAddUser, setShowAddUser] = useState(false)
+  const [showUsersTable, setShowUsersTable] = useState(false)
+  const [userSearchQuery, setUserSearchQuery] = useState('')
+  const [userRoleFilter, setUserRoleFilter] = useState('all')
   const [editingUser, setEditingUser] = useState(null)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [formData, setFormData] = useState({ username: '', password: '', role: 'user', countryCode: '', phone: '', pages: [] })
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
@@ -254,20 +259,28 @@ export default function Settings({open = false, onClose, asPage = false}){
     []
   )
 
-  if(!isVisible) return null
+  const filteredUsers = useMemo(() => {
+    const query = userSearchQuery.trim().toLowerCase()
 
-  async function handleLogout() {
-    try {
-      const { auth } = await import('../firebase')
-      const { signOut } = await import('firebase/auth')
-      await signOut(auth)
-      localStorage.clear()
-      location.href = '/login'
-    } catch (err) {
-      console.error('Sign out error:', err)
-      alert('Failed to logout. Please try again.')
-    }
-  }
+    return users.filter((user) => {
+      if (userRoleFilter !== 'all' && user.role !== userRoleFilter) return false
+
+      if (!query) return true
+
+      const pageText = (user.pages || [])
+        .map((pageId) => PAGE_LABEL_MAP[pageId] || pageId)
+        .join(' ')
+        .toLowerCase()
+
+      return (
+        String(user.username || '').toLowerCase().includes(query) ||
+        String(user.role || '').toLowerCase().includes(query) ||
+        pageText.includes(query)
+      )
+    })
+  }, [users, userSearchQuery, userRoleFilter])
+
+  if(!isVisible) return null
 
   // Add function to generate random password
   function generateRandomPassword() {
@@ -632,14 +645,28 @@ export default function Settings({open = false, onClose, asPage = false}){
           </div>
         ) : (
           <>
+        {(() => {
+          const sectionStyle = { marginBottom: 24, border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', background: '#fff' }
+          const sectionHeaderStyle = { padding: '12px 16px', borderBottom: '1px solid #ddd', background: '#f5f7fb', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+          const sectionBodyStyle = { padding: 16 }
+
+          return (
+            <>
         {/* Current User Info */}
         {currentUser && (
-          <div className="field" style={{marginBottom: 24, padding: 16, background: '#f5f5f5', borderRadius: 4}}>
-            <div style={{marginBottom: 8}}>
-              <strong>Logged in as:</strong> {currentUser.username}
+          <section style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <h2 style={{margin: 0, fontSize: 20}}>Profile</h2>
+              <button className="btn secondary" onClick={() => setIsProfileModalOpen(true)}>
+                Edit Profile
+              </button>
             </div>
-            <div style={{marginBottom: 12}}>
-              <strong>Role:</strong> <span style={{
+            <div style={sectionBodyStyle}>
+              <div style={{marginBottom: 8}}>
+                <strong>Logged in as:</strong> {currentUser.username}
+              </div>
+              <div>
+                <strong>Role:</strong> <span style={{
                 padding: '2px 8px',
                 borderRadius: 3,
                 background: currentUser.role === 'admin' ? '#4CAF50' : '#2196F3',
@@ -647,87 +674,43 @@ export default function Settings({open = false, onClose, asPage = false}){
                 fontSize: 12,
                 fontWeight: 500
               }}>{currentUser.role}</span>
+              </div>
             </div>
-            <button className="btn secondary" onClick={handleLogout}>Logout</button>
-          </div>
-        )}
-
-        {/* Change Password Section */}
-        {currentUser && (
-          <div style={{marginBottom: 24, padding: 16, border: '1px solid #ddd', borderRadius: 4}}>
-            <h2 style={{marginTop: 0}}>Change Password</h2>
-            <form onSubmit={handleChangePassword}>
-              <div style={{marginBottom: 12}}>
-                <input
-                  type="password"
-                  placeholder="Current Password"
-                  value={changePasswordData.currentPassword}
-                  onChange={(e) => setChangePasswordData({...changePasswordData, currentPassword: e.target.value})}
-                  style={{width: '100%'}}
-                />
-              </div>
-              <div style={{marginBottom: 12}}>
-                <input
-                  type="password"
-                  placeholder="New Password"
-                  value={changePasswordData.newPassword}
-                  onChange={(e) => setChangePasswordData({...changePasswordData, newPassword: e.target.value})}
-                  style={{width: '100%'}}
-                />
-              </div>
-              <div style={{marginBottom: 12}}>
-                <input
-                  type="password"
-                  placeholder="Confirm New Password"
-                  value={changePasswordData.confirmPassword}
-                  onChange={(e) => setChangePasswordData({...changePasswordData, confirmPassword: e.target.value})}
-                  style={{width: '100%'}}
-                />
-                <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
-                  Must be 8+ characters with uppercase, lowercase, and numbers
-                </small>
-              </div>
-              {passwordError && (
-                <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{passwordError}</div>
-              )}
-              {passwordSuccess && (
-                <div style={{color: '#4CAF50', fontSize: 12, marginBottom: 12}}>Password changed successfully!</div>
-              )}
-              <button type="submit" className="btn primary">
-                Change Password
-              </button>
-            </form>
-          </div>
+          </section>
         )}
 
         {/* Timezone Settings (Admin Only) */}
         {isAdmin && (
-          <div style={{marginBottom: 24, padding: 16, border: '1px solid #ddd', borderRadius: 4}}>
-            <h2 style={{marginTop: 0}}>Time Zone</h2>
-            <p style={{marginBottom: 12, fontSize: 14, color: '#666'}}>
-              Set the time zone for determining when dates change. This affects luggage and amenities archiving.
-            </p>
-            <div style={{marginBottom: 12}}>
-              <select
-                value={settings.timezone}
-                onChange={(e) => handleTimezoneChange(e.target.value)}
-                style={{width: '100%', padding: 8, fontSize: 14}}
-              >
-                {COMMON_TIMEZONES.map(tz => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </option>
-                ))}
-              </select>
+          <section style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <h2 style={{margin: 0, fontSize: 20}}>Operations Settings</h2>
             </div>
-            {timezoneError && (
-              <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{timezoneError}</div>
-            )}
-            {timezoneSuccess && (
-              <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Time zone updated successfully!</div>
-            )}
+            <div style={sectionBodyStyle}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Time Zone</h3>
+              <p style={{marginBottom: 12, fontSize: 14, color: '#666'}}>
+                Set the time zone for determining when dates change. This affects luggage and amenities archiving.
+              </p>
+              <div style={{marginBottom: 12}}>
+                <select
+                  value={settings.timezone}
+                  onChange={(e) => handleTimezoneChange(e.target.value)}
+                  style={{width: '100%', padding: 8, fontSize: 14}}
+                >
+                  {COMMON_TIMEZONES.map(tz => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {timezoneError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{timezoneError}</div>
+              )}
+              {timezoneSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Time zone updated successfully!</div>
+              )}
 
-            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
               <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Contractor Photo Retention</h3>
               <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
                 Choose how many days contractor photos stay in history after sign-out.
@@ -780,18 +763,26 @@ export default function Settings({open = false, onClose, asPage = false}){
                 <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Vehicle photo retention updated successfully!</div>
               )}
             </div>
-          </div>
+            </div>
+          </section>
         )}
 
         {/* User Management (Admin Only) */}
         {isAdmin && (
-          <div style={{marginBottom: 24}}>
-            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 16}}>
-              <h2 style={{marginBottom:0}}>User Management</h2>
-              {!showAddUser && (
-                <button className="btn primary" onClick={() => setShowAddUser(true)}>Add User</button>
-              )}
+          <section style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <h2 style={{margin: 0, fontSize: 20}}>User Management</h2>
+              <div style={{display:'flex', gap: 8}}>
+                {!showAddUser && (
+                  <button className="btn primary" onClick={() => setShowAddUser(true)}>Add User</button>
+                )}
+                <button className="btn secondary" onClick={() => setShowUsersTable((prev) => !prev)}>
+                  {showUsersTable ? 'Hide Users' : 'Show Users'}
+                </button>
+              </div>
             </div>
+
+            <div style={sectionBodyStyle}>
 
             {/* Add/Edit User Form */}
             {showAddUser && (
@@ -974,6 +965,30 @@ export default function Settings({open = false, onClose, asPage = false}){
             )}
 
             {/* User List */}
+            {showUsersTable && (
+            <>
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 12}}>
+              <input
+                type="text"
+                placeholder="Search by username, role, or page"
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                style={{flex: '1 1 260px', minWidth: 220}}
+              />
+              <select
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value)}
+                style={{width: 150, padding: 8}}
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="user">User</option>
+              </select>
+              <div style={{fontSize: 12, color: '#666'}}>
+                Showing {filteredUsers.length} of {users.length} users
+              </div>
+            </div>
+
             <div style={{border: '1px solid #ddd', borderRadius: 4, overflow: 'hidden'}}>
               {usersLoading ? (
                 <div style={{padding: 20, textAlign: 'center', color: '#999'}}>
@@ -982,6 +997,10 @@ export default function Settings({open = false, onClose, asPage = false}){
               ) : users.length === 0 ? (
                 <div style={{padding: 20, textAlign: 'center', color: '#999'}}>
                   No users yet. Add your first user above.
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div style={{padding: 20, textAlign: 'center', color: '#999'}}>
+                  No users match the current filters.
                 </div>
               ) : (
                 <table style={{width: '100%', borderCollapse: 'collapse'}}>
@@ -994,7 +1013,7 @@ export default function Settings({open = false, onClose, asPage = false}){
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map(user => {
+                    {filteredUsers.map(user => {
                       const isCurrentUser = user.id === currentUser?.id;
                       const isLastAdmin = user.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
                       const canDelete = !isCurrentUser && !isLastAdmin;
@@ -1087,8 +1106,82 @@ export default function Settings({open = false, onClose, asPage = false}){
                 </table>
               )}
             </div>
-          </div>
+            </>
+            )}
+            </div>
+          </section>
         )}
+            </>
+          )
+        })()}
+
+        <Modal
+          open={!!currentUser && isProfileModalOpen}
+          title="Edit Profile"
+          onClose={() => {
+            setIsProfileModalOpen(false)
+            setPasswordError('')
+            setPasswordSuccess(false)
+          }}
+        >
+          <div style={{marginBottom: 12, fontSize: 14, color: '#555'}}>
+            Signed in as <strong>{currentUser?.username}</strong>
+          </div>
+          <form onSubmit={handleChangePassword}>
+            <div style={{marginBottom: 12}}>
+              <input
+                type="password"
+                placeholder="Current Password"
+                value={changePasswordData.currentPassword}
+                onChange={(e) => setChangePasswordData({...changePasswordData, currentPassword: e.target.value})}
+                style={{width: '100%'}}
+              />
+            </div>
+            <div style={{marginBottom: 12}}>
+              <input
+                type="password"
+                placeholder="New Password"
+                value={changePasswordData.newPassword}
+                onChange={(e) => setChangePasswordData({...changePasswordData, newPassword: e.target.value})}
+                style={{width: '100%'}}
+              />
+            </div>
+            <div style={{marginBottom: 12}}>
+              <input
+                type="password"
+                placeholder="Confirm New Password"
+                value={changePasswordData.confirmPassword}
+                onChange={(e) => setChangePasswordData({...changePasswordData, confirmPassword: e.target.value})}
+                style={{width: '100%'}}
+              />
+              <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                Must be 8+ characters with uppercase, lowercase, and numbers
+              </small>
+            </div>
+            {passwordError && (
+              <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{passwordError}</div>
+            )}
+            {passwordSuccess && (
+              <div style={{color: '#4CAF50', fontSize: 12, marginBottom: 12}}>Password changed successfully!</div>
+            )}
+            <div style={{display: 'flex', gap: 8}}>
+              <button type="submit" className="btn primary">
+                Change Password
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  setIsProfileModalOpen(false)
+                  setPasswordError('')
+                  setPasswordSuccess(false)
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </form>
+        </Modal>
           </>
         )}
       </div>
