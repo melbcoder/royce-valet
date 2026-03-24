@@ -60,20 +60,23 @@ export default async function handler(req, res) {
     // One-time backfill so all users end up with a canonical phoneNumber field.
     if (!userData.phoneNumber || userData.phoneNumber !== cleanPhone) {
       await db.collection('users').doc(user.uid).set({
-        phoneNumber: cleanPhone,
-        phone: cleanPhone
+        phoneNumber: cleanPhone
       }, { merge: true });
     }
 
-    // Check rate limiting - max 3 OTPs per hour per user
+    // Check rate limiting - max 3 OTPs per hour per user.
+    // Use a single-field query to avoid composite-index runtime failures.
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
-    const recentOTPs = await db.collection('passwordResets')
+    const userOtpDocs = await db.collection('passwordResets')
       .where('uid', '==', user.uid)
-      .where('createdAt', '>', oneHourAgo)
-      .where('deleted', '==', false)
       .get();
 
-    if (recentOTPs.size >= 3) {
+    const recentCount = userOtpDocs.docs.filter((d) => {
+      const data = d.data() || {};
+      return !data.deleted && Number(data.createdAt || 0) > oneHourAgo;
+    }).length;
+
+    if (recentCount >= 3) {
       return res.status(429).json({ 
         error: 'Too many reset requests. Please try again later.' 
       });
@@ -160,6 +163,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in password reset request:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: error?.message || 'Internal server error' });
   }
 }

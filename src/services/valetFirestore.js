@@ -573,7 +573,6 @@ export async function createUser({ username, password, role, phoneNumber, mustCh
       email,
       role,
       phoneNumber: cleanPhone,
-      phone: cleanPhone,
       mustChangePassword,
       createdAt: serverTimestamp()
     })
@@ -618,7 +617,6 @@ export async function updateUser(userId, updates) {
 
   if (updates.phoneNumber) {
     updates.phoneNumber = String(updates.phoneNumber).replace(/[\s\-\(\)]/g, '');
-    updates.phone = updates.phoneNumber;
   }
   
   // Only update Firestore if there are remaining fields
