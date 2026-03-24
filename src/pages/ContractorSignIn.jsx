@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Cropper from 'react-easy-crop';
 import Modal from '../components/Modal';
 import { showToast } from '../components/Toast';
 import {
@@ -12,6 +13,7 @@ import {
   getCurrentUser,
 } from '../services/valetFirestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getCroppedImage } from '../utils/cropImage';
 
 // ---- Helpers ----
 const escHtml = (s) =>
@@ -196,6 +198,11 @@ export default function ContractorSignIn() {
 
   // Photo state
   const [capturedPhoto, setCapturedPhoto] = useState(null); // base64 data URL
+  const [photoToCrop, setPhotoToCrop] = useState(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const fileInputRef = useRef(null);
 
   // History
@@ -247,7 +254,13 @@ export default function ContractorSignIn() {
       return;
     }
     const reader = new FileReader();
-    reader.onloadend = () => setCapturedPhoto(reader.result);
+    reader.onloadend = () => {
+      setPhotoToCrop(reader.result);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setCroppedAreaPixels(null);
+      setCropModalOpen(true);
+    };
     reader.readAsDataURL(file);
     // Reset so the same file can be re-selected
     e.target.value = '';
@@ -263,9 +276,37 @@ export default function ContractorSignIn() {
 
   const handleCloseModal = () => {
     setCapturedPhoto(null);
+    setPhotoToCrop(null);
+    setCropModalOpen(false);
     setForm({ ...EMPTY_FORM });
     setFormErrors({});
     setSignInOpen(false);
+  };
+
+  const handleCropComplete = (_, croppedPixels) => {
+    setCroppedAreaPixels(croppedPixels);
+  };
+
+  const handleApplyCrop = async () => {
+    if (!photoToCrop || !croppedAreaPixels) return;
+
+    try {
+      const croppedImage = await getCroppedImage(photoToCrop, croppedAreaPixels);
+      setCapturedPhoto(croppedImage);
+      setCropModalOpen(false);
+      setPhotoToCrop(null);
+    } catch (error) {
+      console.error('Failed to crop image:', error);
+      showToast('Failed to crop image. Please try another photo.');
+    }
+  };
+
+  const handleCancelCrop = () => {
+    setCropModalOpen(false);
+    setPhotoToCrop(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
   };
 
   // ---- Form helpers ----
@@ -747,6 +788,50 @@ export default function ContractorSignIn() {
             </button>
             <button className="btn" onClick={handleSignIn} disabled={saving} title="Submit and sign in this contractor">
               {saving ? 'Signing In…' : 'Sign In Contractor'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={cropModalOpen} title="Crop Contractor Photo" onClose={handleCancelCrop}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ position: 'relative', width: '100%', height: '55vh', minHeight: 320, background: '#111', borderRadius: 12, overflow: 'hidden' }}>
+            {photoToCrop && (
+              <Cropper
+                image={photoToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="rect"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={handleCropComplete}
+              />
+            )}
+          </div>
+
+          <div className="field" style={{ gap: 8 }}>
+            <label style={{ marginBottom: 0 }}>Zoom</label>
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.05"
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+            />
+            <small style={{ color: 'var(--muted)' }}>
+              Drag the photo to center the person, then zoom to remove excess background.
+            </small>
+          </div>
+
+          <div className="row" style={{ justifyContent: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+            <button type="button" className="btn secondary" onClick={handleCancelCrop}>
+              Cancel
+            </button>
+            <button type="button" className="btn primary" onClick={handleApplyCrop}>
+              Apply Crop
             </button>
           </div>
         </div>
