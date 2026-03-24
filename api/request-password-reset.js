@@ -12,9 +12,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Import Firebase Admin SDK
-    const admin = require('firebase-admin');
-    const { initializeFirebaseAdmin } = require('./lib/firebaseAdmin');
+    // Import Firebase Admin SDK using dynamic import
+    const admin = (await import('firebase-admin')).default || (await import('firebase-admin'));
+    const { initializeFirebaseAdmin } = await import('./lib/firebaseAdmin.js');
     
     // Initialize Firebase Admin if not already done
     if (!admin.apps.length) {
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     }
 
     const db = admin.firestore();
-    const auth = admin.auth();
+    const adminAuth = admin.auth();
 
     // Sanitize username
     const cleanUsername = String(username).toLowerCase().trim().slice(0, 50);
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     // Verify user exists in Firebase Auth
     let user;
     try {
-      user = await auth.getUserByEmail(email);
+      user = await adminAuth.getUserByEmail(email);
     } catch (error) {
       // User doesn't exist - return generic message for security
       return res.status(200).json({ 
@@ -106,14 +106,14 @@ export default async function handler(req, res) {
     const fromNumber = isUSNumber ? (usNumber || auNumber) : auNumber;
 
     try {
-      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+      const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
 
       const smsResponse = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Basic ${auth}`,
+            'Authorization': `Basic ${basicAuth}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({

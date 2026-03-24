@@ -15,8 +15,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const admin = require('firebase-admin');
-    const { initializeFirebaseAdmin } = require('./lib/firebaseAdmin');
+    // Import Firebase Admin SDK using dynamic import
+    const admin = (await import('firebase-admin')).default || (await import('firebase-admin'));
+    const { initializeFirebaseAdmin } = await import('./lib/firebaseAdmin.js');
     
     if (!admin.apps.length) {
       initializeFirebaseAdmin();

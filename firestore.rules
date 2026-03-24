@@ -99,6 +99,23 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Password Reset Collection - Backend only (Firebase Admin)
+    match /passwordResets/{resetId} {
+      // Clients cannot read, write, or delete password reset documents
+      // All operations are done server-side via Firebase Admin SDK
+      allow read, write, delete: if false;
+    }
+
+    // Audit Logs Collection
+    match /auditLogs/{auditId} {
+      // Only authenticated users can read audit logs
+      allow read: if request.auth != null;
+      // Only backend (Firebase Admin) can write
+      allow create: if false;
+      // Prevent updates and deletes to maintain audit integrity
+      allow update, delete: if false;
+    }
+
     // Contractors (currently signed in on site)
     match /contractors/{contractorId} {
       allow read, write: if isAuthenticated();

@@ -26,15 +26,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const admin = require('firebase-admin');
-    const { initializeFirebaseAdmin } = require('./lib/firebaseAdmin');
+    // Import Firebase Admin SDK using dynamic import
+    const admin = (await import('firebase-admin')).default || (await import('firebase-admin'));
+    const { initializeFirebaseAdmin } = await import('./lib/firebaseAdmin.js');
     
     if (!admin.apps.length) {
       initializeFirebaseAdmin();
     }
 
     const db = admin.firestore();
-    const auth = admin.auth();
+    const adminAuth = admin.auth();
 
     // Get the password reset document
     const resetDoc = await db.collection('passwordResets').doc(resetDocId).get();
@@ -68,7 +69,7 @@ export default async function handler(req, res) {
 
     // Update password in Firebase Auth
     try {
-      await auth.updateUser(uid, {
+      await adminAuth.updateUser(uid, {
         password: newPassword
       });
     } catch (authError) {
