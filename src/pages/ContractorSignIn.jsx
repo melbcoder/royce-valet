@@ -53,8 +53,9 @@ const fmtDuration = (signedInMs, signedOutMs) => {
   return `${m}m`;
 };
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-const isOlderThan30Days = (ms) => Boolean(ms && Date.now() - ms > THIRTY_DAYS_MS);
+const PHOTO_RETENTION_DAYS = 7;
+const PHOTO_RETENTION_MS = PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const isOlderThanPhotoRetention = (ms) => Boolean(ms && Date.now() - ms > PHOTO_RETENTION_MS);
 
 const EMPTY_FORM = {
   name: '',
@@ -209,6 +210,7 @@ export default function ContractorSignIn() {
   const [history, setHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState(null);
+  const autoCleanupInProgress = useRef(new Set());
   const [historyDateFrom, setHistoryDateFrom] = useState('');
   const [historyDateTo, setHistoryDateTo] = useState('');
 
@@ -223,6 +225,38 @@ export default function ContractorSignIn() {
     const unsub = subscribeContractorHistory(setHistory);
     return () => unsub && unsub();
   }, []);
+
+  // ---- Automatically remove expired history photos ----
+  useEffect(() => {
+    const cleanupExpiredPhotos = async () => {
+      const expiredWithPhotos = history.filter(
+        (record) =>
+          Boolean(record?.photoUrl) &&
+          isOlderThanPhotoRetention(record?.signedOutAtMs) &&
+          !autoCleanupInProgress.current.has(record._id)
+      );
+
+      for (const record of expiredWithPhotos) {
+        if (!record.id || !record._id) continue;
+
+        autoCleanupInProgress.current.add(record._id);
+        try {
+          const photoRef = ref(storage, `contractors/${record.id}/photo.jpg`);
+          await deleteObject(photoRef);
+          await updateContractorHistory(record._id, { photoUrl: null });
+        } catch (err) {
+          // Keep this quiet in UI to avoid noisy toasts during background cleanup.
+          console.error('Auto photo cleanup failed:', err);
+        } finally {
+          autoCleanupInProgress.current.delete(record._id);
+        }
+      }
+    };
+
+    if (history.length > 0) {
+      cleanupExpiredPhotos();
+    }
+  }, [history]);
 
   // ---- Delete photo from a history record ----
   const handleDeleteHistoryPhoto = async (record) => {
@@ -568,7 +602,7 @@ export default function ContractorSignIn() {
                     </thead>
                     <tbody>
                       {filtered.map((c) => {
-                        const photoExpired = isOlderThan30Days(c.signedOutAtMs);
+                        const photoExpired = isOlderThanPhotoRetention(c.signedOutAtMs);
                         return (
                           <tr key={c._id}>
                             <td style={{ width: 52 }}>
@@ -610,14 +644,14 @@ export default function ContractorSignIn() {
                                   style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap', borderColor: '#c0392b', color: '#c0392b' }}
                                   disabled={deletingPhotoId === c._id}
                                   onClick={() => handleDeleteHistoryPhoto(c)}
-                                  title="Photo is older than 30 days — delete to free up storage"
+                                  title={`Photo is older than ${PHOTO_RETENTION_DAYS} days — delete to free up storage`}
                                 >
                                   {deletingPhotoId === c._id ? 'Deleting…' : '🗑️ Delete Photo'}
                                 </button>
                               )}
                               {c.photoUrl && !photoExpired && (
                                 <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                                  Photo kept for {Math.ceil((THIRTY_DAYS_MS - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
+                                  Photo kept for {Math.ceil((PHOTO_RETENTION_MS - (Date.now() - c.signedOutAtMs)) / 86_400_000)}d more
                                 </span>
                               )}
                             </td>
