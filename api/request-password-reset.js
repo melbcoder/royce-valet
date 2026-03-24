@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     // Get user data from Firestore
     const userDoc = await db.collection('users').doc(user.uid).get();
     
-    if (!userDoc.exists()) {
+    if (!userDoc.exists) {
       return res.status(200).json({ 
         message: 'If an account exists with this username, an OTP will be sent to the registered phone number.' 
       });
