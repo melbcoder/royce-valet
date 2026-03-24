@@ -114,30 +114,30 @@ function printBadge(contractor) {
       padding: 1px 5px; border-radius: 2px;
       text-transform: uppercase; letter-spacing: .06em;
     }
-    .body { display: flex; flex: 1; gap: 3mm; overflow: hidden; }
+    .body { display: flex; flex: 1; gap: 2.2mm; overflow: hidden; }
     .photo {
-      width: 76px; height: 76px;
+      width: 92px; height: 92px;
       object-fit: cover;
       border-radius: 4px;
       border: 1.5px solid #999;
       flex-shrink: 0;
     }
     .no-photo {
-      width: 76px; height: 76px;
+      width: 92px; height: 92px;
       border-radius: 4px;
       border: 1.5px solid #999;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 32pt;
+      font-size: 38pt;
       background: #f0f0f0;
       flex-shrink: 0;
     }
-    .details { flex: 1; display: flex; flex-direction: column; gap: 1.3mm; overflow: hidden; }
-    .name { font-size: 13pt; font-weight: 900; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .company { font-size: 10pt; color: #444; margin-bottom: .5mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row { display: flex; gap: 1.5mm; font-size: 9pt; line-height: 1.3; align-items: flex-start; }
-    .lbl { font-weight: bold; white-space: nowrap; min-width: 22mm; flex-shrink: 0; }
+    .details { flex: 1; display: flex; flex-direction: column; gap: 1mm; overflow: hidden; }
+    .name { font-size: 12pt; font-weight: 900; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .company { font-size: 9pt; color: #444; margin-bottom: .3mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row { display: flex; gap: 1.2mm; font-size: 8.2pt; line-height: 1.2; align-items: flex-start; }
+    .lbl { font-weight: bold; white-space: nowrap; min-width: 18mm; flex-shrink: 0; }
     .val { color: #222; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .footer {
       font-size: 8pt; color: #666;
