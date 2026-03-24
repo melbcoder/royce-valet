@@ -406,6 +406,14 @@ export default function Settings({open = false, onClose, asPage = false}){
       phone: splitPhone.phone,
       pages: user.pages || []
     })
+    setError('')
+    setShowAddUser(true)
+  }
+
+  function handleOpenAddUserModal() {
+    setEditingUser(null)
+    setError('')
+    setFormData({ username: '', password: '', role: 'user', countryCode: '', phone: '', pages: [] })
     setShowAddUser(true)
   }
 
@@ -774,7 +782,7 @@ export default function Settings({open = false, onClose, asPage = false}){
               <h2 style={{margin: 0, fontSize: 20}}>User Management</h2>
               <div style={{display:'flex', gap: 8}}>
                 {!showAddUser && (
-                  <button className="btn primary" onClick={() => setShowAddUser(true)}>Add User</button>
+                  <button className="btn primary" onClick={handleOpenAddUserModal}>Add User</button>
                 )}
                 <button className="btn secondary" onClick={() => setShowUsersTable((prev) => !prev)}>
                   {showUsersTable ? 'Hide Users' : 'Show Users'}
@@ -783,187 +791,6 @@ export default function Settings({open = false, onClose, asPage = false}){
             </div>
 
             <div style={sectionBodyStyle}>
-
-            {/* Add/Edit User Form */}
-            {showAddUser && (
-              <div style={{marginBottom: 20, padding: 16, border: '1px solid #ddd', borderRadius: 4}}>
-                <h3 style={{marginTop: 0}}>{editingUser ? 'Edit User' : 'Add New User'}</h3>
-                <form onSubmit={handleSubmitUser}>
-                  <div style={{marginBottom: 12}}>
-                    <input
-                      type="text"
-                      placeholder="Username"
-                      value={formData.username}
-                      onChange={(e) => setFormData({...formData, username: e.target.value})}
-                      style={{width: '100%'}}
-                      autoFocus
-                      disabled={!!editingUser}
-                    />
-                    {editingUser ? (
-                      <small style={{color: '#666', fontSize: 12}}>Username cannot be changed</small>
-                    ) : (
-                      <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
-                        Email will be: {formData.username.toLowerCase().trim() || 'username'}@royce-valet.internal
-                      </small>
-                    )}
-                  </div>
-                  <div style={{marginBottom: 12}}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <div style={{ minWidth: 170, flex: '0 0 170px' }}>
-                        <CountryCodeSelect
-                          value={formData.countryCode}
-                          onChange={(value) => setFormData({ ...formData, countryCode: value })}
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <input
-                          type="tel"
-                          placeholder="Phone Number"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                          style={{width: '100%'}}
-                        />
-                      </div>
-                    </div>
-                    <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
-                      {editingUser
-                        ? 'Used for password reset OTP delivery. If country code is empty, Australia (+61) is used.'
-                        : 'A random password will be generated and sent via SMS. If country code is empty, Australia (+61) is used.'}
-                    </small>
-                  </div>
-                  {editingUser && (
-                    <div style={{marginBottom: 12, padding: 8, background: '#fff3cd', borderRadius: 4, fontSize: 12}}>
-                      Password changes must be done by the user through "Change Password"
-                    </div>
-                  )}
-                  <div style={{marginBottom: 12}}>
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({...formData, role: e.target.value})}
-                      disabled={isEditingSelf}
-                      style={{width: '100%', padding: 8}}
-                    >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                    {isEditingSelf && (
-                      <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
-                        You cannot change your own role.
-                      </small>
-                    )}
-                  </div>
-
-                  {/* Page Access Permissions */}
-                  <div
-                    style={{
-                      marginBottom: 12,
-                      padding: 12,
-                      background: '#f9f9f9',
-                      borderRadius: 4,
-                      border: '1px solid #eee',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 8}}>
-                      <label style={{fontWeight: 600, fontSize: 14, margin: 0}}>
-                        Page Access Permissions:
-                      </label>
-                      <div style={{display: 'flex', gap: 8}}>
-                        <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(true)}>
-                          Select All
-                        </button>
-                        <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(false)}>
-                          Clear All
-                        </button>
-                      </div>
-                    </div>
-
-                    <div style={{display: 'grid', gap: 8}}>
-                      {AVAILABLE_SECTIONS.map(section => {
-                        const sectionPageIds = section.pages.map(p => p.id)
-                        const selectedCount = sectionPageIds.filter(id => formData.pages.includes(id)).length
-                        const allSelected = selectedCount === sectionPageIds.length && sectionPageIds.length > 0
-
-                        return (
-                          <div key={section.id} style={{border: '1px solid #e5e5e5', borderRadius: 6, background: '#fff'}}>
-                            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px'}}>
-                              <label style={{display:'flex', alignItems:'center', cursor:'pointer', gap: 8, margin: 0}}>
-                                <input
-                                  type="checkbox"
-                                  ref={(el) => { sectionCheckboxRefs.current[section.id] = el }}
-                                  checked={allSelected}
-                                  aria-checked={selectedCount > 0 && selectedCount < sectionPageIds.length ? 'mixed' : allSelected}
-                                  onChange={() => !isEditingSelf && toggleSectionAccess(section)}
-                                  disabled={isEditingSelf}
-                                  style={checkboxStyle}
-                                />
-                                <span style={{fontSize: 13, fontWeight: 600}}>
-                                  {section.icon} {section.label}
-                                </span>
-                                <span style={{fontSize: 11, color: '#666'}}>
-                                  ({selectedCount}/{sectionPageIds.length})
-                                </span>
-                              </label>
-
-                              <button
-                                type="button"
-                                className="btn secondary"
-                                style={{padding:'2px 8px', fontSize: 12}}
-                                onClick={() => toggleSectionExpanded(section.id)}
-                              >
-                                {expandedSections[section.id] ? 'Hide' : 'Show'}
-                              </button>
-                            </div>
-
-                            {expandedSections[section.id] && (
-                              <div style={{ padding: '0 12px 12px 12px', display: 'grid', gap: 6 }}>
-                                {section.pages.map(page => (
-                                  <label
-                                    key={page.id}
-                                    style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={formData.pages.includes(page.id)}
-                                      onChange={() => !isEditingSelf && togglePageAccess(page.id)}
-                                      disabled={isEditingSelf}
-                                      style={checkboxStyle}
-                                    />
-                                    <span style={{fontSize: 13}}>{page.label}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 8}}>
-                      Select a section to grant all pages in that section, or expand for granular page-level access.
-                    </small>
-                    {isEditingSelf && (
-                      <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 4}}>
-                        Your own page permissions cannot be changed from this screen.
-                      </small>
-                    )}
-                  </div>
-
-                  {error && (
-                    <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{error}</div>
-                  )}
-                  <div style={{display: 'flex', gap: 8}}>
-                    <button type="submit" className="btn primary">
-                      {editingUser ? 'Update User' : 'Create User'}
-                    </button>
-                    <button type="button" className="btn secondary" onClick={cancelForm}>
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
             {/* User List */}
             {showUsersTable && (
             <>
@@ -1178,6 +1005,185 @@ export default function Settings({open = false, onClose, asPage = false}){
                 }}
               >
                 Close
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          open={showAddUser}
+          title={editingUser ? 'Edit User' : 'Add New User'}
+          onClose={cancelForm}
+        >
+          <form onSubmit={handleSubmitUser}>
+            <div style={{marginBottom: 12}}>
+              <input
+                type="text"
+                placeholder="Username"
+                value={formData.username}
+                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                style={{width: '100%'}}
+                autoFocus
+                disabled={!!editingUser}
+              />
+              {editingUser ? (
+                <small style={{color: '#666', fontSize: 12}}>Username cannot be changed</small>
+              ) : (
+                <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                  Email will be: {formData.username.toLowerCase().trim() || 'username'}@royce-valet.internal
+                </small>
+              )}
+            </div>
+            <div style={{marginBottom: 12}}>
+              <div className="row" style={{ gap: 8 }}>
+                <div style={{ minWidth: 170, flex: '0 0 170px' }}>
+                  <CountryCodeSelect
+                    value={formData.countryCode}
+                    onChange={(value) => setFormData({ ...formData, countryCode: value })}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="tel"
+                    placeholder="Phone Number"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    style={{width: '100%'}}
+                  />
+                </div>
+              </div>
+              <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                {editingUser
+                  ? 'Used for password reset OTP delivery. If country code is empty, Australia (+61) is used.'
+                  : 'A random password will be generated and sent via SMS. If country code is empty, Australia (+61) is used.'}
+              </small>
+            </div>
+            {editingUser && (
+              <div style={{marginBottom: 12, padding: 8, background: '#fff3cd', borderRadius: 4, fontSize: 12}}>
+                Password changes must be done by the user through "Change Password"
+              </div>
+            )}
+            <div style={{marginBottom: 12}}>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                disabled={isEditingSelf}
+                style={{width: '100%', padding: 8}}
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+              {isEditingSelf && (
+                <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                  You cannot change your own role.
+                </small>
+              )}
+            </div>
+
+            <div
+              style={{
+                marginBottom: 12,
+                padding: 12,
+                background: '#f9f9f9',
+                borderRadius: 4,
+                border: '1px solid #eee',
+                textAlign: 'left'
+              }}
+            >
+              <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 8}}>
+                <label style={{fontWeight: 600, fontSize: 14, margin: 0}}>
+                  Page Access Permissions:
+                </label>
+                <div style={{display: 'flex', gap: 8}}>
+                  <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(true)}>
+                    Select All
+                  </button>
+                  <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(false)}>
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <div style={{display: 'grid', gap: 8}}>
+                {AVAILABLE_SECTIONS.map(section => {
+                  const sectionPageIds = section.pages.map(p => p.id)
+                  const selectedCount = sectionPageIds.filter(id => formData.pages.includes(id)).length
+                  const allSelected = selectedCount === sectionPageIds.length && sectionPageIds.length > 0
+
+                  return (
+                    <div key={section.id} style={{border: '1px solid #e5e5e5', borderRadius: 6, background: '#fff'}}>
+                      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 10px'}}>
+                        <label style={{display:'flex', alignItems:'center', cursor:'pointer', gap: 8, margin: 0}}>
+                          <input
+                            type="checkbox"
+                            ref={(el) => { sectionCheckboxRefs.current[section.id] = el }}
+                            checked={allSelected}
+                            aria-checked={selectedCount > 0 && selectedCount < sectionPageIds.length ? 'mixed' : allSelected}
+                            onChange={() => !isEditingSelf && toggleSectionAccess(section)}
+                            disabled={isEditingSelf}
+                            style={checkboxStyle}
+                          />
+                          <span style={{fontSize: 13, fontWeight: 600}}>
+                            {section.icon} {section.label}
+                          </span>
+                          <span style={{fontSize: 11, color: '#666'}}>
+                            ({selectedCount}/{sectionPageIds.length})
+                          </span>
+                        </label>
+
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          style={{padding:'2px 8px', fontSize: 12}}
+                          onClick={() => toggleSectionExpanded(section.id)}
+                        >
+                          {expandedSections[section.id] ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+
+                      {expandedSections[section.id] && (
+                        <div style={{ padding: '0 12px 12px 12px', display: 'grid', gap: 6 }}>
+                          {section.pages.map(page => (
+                            <label
+                              key={page.id}
+                              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.pages.includes(page.id)}
+                                onChange={() => !isEditingSelf && togglePageAccess(page.id)}
+                                disabled={isEditingSelf}
+                                style={checkboxStyle}
+                              />
+                              <span style={{fontSize: 13}}>{page.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 8}}>
+                Select a section to grant all pages in that section, or expand for granular page-level access.
+              </small>
+              {isEditingSelf && (
+                <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 4}}>
+                  Your own page permissions cannot be changed from this screen.
+                </small>
+              )}
+            </div>
+
+            {error && (
+              <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{error}</div>
+            )}
+            <div style={{display: 'flex', gap: 8}}>
+              <button type="submit" className="btn primary">
+                {editingUser ? 'Update User' : 'Create User'}
+              </button>
+              <button type="button" className="btn secondary" onClick={cancelForm}>
+                Cancel
               </button>
             </div>
           </form>

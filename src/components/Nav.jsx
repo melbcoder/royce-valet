@@ -20,7 +20,8 @@ export default function Nav() {
     '/amenities-history',
     '/maintenance',
     '/maintenance/jobs',
-    '/maintenance/contractor-sign-in'
+    '/maintenance/contractor-sign-in',
+    '/settings'
   ].includes(location.pathname);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
