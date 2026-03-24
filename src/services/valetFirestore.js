@@ -558,6 +558,7 @@ export async function authenticateUser(username, password) {
 export async function createUser({ username, password, role, phoneNumber, mustChangePassword = false }) {
   const cleanUsername = username.toLowerCase().trim()
   const email = `${cleanUsername}@royce-valet.internal`
+  const cleanPhone = String(phoneNumber || '').replace(/[\s\-\(\)]/g, '')
   
   let userCredential = null
   
@@ -571,7 +572,8 @@ export async function createUser({ username, password, role, phoneNumber, mustCh
       username: cleanUsername,
       email,
       role,
-      phoneNumber: phoneNumber || '',
+      phoneNumber: cleanPhone,
+      phone: cleanPhone,
       mustChangePassword,
       createdAt: serverTimestamp()
     })
@@ -612,6 +614,11 @@ export async function updateUser(userId, updates) {
   
   if (updates.username) {
     updates.username = updates.username.toLowerCase();
+  }
+
+  if (updates.phoneNumber) {
+    updates.phoneNumber = String(updates.phoneNumber).replace(/[\s\-\(\)]/g, '');
+    updates.phone = updates.phoneNumber;
   }
   
   // Only update Firestore if there are remaining fields

@@ -250,19 +250,16 @@ export default function Settings({open, onClose}){
       return
     }
 
-    // Validate phone number for new users
-    if (!editingUser) {
-      if (!formData.phone) {
-        setError('Phone number is required for new users')
-        return
-      }
-      
-      const phoneRegex = /^\+?[1-9]\d{9,14}$/
-      const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '')
-      if (!phoneRegex.test(cleanPhone)) {
-        setError('Please enter a valid phone number (10+ digits)')
-        return
-      }
+    if (!formData.phone) {
+      setError('Phone number is required')
+      return
+    }
+
+    const phoneRegex = /^\+?[1-9]\d{9,14}$/
+    const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '')
+    if (!phoneRegex.test(cleanPhone)) {
+      setError('Please enter a valid phone number (10+ digits)')
+      return
     }
 
     try {
@@ -270,6 +267,7 @@ export default function Settings({open, onClose}){
         await updateUser(editingUser.id, {
           username: formData.username.toLowerCase().trim(),
           role: formData.role,
+          phoneNumber: cleanPhone,
           pages: formData.pages
         })
       } else {
@@ -279,7 +277,7 @@ export default function Settings({open, onClose}){
           username: formData.username.toLowerCase().trim(),
           password: randomPassword,
           role: formData.role,
-          phoneNumber: formData.phone,
+          phoneNumber: cleanPhone,
           pages: formData.pages,
           mustChangePassword: true
         })
@@ -289,9 +287,9 @@ export default function Settings({open, onClose}){
           const message = `Welcome to Royce Valet!\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nLogin at: ${siteUrl}\n\nYou will be required to change your password on first login.`
           
           const { sendSMS } = await import('../services/smsService')
-          await sendSMS(formData.phone, message)
+          await sendSMS(cleanPhone, message)
           
-          alert(`User created successfully!\n\nCredentials have been sent to ${formData.phone}`)
+          alert(`User created successfully!\n\nCredentials have been sent to ${cleanPhone}`)
         } catch (smsError) {
           console.error('Failed to send SMS:', smsError)
           alert(`User created successfully!\n\nWARNING: Could not send SMS. Please manually share credentials:\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nUser must change password on first login.`)
@@ -317,7 +315,7 @@ export default function Settings({open, onClose}){
       username: user.username,
       password: '', // Don't populate password for edit
       role: user.role,
-      phone: '', // Don't populate phone for edit
+      phone: user.phoneNumber || user.phone || '',
       pages: user.pages || []
     })
     setShowAddUser(true)
@@ -637,20 +635,18 @@ export default function Settings({open, onClose}){
                       </small>
                     )}
                   </div>
-                  {!editingUser && (
-                    <div style={{marginBottom: 12}}>
-                      <input
-                        type="tel"
-                        placeholder="Phone Number (e.g., +12345678900)"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        style={{width: '100%'}}
-                      />
-                      <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
-                        A random password will be generated and sent via SMS
-                      </small>
-                    </div>
-                  )}
+                  <div style={{marginBottom: 12}}>
+                    <input
+                      type="tel"
+                      placeholder="Phone Number (e.g., +12345678900)"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      style={{width: '100%'}}
+                    />
+                    <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                      {editingUser ? 'Used for password reset OTP delivery' : 'A random password will be generated and sent via SMS'}
+                    </small>
+                  </div>
                   {editingUser && (
                     <div style={{marginBottom: 12, padding: 8, background: '#fff3cd', borderRadius: 4, fontSize: 12}}>
                       Password changes must be done by the user through "Change Password"

@@ -45,13 +45,22 @@ export default async function handler(req, res) {
 
     const userData = userDoc.data();
     const phoneNumber = userData.phoneNumber || userData.phone || userData.mobile || '';
+    const cleanPhone = String(phoneNumber).replace(/[\s\-\(\)]/g, '');
 
-    if (!phoneNumber) {
+    if (!cleanPhone) {
       console.info('Password reset skipped: no phone on user profile', { uid: user.uid });
       return res.status(200).json({ 
         message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
         resetDocId: null
       });
+    }
+
+    // One-time backfill so all users end up with a canonical phoneNumber field.
+    if (!userData.phoneNumber || userData.phoneNumber !== cleanPhone) {
+      await db.collection('users').doc(user.uid).set({
+        phoneNumber: cleanPhone,
+        phone: cleanPhone
+      }, { merge: true });
     }
 
     // Check rate limiting - max 3 OTPs per hour per user
@@ -98,7 +107,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    const isUSNumber = phoneNumber.startsWith('+1');
+    const isUSNumber = cleanPhone.startsWith('+1');
     const usNumber = process.env.TWILIO_US_PHONE_NUMBER;
     const fromNumber = isUSNumber ? (usNumber || auNumber) : auNumber;
 
@@ -114,7 +123,7 @@ export default async function handler(req, res) {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({
-            To: phoneNumber,
+            To: cleanPhone,
             From: fromNumber,
             Body: message,
           }),
