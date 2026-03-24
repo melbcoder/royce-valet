@@ -227,18 +227,19 @@ export default function ForgotPassword() {
 
             {error && <div style={{ color: '#f44336', marginBottom: '16px' }}>{error}</div>}
 
-            <button type="submit" className="btn primary" disabled={loading} style={{ marginBottom: '12px' }}>
-              {loading ? 'Sending OTP...' : 'Send OTP'}
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={handleBackToLogin}
-              style={{ marginLeft: '12px' }}
-              disabled={loading}
-            >
-              Back to Login
-            </button>
+            <div style={{ marginTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button type="submit" className="btn primary" disabled={loading}>
+                {loading ? 'Sending OTP...' : 'Send OTP'}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={handleBackToLogin}
+                disabled={loading}
+              >
+                Back to Login
+              </button>
+            </div>
           </form>
         </>
       )}
@@ -272,18 +273,19 @@ export default function ForgotPassword() {
 
             {error && <div style={{ color: '#f44336', marginBottom: '16px' }}>{error}</div>}
 
-            <button type="submit" className="btn primary" disabled={loading} style={{ marginBottom: '12px' }}>
-              {loading ? 'Verifying...' : 'Verify OTP'}
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={handleBackToStep1}
-              style={{ marginLeft: '12px' }}
-              disabled={loading}
-            >
-              Back
-            </button>
+            <div style={{ marginTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button type="submit" className="btn primary" disabled={loading}>
+                {loading ? 'Verifying...' : 'Verify OTP'}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={handleBackToStep1}
+                disabled={loading}
+              >
+                Back
+              </button>
+            </div>
           </form>
         </>
       )}
@@ -325,18 +327,19 @@ export default function ForgotPassword() {
 
             {error && <div style={{ color: '#f44336', marginBottom: '16px' }}>{error}</div>}
 
-            <button type="submit" className="btn primary" disabled={loading} style={{ marginBottom: '12px' }}>
-              {loading ? 'Resetting...' : 'Reset Password'}
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={handleBackToStep2}
-              style={{ marginLeft: '12px' }}
-              disabled={loading}
-            >
-              Back
-            </button>
+            <div style={{ marginTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button type="submit" className="btn primary" disabled={loading}>
+                {loading ? 'Resetting...' : 'Reset Password'}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={handleBackToStep2}
+                disabled={loading}
+              >
+                Back
+              </button>
+            </div>
           </form>
         </>
       )}
