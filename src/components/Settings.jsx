@@ -104,7 +104,7 @@ const PAGE_LABEL_MAP = AVAILABLE_SECTIONS.flatMap(s => s.pages).reduce((acc, p) 
   return acc
 }, {})
 
-export default function Settings({open, onClose}){
+export default function Settings({open = false, onClose, asPage = false}){
   const [users, setUsers] = useState([])
   const [showAddUser, setShowAddUser] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -128,10 +128,11 @@ export default function Settings({open, onClose}){
   
   const isAdmin = currentUser?.role === 'admin'
   const isEditingSelf = editingUser && editingUser.id === currentUser?.id
+  const isVisible = asPage || open
 
   // Load current user from localStorage and Firebase Auth when modal opens
   useEffect(() => {
-    if (!open) return
+    if (!isVisible) return
     
     const loadCurrentUser = async () => {
       setLoading(true)
@@ -159,10 +160,10 @@ export default function Settings({open, onClose}){
     }
     
     loadCurrentUser()
-  }, [open])
+  }, [isVisible])
 
   useEffect(() => {
-    if (!open || !isAdmin) {
+    if (!isVisible || !isAdmin) {
       setUsersLoading(false)
       return
     }
@@ -173,14 +174,14 @@ export default function Settings({open, onClose}){
       setUsersLoading(false)
     })
     return () => unsubscribe()
-  }, [open, isAdmin])
+  }, [isVisible, isAdmin])
 
   // Subscribe to settings
   useEffect(() => {
-    if (!open) return
+    if (!isVisible) return
     const unsubscribe = subscribeSettings(setSettings)
     return () => unsubscribe()
-  }, [open])
+  }, [isVisible])
 
   useEffect(() => {
     setRetentionDaysInput(String(settings.contractorPhotoRetentionDays || 7))
@@ -192,7 +193,7 @@ export default function Settings({open, onClose}){
 
   // Debug function to check user document
   useEffect(() => {
-    if (!open || !currentUser) return
+    if (!isVisible || !currentUser) return
     
     const checkUserDocument = async () => {
       try {
@@ -217,7 +218,7 @@ export default function Settings({open, onClose}){
     }
     
     checkUserDocument()
-  }, [open, currentUser])
+  }, [isVisible, currentUser])
 
   const checkboxStyle = {
     width: 16,
@@ -253,7 +254,7 @@ export default function Settings({open, onClose}){
     []
   )
 
-  if(!open) return null
+  if(!isVisible) return null
 
   async function handleLogout() {
     try {
@@ -606,11 +607,23 @@ export default function Settings({open, onClose}){
   }
 
   return (
-    <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000}} onClick={onClose}>
-      <div className="card pad" style={{width:'min(700px, 94vw)', maxHeight:'90vh', overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+    <div
+      style={asPage
+        ? { maxWidth: '980px', margin: '0 auto' }
+        : {position:'fixed', inset:0, background:'rgba(0,0,0,.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000}
+      }
+      onClick={!asPage ? onClose : undefined}
+    >
+      <div
+        className="card pad"
+        style={asPage ? { width: '100%' } : {width:'min(700px, 94vw)', maxHeight:'90vh', overflow:'auto'}}
+        onClick={!asPage ? (e=>e.stopPropagation()) : undefined}
+      >
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 24}}>
           <h1 style={{marginBottom:0}}>Settings</h1>
-          <button className="btn secondary" onClick={onClose}>Close</button>
+          <button className="btn secondary" onClick={() => onClose && onClose()}>
+            {asPage ? 'Back' : 'Close'}
+          </button>
         </div>
 
         {loading ? (
