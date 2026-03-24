@@ -48,6 +48,12 @@ export default function ForgotPassword() {
         return
       }
 
+      if (!data.resetDocId) {
+        showToast(data.message || 'If an account exists, an OTP will be sent shortly.', 'success')
+        setLoading(false)
+        return
+      }
+
       setResetDocId(data.resetDocId)
       setOtp('')
       setStep(2)

@@ -28,7 +28,8 @@ export default async function handler(req, res) {
     } catch (error) {
       // User doesn't exist - return generic message for security
       return res.status(200).json({ 
-        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.' 
+        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
+        resetDocId: null
       });
     }
 
@@ -37,16 +38,19 @@ export default async function handler(req, res) {
     
     if (!userDoc.exists) {
       return res.status(200).json({ 
-        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.' 
+        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
+        resetDocId: null
       });
     }
 
     const userData = userDoc.data();
-    const phoneNumber = userData.phoneNumber;
+    const phoneNumber = userData.phoneNumber || userData.phone || userData.mobile || '';
 
     if (!phoneNumber) {
+      console.info('Password reset skipped: no phone on user profile', { uid: user.uid });
       return res.status(200).json({ 
-        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.' 
+        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
+        resetDocId: null
       });
     }
 
@@ -123,9 +127,10 @@ export default async function handler(req, res) {
       }
 
       // Log the password reset request (audit trail)
+      const { FieldValue } = await import('firebase-admin/firestore');
       await db.collection('auditLogs').add({
         action: 'PASSWORD_RESET_REQUESTED',
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         username: cleanUsername,
         uid: user.uid,
         ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
