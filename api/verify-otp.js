@@ -1,4 +1,6 @@
 // Vercel Serverless Function for verifying OTP
+import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,15 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Import Firebase Admin SDK using dynamic import
-    const admin = (await import('firebase-admin')).default || (await import('firebase-admin'));
-    const { initializeFirebaseAdmin } = await import('./lib/firebaseAdmin.js');
-    
-    if (!admin.apps.length) {
-      initializeFirebaseAdmin();
-    }
-
-    const db = admin.firestore();
+    const db = getAdminFirestore();
 
     // Get the password reset document
     const resetDoc = await db.collection('passwordResets').doc(resetDocId).get();
@@ -59,14 +53,15 @@ export default async function handler(req, res) {
     // Verify OTP
     if (resetData.otp !== otp) {
       // Increment attempts
+      const { FieldValue } = await import('firebase-admin/firestore');
       await db.collection('passwordResets').doc(resetDocId).update({
-        attempts: admin.firestore.FieldValue.increment(1)
+        attempts: FieldValue.increment(1)
       });
 
       // Log failed attempt
       await db.collection('auditLogs').add({
         action: 'PASSWORD_RESET_OTP_FAILED',
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         uid: resetData.uid,
         username: resetData.username,
         reason: 'Invalid OTP'
@@ -82,9 +77,10 @@ export default async function handler(req, res) {
     });
 
     // Log successful verification
+    const { FieldValue } = await import('firebase-admin/firestore');
     await db.collection('auditLogs').add({
       action: 'PASSWORD_RESET_OTP_VERIFIED',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       uid: resetData.uid,
       username: resetData.username
     });

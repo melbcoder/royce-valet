@@ -1,4 +1,6 @@
 // Vercel Serverless Function for requesting password reset via SMS OTP
+import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -12,17 +14,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Import Firebase Admin SDK using dynamic import
-    const admin = (await import('firebase-admin')).default || (await import('firebase-admin'));
-    const { initializeFirebaseAdmin } = await import('./lib/firebaseAdmin.js');
-    
-    // Initialize Firebase Admin if not already done
-    if (!admin.apps.length) {
-      initializeFirebaseAdmin();
-    }
-
-    const db = admin.firestore();
-    const adminAuth = admin.auth();
+    const db = getAdminFirestore();
+    const adminAuth = getAdminAuth();
 
     // Sanitize username
     const cleanUsername = String(username).toLowerCase().trim().slice(0, 50);

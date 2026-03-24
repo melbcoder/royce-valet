@@ -1,4 +1,6 @@
 // Vercel Serverless Function for resetting password with verified OTP
+import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -26,16 +28,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Import Firebase Admin SDK using dynamic import
-    const admin = (await import('firebase-admin')).default || (await import('firebase-admin'));
-    const { initializeFirebaseAdmin } = await import('./lib/firebaseAdmin.js');
-    
-    if (!admin.apps.length) {
-      initializeFirebaseAdmin();
-    }
-
-    const db = admin.firestore();
-    const adminAuth = admin.auth();
+    const db = getAdminFirestore();
+    const adminAuth = getAdminAuth();
 
     // Get the password reset document
     const resetDoc = await db.collection('passwordResets').doc(resetDocId).get();
@@ -84,9 +78,10 @@ export default async function handler(req, res) {
     });
 
     // Log successful password reset
+    const { FieldValue } = await import('firebase-admin/firestore');
     await db.collection('auditLogs').add({
       action: 'PASSWORD_RESET_COMPLETED',
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       uid: uid,
       username: resetData.username,
       method: 'SMS_OTP'
