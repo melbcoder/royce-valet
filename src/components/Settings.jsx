@@ -121,6 +121,7 @@ export default function Settings({open, onClose}){
   const [usersLoading, setUsersLoading] = useState(false)
   
   const isAdmin = currentUser?.role === 'admin'
+  const isEditingSelf = editingUser && editingUser.id === currentUser?.id
 
   // Load current user from localStorage and Firebase Auth when modal opens
   useEffect(() => {
@@ -315,12 +316,18 @@ export default function Settings({open, onClose}){
 
     try {
       if (editingUser) {
-        await updateUser(editingUser.id, {
+        const updates = {
           username: formData.username.toLowerCase().trim(),
-          role: formData.role,
           phoneNumber: formattedPhone,
-          pages: formData.pages
-        })
+        }
+
+        // Prevent admins from accidentally removing their own role/access.
+        if (!isEditingSelf) {
+          updates.role = formData.role
+          updates.pages = formData.pages
+        }
+
+        await updateUser(editingUser.id, updates)
       } else {
         const randomPassword = generateRandomPassword()
         
@@ -721,11 +728,17 @@ export default function Settings({open, onClose}){
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData({...formData, role: e.target.value})}
+                      disabled={isEditingSelf}
                       style={{width: '100%', padding: 8}}
                     >
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
                     </select>
+                    {isEditingSelf && (
+                      <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
+                        You cannot change your own role.
+                      </small>
+                    )}
                   </div>
 
                   {/* Page Access Permissions */}
@@ -768,7 +781,8 @@ export default function Settings({open, onClose}){
                                   ref={(el) => { sectionCheckboxRefs.current[section.id] = el }}
                                   checked={allSelected}
                                   aria-checked={selectedCount > 0 && selectedCount < sectionPageIds.length ? 'mixed' : allSelected}
-                                  onChange={() => toggleSectionAccess(section)}
+                                  onChange={() => !isEditingSelf && toggleSectionAccess(section)}
+                                  disabled={isEditingSelf}
                                   style={checkboxStyle}
                                 />
                                 <span style={{fontSize: 13, fontWeight: 600}}>
@@ -799,7 +813,8 @@ export default function Settings({open, onClose}){
                                     <input
                                       type="checkbox"
                                       checked={formData.pages.includes(page.id)}
-                                      onChange={() => togglePageAccess(page.id)}
+                                      onChange={() => !isEditingSelf && togglePageAccess(page.id)}
+                                      disabled={isEditingSelf}
                                       style={checkboxStyle}
                                     />
                                     <span style={{fontSize: 13}}>{page.label}</span>
@@ -815,6 +830,11 @@ export default function Settings({open, onClose}){
                     <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 8}}>
                       Select a section to grant all pages in that section, or expand for granular page-level access.
                     </small>
+                    {isEditingSelf && (
+                      <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 4}}>
+                        Your own page permissions cannot be changed from this screen.
+                      </small>
+                    )}
                   </div>
 
                   {error && (
@@ -916,7 +936,7 @@ export default function Settings({open, onClose}){
                               className="btn secondary" 
                               onClick={() => handleEditUser(user)}
                               style={{marginRight: 8, fontSize: 12, padding: '4px 12px'}}
-                              disabled={isCurrentUser}
+                              title={isCurrentUser ? 'Edit your profile' : 'Edit user'}
                             >
                               Edit
                             </button>
