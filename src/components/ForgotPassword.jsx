@@ -1,19 +1,17 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Toast from './Toast'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1) // 1: request, 2: verify OTP, 3: reset password
   const [username, setUsername] = useState('')
+  const [maskedPhone, setMaskedPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [resetDocId, setResetDocId] = useState('')
-  const [email, setEmail] = useState('')
-  const [userId, setUserId] = useState('')
   const [toast, setToast] = useState(null)
 
   const showToast = (message, type = 'error') => {
@@ -49,15 +47,16 @@ export default function ForgotPassword() {
       }
 
       if (!data.resetDocId) {
-        showToast(data.message || 'If an account exists, an OTP will be sent shortly.', 'success')
+        setError(data.error || 'Failed to request OTP')
         setLoading(false)
         return
       }
 
       setResetDocId(data.resetDocId)
+      setMaskedPhone(data.maskedPhone || '')
       setOtp('')
       setStep(2)
-      showToast('OTP sent to your registered phone number', 'success')
+      showToast(data.message || 'OTP sent', 'success')
     } catch (err) {
       console.error('Error requesting OTP:', err)
       setError('Failed to request OTP. Please try again.')
@@ -93,7 +92,6 @@ export default function ForgotPassword() {
         return
       }
 
-      setUserId(data.uid)
       setNewPassword('')
       setConfirmPassword('')
       setStep(3)
@@ -180,6 +178,7 @@ export default function ForgotPassword() {
   const handleBackToStep1 = () => {
     setStep(1)
     setUsername('')
+    setMaskedPhone('')
     setResetDocId('')
     setError('')
   }
@@ -228,17 +227,14 @@ export default function ForgotPassword() {
 
             {error && <div style={{ color: '#f44336', marginBottom: '16px' }}>{error}</div>}
 
-            <button type="submit" disabled={loading} style={{ marginBottom: '12px' }}>
+            <button type="submit" className="btn primary" disabled={loading} style={{ marginBottom: '12px' }}>
               {loading ? 'Sending OTP...' : 'Send OTP'}
             </button>
             <button
               type="button"
+              className="btn secondary"
               onClick={handleBackToLogin}
-              style={{
-                background: '#f0f0f0',
-                color: '#333',
-                marginLeft: '12px'
-              }}
+              style={{ marginLeft: '12px' }}
               disabled={loading}
             >
               Back to Login
@@ -251,7 +247,7 @@ export default function ForgotPassword() {
         <>
           <h2>Verify OTP</h2>
           <p style={{ marginBottom: '20px', color: '#666' }}>
-            Enter the 6-digit code sent to your phone
+            {maskedPhone ? `OTP sent to phone number ${maskedPhone}` : 'Enter the 6-digit code sent to your phone'}
           </p>
           <form onSubmit={handleVerifyOtp}>
             <div className="form-group">
@@ -276,17 +272,14 @@ export default function ForgotPassword() {
 
             {error && <div style={{ color: '#f44336', marginBottom: '16px' }}>{error}</div>}
 
-            <button type="submit" disabled={loading} style={{ marginBottom: '12px' }}>
+            <button type="submit" className="btn primary" disabled={loading} style={{ marginBottom: '12px' }}>
               {loading ? 'Verifying...' : 'Verify OTP'}
             </button>
             <button
               type="button"
+              className="btn secondary"
               onClick={handleBackToStep1}
-              style={{
-                background: '#f0f0f0',
-                color: '#333',
-                marginLeft: '12px'
-              }}
+              style={{ marginLeft: '12px' }}
               disabled={loading}
             >
               Back
@@ -332,17 +325,14 @@ export default function ForgotPassword() {
 
             {error && <div style={{ color: '#f44336', marginBottom: '16px' }}>{error}</div>}
 
-            <button type="submit" disabled={loading} style={{ marginBottom: '12px' }}>
+            <button type="submit" className="btn primary" disabled={loading} style={{ marginBottom: '12px' }}>
               {loading ? 'Resetting...' : 'Reset Password'}
             </button>
             <button
               type="button"
+              className="btn secondary"
               onClick={handleBackToStep2}
-              style={{
-                background: '#f0f0f0',
-                color: '#333',
-                marginLeft: '12px'
-              }}
+              style={{ marginLeft: '12px' }}
               disabled={loading}
             >
               Back

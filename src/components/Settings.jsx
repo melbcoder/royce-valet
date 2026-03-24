@@ -1,6 +1,49 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { subscribeUsers, createUser, updateUser, deleteUser, subscribeSettings, updateSettings } from '../services/valetFirestore'
 import { COMMON_TIMEZONES } from '../utils/timezoneUtils'
+import { formatPhoneNumber } from '../utils/phoneFormatter'
+import { countryCodes } from '../utils/countryCodes'
+import CountryCodeSelect from './CountryCodeSelect'
+
+const getPrimaryCode = (codeStr) => String(codeStr || '').split(',')[0]?.trim() || ''
+
+const resolveCountryCode = (value) => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+
+  const match = raw.match(/\+\d[\d-]*/)
+  if (match) {
+    const digits = match[0].replace(/\D/g, '')
+    return digits ? `+${digits}` : ''
+  }
+
+  const iso = raw.replace(/[^a-z]/gi, '').toUpperCase()
+  const isoMatch = countryCodes.find((c) => c.iso.toUpperCase() === iso)
+  if (isoMatch) return getPrimaryCode(isoMatch.code)
+
+  const nameMatch = countryCodes.find((c) => c.name.toLowerCase() === raw.toLowerCase())
+  if (nameMatch) return getPrimaryCode(nameMatch.code)
+
+  return ''
+}
+
+const splitPhoneForForm = (value) => {
+  const raw = String(value || '').trim()
+  if (!raw) return { countryCode: '', phone: '' }
+
+  const normalized = raw.startsWith('+') ? raw : `+${raw.replace(/\D/g, '')}`
+  const allCodes = countryCodes
+    .flatMap((c) => String(c.code || '').split(',').map((code) => code.trim()).filter(Boolean))
+    .sort((a, b) => b.length - a.length)
+
+  const match = allCodes.find((code) => normalized.startsWith(code))
+  if (!match) return { countryCode: '', phone: raw }
+
+  return {
+    countryCode: match,
+    phone: normalized.slice(match.length),
+  }
+}
 
 // Define available pages/permissions
 const AVAILABLE_PAGES = [
@@ -65,7 +108,7 @@ export default function Settings({open, onClose}){
   const [users, setUsers] = useState([])
   const [showAddUser, setShowAddUser] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
-  const [formData, setFormData] = useState({ username: '', password: '', role: 'user', phone: '', pages: [] })
+  const [formData, setFormData] = useState({ username: '', password: '', role: 'user', countryCode: '', phone: '', pages: [] })
   const [error, setError] = useState('')
   const [currentUser, setCurrentUser] = useState(null)
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -255,19 +298,27 @@ export default function Settings({open, onClose}){
       return
     }
 
-    const phoneRegex = /^\+?[1-9]\d{9,14}$/
-    const cleanPhone = formData.phone.replace(/[\s\-\(\)]/g, '')
-    if (!phoneRegex.test(cleanPhone)) {
+    if (formData.countryCode && !resolveCountryCode(formData.countryCode)) {
+      setError('Please enter a valid country code')
+      return
+    }
+
+    const parsedCode = resolveCountryCode(formData.countryCode)
+    const effectiveCode = parsedCode || '+61'
+    const phoneDigits = String(formData.phone).replace(/\D/g, '').replace(/^0+/, '')
+    if (phoneDigits.length === 0) {
       setError('Please enter a valid phone number (10+ digits)')
       return
     }
+
+    const formattedPhone = formatPhoneNumber(`${effectiveCode}${phoneDigits}`)
 
     try {
       if (editingUser) {
         await updateUser(editingUser.id, {
           username: formData.username.toLowerCase().trim(),
           role: formData.role,
-          phoneNumber: cleanPhone,
+          phoneNumber: formattedPhone,
           pages: formData.pages
         })
       } else {
@@ -277,7 +328,7 @@ export default function Settings({open, onClose}){
           username: formData.username.toLowerCase().trim(),
           password: randomPassword,
           role: formData.role,
-          phoneNumber: cleanPhone,
+          phoneNumber: formattedPhone,
           pages: formData.pages,
           mustChangePassword: true
         })
@@ -287,16 +338,16 @@ export default function Settings({open, onClose}){
           const message = `Welcome to Royce Valet!\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nLogin at: ${siteUrl}\n\nYou will be required to change your password on first login.`
           
           const { sendSMS } = await import('../services/smsService')
-          await sendSMS(cleanPhone, message)
+          await sendSMS(formattedPhone, message)
           
-          alert(`User created successfully!\n\nCredentials have been sent to ${cleanPhone}`)
+          alert(`User created successfully!\n\nCredentials have been sent to ${formattedPhone}`)
         } catch (smsError) {
           console.error('Failed to send SMS:', smsError)
           alert(`User created successfully!\n\nWARNING: Could not send SMS. Please manually share credentials:\n\nUsername: ${formData.username.toLowerCase().trim()}\nPassword: ${randomPassword}\n\nUser must change password on first login.`)
         }
       }
       
-      setFormData({ username: '', password: '', role: 'user', phone: '', pages: [] })
+      setFormData({ username: '', password: '', role: 'user', countryCode: '', phone: '', pages: [] })
       setShowAddUser(false)
       setEditingUser(null)
     } catch (err) {
@@ -310,12 +361,14 @@ export default function Settings({open, onClose}){
   }
 
   function handleEditUser(user) {
+    const splitPhone = splitPhoneForForm(user.phoneNumber || user.phone || '')
     setEditingUser(user)
     setFormData({
       username: user.username,
       password: '', // Don't populate password for edit
       role: user.role,
-      phone: user.phoneNumber || user.phone || '',
+      countryCode: splitPhone.countryCode,
+      phone: splitPhone.phone,
       pages: user.pages || []
     })
     setShowAddUser(true)
@@ -363,7 +416,7 @@ export default function Settings({open, onClose}){
   }
 
   function cancelForm() {
-    setFormData({ username: '', password: '', role: 'user', phone: '', pages: [] })
+    setFormData({ username: '', password: '', role: 'user', countryCode: '', phone: '', pages: [] })
     setShowAddUser(false)
     setEditingUser(null)
     setError('')
@@ -636,15 +689,27 @@ export default function Settings({open, onClose}){
                     )}
                   </div>
                   <div style={{marginBottom: 12}}>
-                    <input
-                      type="tel"
-                      placeholder="Phone Number (e.g., +12345678900)"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      style={{width: '100%'}}
-                    />
+                    <div className="row" style={{ gap: 8 }}>
+                      <div style={{ minWidth: 170, flex: '0 0 170px' }}>
+                        <CountryCodeSelect
+                          value={formData.countryCode}
+                          onChange={(value) => setFormData({ ...formData, countryCode: value })}
+                        />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <input
+                          type="tel"
+                          placeholder="Phone Number"
+                          value={formData.phone}
+                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                          style={{width: '100%'}}
+                        />
+                      </div>
+                    </div>
                     <small style={{color: '#666', fontSize: 12, display: 'block', marginTop: 4}}>
-                      {editingUser ? 'Used for password reset OTP delivery' : 'A random password will be generated and sent via SMS'}
+                      {editingUser
+                        ? 'Used for password reset OTP delivery. If country code is empty, Australia (+61) is used.'
+                        : 'A random password will be generated and sent via SMS. If country code is empty, Australia (+61) is used.'}
                     </small>
                   </div>
                   {editingUser && (

@@ -1,6 +1,12 @@
 // Vercel Serverless Function for requesting password reset via SMS OTP
 import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
 
+function maskPhoneLast3(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length < 3) return 'xxx';
+  return `xxx${digits.slice(-3)}`;
+}
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -26,10 +32,8 @@ export default async function handler(req, res) {
     try {
       user = await adminAuth.getUserByEmail(email);
     } catch (error) {
-      // User doesn't exist - return generic message for security
-      return res.status(200).json({ 
-        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
-        resetDocId: null
+      return res.status(404).json({
+        error: 'No account found for that username.'
       });
     }
 
@@ -37,9 +41,8 @@ export default async function handler(req, res) {
     const userDoc = await db.collection('users').doc(user.uid).get();
     
     if (!userDoc.exists) {
-      return res.status(200).json({ 
-        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
-        resetDocId: null
+      return res.status(404).json({
+        error: 'No account profile found. Please contact an admin.'
       });
     }
 
@@ -49,9 +52,8 @@ export default async function handler(req, res) {
 
     if (!cleanPhone) {
       console.info('Password reset skipped: no phone on user profile', { uid: user.uid });
-      return res.status(200).json({ 
-        message: 'If an account exists with this username, an OTP will be sent to the registered phone number.',
-        resetDocId: null
+      return res.status(400).json({
+        error: 'No phone number is saved for this account. Please contact an admin.'
       });
     }
 
@@ -147,7 +149,8 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ 
         message: 'OTP sent to registered phone number',
-        resetDocId: resetDocId
+        resetDocId: resetDocId,
+        maskedPhone: maskPhoneLast3(cleanPhone)
       });
 
     } catch (smsError) {
