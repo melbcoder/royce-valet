@@ -25,6 +25,13 @@ input:focus, textarea:focus{ border-color:var(--gold); box-shadow:0 0 0 3px rgba
 .topbar .inner{ display:flex; align-items:center; justify-content:space-between; padding:12px 24px; }
 .brand{ display:flex; align-items:center; gap:12px; } .brand img{ height:36px; width:auto; }
 .tag{ font-size:14px; padding:6px 10px; border-radius:999px; border:1px solid rgba(0,0,0,.25); background:#fff; display:flex; align-items:center; gap:6px; }
+.topbar-controls{ gap:10px; justify-content:flex-end; }
+
+.nav-shell{ display:flex; align-items:center; gap:10px; }
+.nav-content{ display:flex; align-items:center; gap:10px; }
+.nav-primary-links{ display:flex; align-items:center; flex-wrap:wrap; gap:2px; }
+.nav-quick-actions{ display:flex; align-items:center; gap:8px; }
+.nav-mobile-toggle{ display:none; padding:8px 12px; font-size:13px; }
 .badge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 6px; border-radius:999px; background: #000; color:#fff; font-size:12px; font-weight:700; margin-left:8px; }
 .status-pill{ font-size:13px; padding:6px 10px; border-radius:999px; }
 .status-all{ background: rgba(255, 255, 255, 0.15); border:1px solid rgba(0,0,0,.15); }
@@ -52,3 +59,93 @@ tr td:last-child{ border-top-right-radius:12px; border-bottom-right-radius:12px;
 .dot-ready{ background: #50b478 }
 .dot-out{ background: #3c78c8 }
 .dot-all{ background: #333 }
+
+@media (max-width: 900px){
+  .topbar .inner{
+    flex-wrap:wrap;
+    align-items:flex-start;
+    gap:10px;
+    padding:10px 12px;
+  }
+
+  .topbar-controls{
+    width:100%;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+  }
+
+  .nav-shell{
+    width:100%;
+    display:block;
+  }
+
+  .nav-mobile-toggle{
+    display:inline-flex;
+  }
+
+  .nav-content{
+    display:none;
+    margin-top:8px;
+    width:100%;
+    padding:10px;
+    border:1px solid rgba(0,0,0,.12);
+    border-radius:12px;
+    background:#fff;
+    box-shadow:0 6px 14px rgba(0,0,0,.06);
+  }
+
+  .nav-content.open{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
+  }
+
+  .nav-primary-links{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:4px;
+  }
+
+  .nav-primary-links a{
+    margin-right:0 !important;
+    display:block;
+    padding:10px 12px !important;
+    border:1px solid rgba(0,0,0,.1);
+  }
+
+  .nav-quick-actions{
+    justify-content:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .settings-shortcut{
+    padding:8px 12px;
+    font-size:13px;
+  }
+
+  .settings-shortcut span{
+    display:none;
+  }
+
+  .btn{
+    padding:10px 14px;
+  }
+
+  input, textarea, select{
+    min-width:0;
+  }
+
+  table{
+    display:block;
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    white-space:nowrap;
+  }
+
+  .version-badge{
+    display:none;
+  }
+}

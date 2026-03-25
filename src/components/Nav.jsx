@@ -10,6 +10,7 @@ export default function Nav() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isStaffPage = [
     '/dashboard',
     '/valet',
@@ -25,6 +26,10 @@ export default function Nav() {
   ].includes(location.pathname);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // ── QR modal state ──────────────────────────────────────────────────────────
   const [qrOpen, setQrOpen] = useState(false);
@@ -164,90 +169,105 @@ export default function Nav() {
 
   return (
     <>
-      <NavLink to="/valet" style={({ isActive }) => navLinkStyle(isActive)}>
-        Valet
-      </NavLink>
-      <NavLink to="/luggage" style={({ isActive }) => navLinkStyle(isActive)}>
-        Luggage
-      </NavLink>
-      <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
-        Amenities
-      </NavLink>
-      <div
-        onMouseEnter={() => setMaintenanceOpen(true)}
-        onMouseLeave={() => setMaintenanceOpen(false)}
-        style={{ position: 'relative', display: 'inline-block' }}
-      >
-        <NavLink
-          to="/maintenance"
-          style={() => navLinkStyle(isMaintenancePage)}
+      <div className="nav-shell">
+        <button
+          type="button"
+          className="btn secondary nav-mobile-toggle"
+          onClick={() => setMobileMenuOpen((prev) => !prev)}
+          aria-expanded={mobileMenuOpen}
+          aria-label="Toggle navigation menu"
         >
-          Maintenance ▾
-        </NavLink>
-        {maintenanceOpen && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              background: '#fff',
-              border: '1px solid #ddd',
-              borderRadius: 8,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-              padding: 6,
-              zIndex: 50,
-              minWidth: 200
-            }}
-          >
-            <NavLink
-              to="/maintenance/jobs"
-              style={({ isActive }) => ({
-                ...navLinkStyle(isActive),
-                display: 'block',
-                marginRight: 0
-              })}
-            >
-              Maintenance Jobs
-            </NavLink>
-            <NavLink
-              to="/maintenance/contractor-sign-in"
-              style={({ isActive }) => ({
-                ...navLinkStyle(isActive),
-                display: 'block',
-                marginRight: 0
-              })}
-            >
-              Contractor Sign In
-            </NavLink>
-          </div>
-        )}
-      </div>
-      
-      {isStaffPage && (
-        <>
-          {/* ── Mobile Login QR button ── */}
-          <button
-            onClick={() => setQrOpen(true)}
-            className="tag"
-            title="Mobile login"
-            style={{ cursor: 'pointer', marginLeft: 4, background: 'none', border: 'none', padding: 0 }}
-          >
-            <img 
-              src="/qr-code.png" 
-              alt="Generate QR code" 
-              style={{ width: 24, height: 24, display: 'block' }}
-            />
-          </button>
+          {mobileMenuOpen ? 'Close Menu' : 'Menu'}
+        </button>
 
-          <button 
-            onClick={handleLogout}
-            className="btn secondary"
-            style={{ padding: '8px 16px', fontSize: '14px', marginLeft: '8px' }}
-          >
-            Logout
-          </button>
-        </>
-      )}
+        <div className={`nav-content ${mobileMenuOpen ? 'open' : ''}`}>
+          <div className="nav-primary-links">
+            <NavLink to="/valet" style={({ isActive }) => navLinkStyle(isActive)}>
+              Valet
+            </NavLink>
+            <NavLink to="/luggage" style={({ isActive }) => navLinkStyle(isActive)}>
+              Luggage
+            </NavLink>
+            <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
+              Amenities
+            </NavLink>
+            <div
+              onMouseEnter={() => setMaintenanceOpen(true)}
+              onMouseLeave={() => setMaintenanceOpen(false)}
+              style={{ position: 'relative', display: 'inline-block' }}
+            >
+              <NavLink
+                to="/maintenance"
+                style={() => navLinkStyle(isMaintenancePage)}
+              >
+                Maintenance ▾
+              </NavLink>
+              {maintenanceOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    background: '#fff',
+                    border: '1px solid #ddd',
+                    borderRadius: 8,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    padding: 6,
+                    zIndex: 50,
+                    minWidth: 200
+                  }}
+                >
+                  <NavLink
+                    to="/maintenance/jobs"
+                    style={({ isActive }) => ({
+                      ...navLinkStyle(isActive),
+                      display: 'block',
+                      marginRight: 0
+                    })}
+                  >
+                    Maintenance Jobs
+                  </NavLink>
+                  <NavLink
+                    to="/maintenance/contractor-sign-in"
+                    style={({ isActive }) => ({
+                      ...navLinkStyle(isActive),
+                      display: 'block',
+                      marginRight: 0
+                    })}
+                  >
+                    Contractor Sign In
+                  </NavLink>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {isStaffPage && (
+            <div className="nav-quick-actions">
+              <button
+                onClick={() => setQrOpen(true)}
+                className="tag"
+                title="Mobile login"
+                style={{ cursor: 'pointer', marginLeft: 4, background: 'none', border: 'none', padding: 0 }}
+              >
+                <img
+                  src="/qr-code.png"
+                  alt="Generate QR code"
+                  style={{ width: 24, height: 24, display: 'block' }}
+                />
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="btn secondary"
+                style={{ padding: '8px 16px', fontSize: '14px', marginLeft: '8px' }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ── QR Modal ── */}
       {qrOpen && ReactDOM.createPortal(
