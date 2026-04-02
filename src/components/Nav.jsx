@@ -27,6 +27,7 @@ export default function Nav() {
   ].includes(location.pathname);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
+  const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -192,7 +193,10 @@ export default function Nav() {
             <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
               Amenities
             </NavLink>
-            <NavLink to="/accounts-payable" style={({ isActive }) => navLinkStyle(isActive)}>
+            <NavLink
+              to="/accounts-payable"
+              style={() => navLinkStyle(isAccountsPayablePage)}
+            >
               Accounts Payable
             </NavLink>
             <div
