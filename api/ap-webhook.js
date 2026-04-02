@@ -3,7 +3,6 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 import { Readable } from 'node:stream';
-import { simpleParser } from 'mailparser';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -355,7 +354,7 @@ function parseMultipart(req) {
     // Feed raw bytes into Busboy
     const fields = {};
     const files = [];
-    const bb = Busboy({ headers: req.headers, limits: { fieldSize: 50 * 1024 * 1024 } });
+    const bb = Busboy({ headers: req.headers });
 
     bb.on('field', (name, val) => { fields[name] = val; });
     bb.on('file', (name, stream, info) => {
@@ -389,47 +388,6 @@ function parseMultipart(req) {
     r.push(null);
     r.pipe(bb);
   });
-}
-
-/**
- * When SendGrid is configured with "POST the raw, full MIME message",
- * the entire email (headers + base64-encoded attachments) arrives in
- * a form field called `email`.  Parse it with mailparser to extract
- * the attachments and body text that Busboy cannot see.
- */
-async function extractFromRawMime(fields, existingFiles) {
-  const rawMime = fields.email;
-  if (!rawMime || typeof rawMime !== 'string') return { files: existingFiles, fields };
-
-  let parsed;
-  try {
-    parsed = await simpleParser(rawMime);
-  } catch (err) {
-    console.warn('AP webhook: MIME parse failed:', err?.message || err);
-    return { files: existingFiles, fields };
-  }
-
-  // Merge text/html bodies if the parsed fields didn't already have them
-  const mergedFields = { ...fields };
-  if (!mergedFields.text && parsed.text) mergedFields.text = parsed.text;
-  if (!mergedFields.html && parsed.html) mergedFields.html = parsed.html;
-  if (!mergedFields.subject && parsed.subject) mergedFields.subject = parsed.subject;
-  if (!mergedFields.from && parsed.from?.text) mergedFields.from = parsed.from.text;
-
-  // Convert mailparser attachments to the { name, buffer, info } shape
-  const mimeFiles = (parsed.attachments || []).map((att, i) => ({
-    name: `attachment${i + 1}`,
-    buffer: att.content, // Buffer
-    info: {
-      filename: att.filename || `attachment${i + 1}.bin`,
-      mimeType: att.contentType || 'application/octet-stream',
-    },
-  }));
-
-  return {
-    files: [...existingFiles, ...mimeFiles],
-    fields: mergedFields,
-  };
 }
 
 /** Extract fields from travel-agent commission invoices (New World Travel, similar formats). */
@@ -664,16 +622,7 @@ export default async function handler(req, res) {
   try {
     const rawBodyDiag = captureRawBodyDiag(req);
     const { db, getBucket } = getFirebaseAdminServices();
-    let { fields, files, parseMeta } = await parseMultipart(req);
-
-    // When SendGrid is in raw-MIME mode the PDF lives inside the `email`
-    // field as a base64-encoded MIME part.  Extract it if Busboy found no files.
-    if (files.length === 0 && fields.email) {
-      const mimeResult = await extractFromRawMime(fields, files);
-      files  = mimeResult.files;
-      fields = mimeResult.fields;
-      parseMeta = { ...parseMeta, mimeExtraction: true, mimeFilesFound: mimeResult.files.length };
-    }
+    const { fields, files, parseMeta } = await parseMultipart(req);
 
     // SendGrid Inbound Parse field names
     // https://docs.sendgrid.com/for-developers/parsing-email/setting-up-the-inbound-parse-webhook
