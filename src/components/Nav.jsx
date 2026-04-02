@@ -5,8 +5,6 @@ import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 
 const TOKEN_TTL = 60; // seconds the QR code stays valid
-const AP_INTAKE_EMAIL = 'invoices@yourdomain.com'; // ← replace with your real domain
-const AP_INTAKE_PLACEHOLDER = 'invoices@yourdomain.com'; // ← keep in sync until configured
 
 export default function Nav() {
   const navigate = useNavigate();
@@ -30,7 +28,6 @@ export default function Nav() {
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [apOpen, setApOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
-  const isApIntakeConfigured = AP_INTAKE_EMAIL !== AP_INTAKE_PLACEHOLDER;
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -156,20 +153,6 @@ export default function Nav() {
     } catch (error) {
       console.error('Logout error:', error);
       alert('Failed to logout. Please try again.');
-    }
-  };
-
-  const handleCopyApEmail = async () => {
-    try {
-      await navigator.clipboard.writeText(AP_INTAKE_EMAIL);
-      if (!isApIntakeConfigured) {
-        alert(`Copied placeholder email: ${AP_INTAKE_EMAIL}\n\nNext: configure your real inbound AP mailbox/provider.`);
-        return;
-      }
-      alert(`Copied: ${AP_INTAKE_EMAIL}`);
-    } catch (error) {
-      console.error('Clipboard error:', error);
-      alert(`Copy failed. Use this email: ${AP_INTAKE_EMAIL}`);
     }
   };
 
@@ -354,17 +337,6 @@ export default function Nav() {
               >
                 Logout
               </button>
-
-              {isAccountsPayablePage && (
-                <button
-                  onClick={handleCopyApEmail}
-                  className="btn secondary"
-                  style={{ padding: '8px 12px', fontSize: '13px', marginLeft: '8px' }}
-                  title={isApIntakeConfigured ? 'Copy invoice intake email' : 'Copy placeholder intake email'}
-                >
-                  {isApIntakeConfigured ? 'Copy Intake Email' : 'Copy Placeholder Email'}
-                </button>
-              )}
             </div>
           )}
         </div>
