@@ -133,6 +133,14 @@ function InvoiceModal({ invoice, onClose, onSave }) {
                 {Array.isArray(invoice.parseDebug.attachmentFieldKeys) && invoice.parseDebug.attachmentFieldKeys.length > 0 && (
                   <div>Attachment fields: <strong>{invoice.parseDebug.attachmentFieldKeys.join(', ')}</strong></div>
                 )}
+                {(invoice.parseDebug.rawMimePresent || invoice.parseDebug.rawMimeParsedFiles || invoice.parseDebug.rawMimeLength) && (
+                  <div>
+                    Raw MIME present: <strong>{String(!!invoice.parseDebug.rawMimePresent)}</strong>
+                    {invoice.parseDebug.rawMimeLength != null && <span> | Raw MIME chars: <strong>{invoice.parseDebug.rawMimeLength}</strong></span>}
+                    {invoice.parseDebug.rawMimeParser && <span> | MIME parser: <strong>{invoice.parseDebug.rawMimeParser}</strong></span>}
+                    {invoice.parseDebug.rawMimeParsedFiles != null && <span> | MIME attachments: <strong>{invoice.parseDebug.rawMimeParsedFiles}</strong></span>}
+                  </div>
+                )}
                 {invoice.parseDebug.multipartMeta && (
                   <div>
                     Multipart path: <strong>{invoice.parseDebug.multipartMeta.path || 'unknown'}</strong>
@@ -144,6 +152,9 @@ function InvoiceModal({ invoice, onClose, onSave }) {
                     )}
                     {invoice.parseDebug.multipartMeta.parsedFileCount != null && (
                       <span> | Parsed files: <strong>{invoice.parseDebug.multipartMeta.parsedFileCount}</strong></span>
+                    )}
+                    {Array.isArray(invoice.parseDebug.multipartMeta.parsedFieldNames) && invoice.parseDebug.multipartMeta.parsedFieldNames.length > 0 && (
+                      <span> | Field names: <strong>{invoice.parseDebug.multipartMeta.parsedFieldNames.join(', ')}</strong></span>
                     )}
                   </div>
                 )}
