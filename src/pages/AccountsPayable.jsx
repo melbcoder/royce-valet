@@ -176,7 +176,7 @@ export default function AccountsPayable() {
 
       {/* Summary cards — NOTE: array starts with [ not ([ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
-        {([
+        {[
           { label: 'Pending', value: totals.pending, ...STATUS_COLORS.pending },
           { label: 'Approved', value: totals.approved, ...STATUS_COLORS.approved },
           { label: 'Paid', value: totals.paid, ...STATUS_COLORS.paid },
