@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 
 const TOKEN_TTL = 60; // seconds the QR code stays valid
+const AP_INTAKE_EMAIL = 'ap-invoices@your-domain.com';
 
 export default function Nav() {
   const navigate = useNavigate();
@@ -156,6 +157,16 @@ export default function Nav() {
     }
   };
 
+  const handleCopyApEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(AP_INTAKE_EMAIL);
+      alert(`Copied: ${AP_INTAKE_EMAIL}`);
+    } catch (error) {
+      console.error('Clipboard error:', error);
+      alert(`Copy failed. Use this email: ${AP_INTAKE_EMAIL}`);
+    }
+  };
+
   if (!isAuthenticated) return null;
 
   const navLinkStyle = (isActive) => ({
@@ -250,6 +261,16 @@ export default function Nav() {
                   >
                     Line Item Review
                   </NavLink>
+                  <NavLink
+                    to="/accounts-payable/intake"
+                    style={({ isActive }) => ({
+                      ...navLinkStyle(isActive),
+                      display: 'block',
+                      marginRight: 0
+                    })}
+                  >
+                    Inbound Email Setup
+                  </NavLink>
                 </div>
               )}
             </div>
@@ -327,6 +348,17 @@ export default function Nav() {
               >
                 Logout
               </button>
+
+              {isAccountsPayablePage && (
+                <button
+                  onClick={handleCopyApEmail}
+                  className="btn secondary"
+                  style={{ padding: '8px 12px', fontSize: '13px', marginLeft: '8px' }}
+                  title="Copy invoice intake email"
+                >
+                  Copy Intake Email
+                </button>
+              )}
             </div>
           )}
         </div>
