@@ -136,5 +136,12 @@ service cloud.firestore {
     match /loginTokens/{tokenId} {
       allow read, write: if false;
     }
+
+    // AP invoices: authenticated users can read/update, only server can create
+    match /ap_invoices/{invoiceId} {
+      allow read, update: if request.auth != null;
+      allow create: if false; // only Firebase Admin (server) can create
+      allow delete: if false;
+    }
   }
 }

@@ -69,32 +69,52 @@ export default async function handler(req, res) {
   try {
     const { fields, files } = await parseMultipart(req);
 
-    const fromEmail = fields.from || fields.sender || 'unknown';
-    const subject   = fields.subject || '';
-    const bodyText  = fields.text || fields.body || '';
+    // SendGrid Inbound Parse field names
+    // https://docs.sendgrid.com/for-developers/parsing-email/setting-up-the-inbound-parse-webhook
+    const fromEmail  = fields.from    || 'unknown';
+    const subject    = fields.subject || '';
+    const bodyText   = fields.text    || '';   // plain text body
+    const bodyHtml   = fields.html    || '';   // html body (fallback)
+    const toEmail    = fields.to      || '';
+    const senderIp   = fields.sender_ip || '';
 
-    // Find PDF attachment
-    const pdf = files.find(f => f.info.mimeType === 'application/pdf' || f.info.filename?.endsWith('.pdf'));
+    // attachments are named attachment1, attachment2, etc. by SendGrid
+    const pdf = files.find(f =>
+      f.info?.mimeType === 'application/pdf' ||
+      f.info?.filename?.toLowerCase().endsWith('.pdf')
+    );
+
     if (!pdf) {
-      console.warn('AP webhook: no PDF attachment found in email from', fromEmail);
+      console.warn('AP webhook: no PDF in email from', fromEmail, '| subject:', subject);
+      // Still save the email record so staff can see it arrived without an attachment
+      await db.collection('ap_invoices').add({
+        fromEmail, subject, toEmail, senderIp,
+        pdfUrl: null,
+        storagePath: null,
+        receivedAt: new Date().toISOString(),
+        status: 'pending',
+        department: null,
+        confirmedAmount: null,
+        warning: 'No PDF attachment found',
+        ...extractInvoiceFields(bodyText || bodyHtml),
+      });
       return res.status(200).json({ received: true, warning: 'No PDF attachment' });
     }
 
     // Upload PDF to Firebase Storage
-    const timestamp = Date.now();
-    const storagePath = `ap_invoices/${timestamp}_${pdf.info.filename}`;
-    const file = bucket.file(storagePath);
+    const timestamp   = Date.now();
+    const safeName    = pdf.info.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `ap_invoices/${timestamp}_${safeName}`;
+    const file        = bucket.file(storagePath);
+
     await file.save(pdf.buffer, { contentType: 'application/pdf', resumable: false });
     await file.makePublic();
+
     const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+    const parsed = extractInvoiceFields(bodyText || bodyHtml);
 
-    // Extract invoice fields from email body text (replace with OCR for PDF content)
-    const parsed = extractInvoiceFields(bodyText);
-
-    // Save to Firestore
     const docRef = await db.collection('ap_invoices').add({
-      fromEmail,
-      subject,
+      fromEmail, subject, toEmail, senderIp,
       pdfUrl,
       storagePath,
       receivedAt: new Date().toISOString(),
@@ -104,7 +124,7 @@ export default async function handler(req, res) {
       ...parsed,
     });
 
-    console.log('AP invoice saved:', docRef.id);
+    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail);
     return res.status(200).json({ received: true, invoiceId: docRef.id });
 
   } catch (err) {

@@ -5,8 +5,8 @@ import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 
 const TOKEN_TTL = 60; // seconds the QR code stays valid
-const AP_INTAKE_EMAIL = 'ap-invoices@your-domain.com';
-const AP_INTAKE_PLACEHOLDER = 'ap-invoices@your-domain.com';
+const AP_INTAKE_EMAIL = 'invoices@yourdomain.com'; // ← replace with your real domain
+const AP_INTAKE_PLACEHOLDER = 'invoices@yourdomain.com'; // ← keep in sync until configured
 
 export default function Nav() {
   const navigate = useNavigate();
