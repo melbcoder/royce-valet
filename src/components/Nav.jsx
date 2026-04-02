@@ -22,6 +22,7 @@ export default function Nav() {
     '/maintenance',
     '/maintenance/jobs',
     '/maintenance/contractor-sign-in',
+    '/accounts-payable',
     '/settings'
   ].includes(location.pathname);
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
@@ -190,6 +191,9 @@ export default function Nav() {
             </NavLink>
             <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
               Amenities
+            </NavLink>
+            <NavLink to="/accounts-payable" style={({ isActive }) => navLinkStyle(isActive)}>
+              Accounts Payable
             </NavLink>
             <div
               onMouseEnter={() => setMaintenanceOpen(true)}
