@@ -39,6 +39,72 @@ async function extractPdfText(buffer) {
   return (parsed?.text || '').trim();
 }
 
+function normalizeExtractionText(text = '') {
+  return String(text || '')
+    .replace(/\r/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\t/g, ' ')
+    .replace(/[ ]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function getMeaningfulLines(text = '') {
+  return normalizeExtractionText(text)
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function parseMoney(value) {
+  if (!value) return null;
+  const cleaned = String(value).replace(/[^\d.,-]/g, '').replace(/,(?=\d{3}(\D|$))/g, '');
+  const parsed = Number.parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function matchFirst(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
+}
+
+function inferSupplierFromLines(lines = []) {
+  const blocked = /^(invoice|bill|statement|date|due date|invoice date|invoice number|page|amount|total|balance|remit|ship to|bill to)\b/i;
+  for (const line of lines.slice(0, 12)) {
+    if (line.length < 3 || line.length > 80) continue;
+    if (!/[A-Za-z]/.test(line)) continue;
+    if (blocked.test(line)) continue;
+    return line;
+  }
+  return null;
+}
+
+function extractLineItems(text = '') {
+  const lineItems = [];
+  const lines = getMeaningfulLines(text);
+  const numericTail = /(.*?)\s+(\d+(?:\.\d+)?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s+\$?([\d,]+(?:\.\d{1,2})?)$/;
+
+  for (const line of lines) {
+    const match = line.match(numericTail);
+    if (!match) continue;
+
+    const description = match[1].trim();
+    if (!description || description.length < 2) continue;
+
+    lineItems.push({
+      description,
+      quantity: Number.parseFloat(match[2]),
+      unitPrice: parseMoney(match[3]),
+      total: parseMoney(match[4]),
+    });
+  }
+
+  return lineItems.slice(0, 50);
+}
+
 function getFirebaseAdminServices() {
   if (!getApps().length) {
     const storageBucket = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET);
@@ -124,26 +190,41 @@ function parseMultipart(req) {
   });
 }
 
-/** Very basic invoice field extractor — replace with Textract/Document AI for production */
+/** Heuristic invoice field extraction for text-based PDFs and email bodies. */
 function extractInvoiceFields(text = '') {
-  const invoiceNumber = text.match(/invoice\s*#?\s*[:\-]?\s*([A-Z0-9\-]+)/i)?.[1] ?? null;
-  const invoiceDate   = text.match(/(?:date|dated)\s*[:\-]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)?.[1] ?? null;
-  const supplier      = text.match(/from\s*[:\-]?\s*(.+)/i)?.[1]?.trim() ?? null;
-  const amountMatch   = text.match(/(?:total|amount due|amount)\s*[:\-]?\s*\$?([\d,]+\.?\d*)/i);
-  const parsedAmount  = amountMatch ? parseFloat(amountMatch[1].replace(',', '')) : null;
+  const normalized = normalizeExtractionText(text);
+  const lines = getMeaningfulLines(normalized);
 
-  // Naive line-item extraction: rows with description + numbers
-  const lineItems = [];
-  const lineRe = /(.+?)\s+(\d+)\s+\$?([\d.]+)\s+\$?([\d.]+)/g;
-  let m;
-  while ((m = lineRe.exec(text)) !== null) {
-    lineItems.push({
-      description: m[1].trim(),
-      quantity:    parseFloat(m[2]),
-      unitPrice:   parseFloat(m[3]),
-      total:       parseFloat(m[4]),
-    });
-  }
+  const invoiceNumber = matchFirst(normalized, [
+    /invoice\s*(?:no\.?|number|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]+)/i,
+    /inv\s*(?:no\.?|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]+)/i,
+    /reference\s*(?:no\.?|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]+)/i,
+  ]);
+
+  const invoiceDate = matchFirst(normalized, [
+    /invoice\s*date\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
+    /date\s*issued\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
+    /issue\s*date\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
+    /(?:^|\n)date\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
+  ]);
+
+  const supplier = matchFirst(normalized, [
+    /supplier\s*[:\-]?\s*(.+)/i,
+    /vendor\s*[:\-]?\s*(.+)/i,
+    /from\s*[:\-]?\s*(.+)/i,
+    /bill\s*from\s*[:\-]?\s*(.+)/i,
+  ]) || inferSupplierFromLines(lines);
+
+  const amountLabelValue = matchFirst(normalized, [
+    /balance\s*due\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /amount\s*due\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /total\s*due\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /invoice\s*total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /grand\s*total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+    /total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
+  ]);
+  const parsedAmount = parseMoney(amountLabelValue);
+  const lineItems = extractLineItems(normalized);
 
   return { invoiceNumber, invoiceDate, supplier, parsedAmount, lineItems };
 }
@@ -219,6 +300,11 @@ export default async function handler(req, res) {
       subject,
     ].filter(Boolean).join('\n');
     const parsed = extractInvoiceFields(parseSourceText);
+    const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
+      .filter(value => value !== null && value !== undefined && value !== '').length;
+    const parseWarning = pdfText
+      ? (parsedFieldCount === 0 ? 'PDF text extracted, but no invoice fields matched current parser heuristics.' : null)
+      : 'No extractable text found in PDF. This usually means the PDF is image-based/scanned and needs OCR.';
 
     const docRef = await db.collection('ap_invoices').add({
       fromEmail, subject, toEmail, senderIp,
@@ -231,6 +317,9 @@ export default async function handler(req, res) {
       confirmedAmount: null,
       parseSource: pdfText ? 'pdf+email' : 'email',
       parsePreview: parseSourceText.slice(0, 2000),
+      pdfTextLength: pdfText.length,
+      parsedFieldCount,
+      parseWarning,
       ...parsed,
     });
 

@@ -66,6 +66,36 @@ function InvoiceModal({ invoice, onClose, onSave }) {
           </div>
         </div>
 
+        {(invoice.parseWarning || invoice.parsePreview) && (
+          <div className="card" style={{ padding: 12, marginBottom: 16, background: '#fafafa', border: '1px solid #eee' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: invoice.parsePreview ? 12 : 0 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parse Source</label>
+                <strong>{invoice.parseSource || '—'}</strong>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parsed Fields</label>
+                <strong>{invoice.parsedFieldCount ?? 0}</strong>
+              </div>
+            </div>
+
+            {invoice.parseWarning && (
+              <div style={{ fontSize: 13, color: '#991b1b', marginBottom: invoice.parsePreview ? 12 : 0 }}>
+                {invoice.parseWarning}
+              </div>
+            )}
+
+            {invoice.parsePreview && (
+              <details>
+                <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Extracted Text Preview</summary>
+                <pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: 10 }}>
+                  {invoice.parsePreview}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
+
         {/* Line items */}
         {invoice.lineItems?.length > 0 && (
           <div style={{ marginBottom: 16 }}>
