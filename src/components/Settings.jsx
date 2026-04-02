@@ -128,6 +128,9 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [vehicleRetentionDaysInput, setVehicleRetentionDaysInput] = useState('7')
   const [vehicleRetentionSuccess, setVehicleRetentionSuccess] = useState(false)
   const [vehicleRetentionError, setVehicleRetentionError] = useState('')
+  const [pdfRetentionDaysInput, setPdfRetentionDaysInput] = useState('90')
+  const [pdfRetentionSuccess, setPdfRetentionSuccess] = useState(false)
+  const [pdfRetentionError, setPdfRetentionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(false)
   
@@ -195,6 +198,10 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setVehicleRetentionDaysInput(String(settings.vehiclePhotoRetentionDays || 7))
   }, [settings.vehiclePhotoRetentionDays])
+
+  useEffect(() => {
+    setPdfRetentionDaysInput(String(settings.pdfRetentionDays || 90))
+  }, [settings.pdfRetentionDays])
 
   // Debug function to check user document
   useEffect(() => {
@@ -535,6 +542,26 @@ export default function Settings({open = false, onClose, asPage = false}){
     }
   }
 
+  async function handleSavePdfRetentionDays() {
+    try {
+      setPdfRetentionError('')
+      setPdfRetentionSuccess(false)
+
+      const parsed = Number(pdfRetentionDaysInput)
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 3650) {
+        setPdfRetentionError('Please enter a whole number between 1 and 3650 days.')
+        return
+      }
+
+      await updateSettings({ pdfRetentionDays: parsed })
+      setPdfRetentionSuccess(true)
+      setTimeout(() => setPdfRetentionSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating PDF retention days:', err)
+      setPdfRetentionError('Failed to update PDF retention days.')
+    }
+  }
+
   async function handleChangePassword(e) {
     e.preventDefault()
     setPasswordError('')
@@ -769,6 +796,33 @@ export default function Settings({open = false, onClose, asPage = false}){
               )}
               {vehicleRetentionSuccess && (
                 <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Vehicle photo retention updated successfully!</div>
+              )}
+            </div>
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>AP Invoice PDF Retention</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                Choose how many days AP invoice PDFs remain accessible after receipt.
+              </p>
+              <div className="row" style={{gap: 8, alignItems: 'center'}}>
+                <input
+                  type="number"
+                  min="1"
+                  max="3650"
+                  value={pdfRetentionDaysInput}
+                  onChange={(e) => setPdfRetentionDaysInput(e.target.value)}
+                  style={{width: 120}}
+                />
+                <span style={{fontSize: 13, color: '#666'}}>days</span>
+                <button type="button" className="btn secondary" onClick={handleSavePdfRetentionDays}>
+                  Save
+                </button>
+              </div>
+              {pdfRetentionError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{pdfRetentionError}</div>
+              )}
+              {pdfRetentionSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>PDF retention updated successfully!</div>
               )}
             </div>
             </div>

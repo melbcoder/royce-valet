@@ -47,24 +47,65 @@ function InvoiceModal({ invoice, onClose, onSave }) {
         </div>
 
         {/* Header fields */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier</label>
-            <strong>{invoice.supplier || '—'}</strong>
+        {invoice.invoiceType === 'travel-agent' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier (Travel Agent)</label>
+              <strong>{invoice.supplier || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Number</label>
+              <strong>{invoice.invoiceNumber || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Date</label>
+              <strong>{invoice.invoiceDate || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Booking Number</label>
+              <strong>{invoice.bookingNumber || (invoice.lineItems?.[0]?.bookingNumber) || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Client(s)</label>
+              <strong>{invoice.clientNames?.join(', ') || (invoice.lineItems?.[0]?.clientName) || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Booking Date</label>
+              <strong>{invoice.lineItems?.[0]?.bookingDate || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Total Reservation (Paid)</label>
+              <strong>${invoice.totalPaid?.toFixed(2) ?? '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Commission Due</label>
+              <strong style={{ color: '#b45309' }}>${invoice.totalCommission?.toFixed(2) ?? invoice.parsedAmount?.toFixed(2) ?? '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Received</label>
+              <strong>{invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleDateString() : '—'}</strong>
+            </div>
           </div>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Date</label>
-            <strong>{invoice.invoiceDate || '—'}</strong>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier</label>
+              <strong>{invoice.supplier || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Date</label>
+              <strong>{invoice.invoiceDate || '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parsed Amount</label>
+              <strong>${invoice.parsedAmount?.toFixed(2) ?? '—'}</strong>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Received</label>
+              <strong>{invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleDateString() : '—'}</strong>
+            </div>
           </div>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parsed Amount</label>
-            <strong>${invoice.parsedAmount?.toFixed(2) ?? '—'}</strong>
-          </div>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Received</label>
-            <strong>{invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleDateString() : '—'}</strong>
-          </div>
-        </div>
+        )}
 
         {(invoice.parseWarning || invoice.parsePreview) && (
           <div className="card" style={{ padding: 12, marginBottom: 16, background: '#fafafa', border: '1px solid #eee' }}>
@@ -100,26 +141,61 @@ function InvoiceModal({ invoice, onClose, onSave }) {
         {invoice.lineItems?.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <h4 style={{ marginBottom: 8 }}>Line Items</h4>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #eee' }}>
-                  <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
-                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
-                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Unit Price</th>
-                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.lineItems.map((item, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                    <td style={{ padding: '4px 8px' }}>{item.description}</td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.quantity}</td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.unitPrice?.toFixed(2)}</td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.total?.toFixed(2)}</td>
+            <div style={{ overflowX: 'auto' }}>
+            {invoice.invoiceType === 'travel-agent' ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #eee' }}>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Type</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Client</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Booking #</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Reference</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Book Date</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Dep Date</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Nett</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Paid</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Commission</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {invoice.lineItems.map((item, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                      <td style={{ padding: '4px 8px' }}>{item.type}</td>
+                      <td style={{ padding: '4px 8px' }}>{item.clientName}</td>
+                      <td style={{ padding: '4px 8px' }}>{item.bookingNumber}</td>
+                      <td style={{ padding: '4px 8px' }}>{item.reference}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.bookingDate}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.departureDate}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.creditorNett != null ? `$${Number(item.creditorNett).toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.paid != null ? `$${Number(item.paid).toFixed(2)}` : '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right', color: '#b45309', fontWeight: 600 }}>{item.commission != null ? `$${Number(item.commission).toFixed(2)}` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #eee' }}>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Unit Price</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.lineItems.map((item, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                      <td style={{ padding: '4px 8px' }}>{item.description}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.quantity}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.unitPrice?.toFixed(2)}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.total?.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            </div>
           </div>
         )}
 
@@ -153,8 +229,8 @@ function InvoiceModal({ invoice, onClose, onSave }) {
           )}
         </div>
 
-        {invoice.pdfUrl && (
-          <a href={invoice.pdfUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginBottom: 16, fontSize: 13, color: '#1e40af' }}>
+        {invoice.storagePath && (
+          <a href={`/api/pdf-link?id=${invoice.id}`} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginBottom: 16, fontSize: 13, color: '#1e40af' }}>
             View PDF ↗
           </a>
         )}
@@ -255,8 +331,17 @@ export default function AccountsPayable() {
                   <td style={{ padding: '10px 12px' }}>{inv.supplier || '—'}</td>
                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{inv.invoiceDate || '—'}</td>
                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                    ${(inv.confirmedAmount ?? inv.parsedAmount ?? 0).toFixed(2)}
-                    {inv.confirmedAmount == null && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>(parsed)</span>}
+                    {inv.invoiceType === 'travel-agent' ? (
+                      <>
+                        <span style={{ fontWeight: 700 }}>${(inv.confirmedAmount ?? inv.totalCommission ?? inv.parsedAmount ?? 0).toFixed(2)}</span>
+                        {inv.confirmedAmount == null && <span style={{ fontSize: 11, color: '#b45309', marginLeft: 4 }}>(commission)</span>}
+                      </>
+                    ) : (
+                      <>
+                        ${(inv.confirmedAmount ?? inv.parsedAmount ?? 0).toFixed(2)}
+                        {inv.confirmedAmount == null && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>(parsed)</span>}
+                      </>
+                    )}
                   </td>
                   <td style={{ padding: '10px 12px' }}>{inv.department || <span style={{ color: 'var(--muted)' }}>Unassigned</span>}</td>
                   <td style={{ padding: '10px 12px' }}><StatusBadge status={inv.status || 'pending'} /></td>

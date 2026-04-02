@@ -190,8 +190,81 @@ function parseMultipart(req) {
   });
 }
 
-/** Heuristic invoice field extraction for text-based PDFs and email bodies. */
-function extractInvoiceFields(text = '') {
+/** Extract fields from travel-agent commission invoices (New World Travel, similar formats). */
+function extractTravelAgentInvoice(text) {
+  const normalized = normalizeExtractionText(text);
+
+  // Invoice number: "Tax Invoice Number PG.0000000074"
+  const invoiceNumber = matchFirst(normalized, [
+    /Tax Invoice Number\s+([A-Z0-9][A-Z0-9./\-]+)/i,
+    /Invoice Number\s+([A-Z0-9][A-Z0-9./\-]+)/i,
+  ]);
+
+  // Date from header e.g. "Wednesday 01 April 2026 09:57"
+  const invoiceDate = matchFirst(normalized, [
+    /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2}\s+\w+\s+\d{4})/i,
+    /invoice\s*date\s*[:\-]?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
+  ]);
+
+  // Supplier from EFT account name (the travel agency)
+  const supplier = matchFirst(normalized, [
+    /Account name:\s*(.+)/i,
+  ]);
+
+  // Totals row: "Total for THE ROYCE  271.80  302.00  30.20"  (Nett, Paid, Due/Commission)
+  const totalsMatch = normalized.match(/Total(?:\s+for\s+[A-Z\s]+?)?\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/i);
+  const totalNett       = totalsMatch ? parseMoney(totalsMatch[1]) : null;
+  const totalPaid       = totalsMatch ? parseMoney(totalsMatch[2]) : null;
+  const totalCommission = totalsMatch ? parseMoney(totalsMatch[3]) : null;
+
+  // Line items — each booking row: SEG DocNum BookNum Consultant ClientProfile ... TransDate BookDate DepDate Nett Paid Due
+  const lineItems = [];
+  const rowRe = /\b(HTL|FLT|CAR|TRN|CRU|INS|PKG|ACT)\b\s+(R\.[A-Z0-9]+)\s+(B\.[A-Z0-9]+)\s+(\S+)\s+(.+?)\s+(\S+)\s+(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})\s+(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})\s+(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/gi;
+  let m;
+  while ((m = rowRe.exec(normalized)) !== null) {
+    lineItems.push({
+      type:            m[1].toUpperCase(),
+      documentNumber:  m[2],
+      bookingNumber:   m[3],
+      consultant:      m[4],
+      clientName:      m[5].trim(),
+      reference:       m[6],
+      transactionDate: m[7],
+      bookingDate:     m[8],
+      departureDate:   m[9],
+      creditorNett:    parseMoney(m[10]),
+      paid:            parseMoney(m[11]),
+      commission:      parseMoney(m[12]),
+    });
+  }
+
+  // Primary booking number from first line item or standalone pattern
+  const bookingNumber = lineItems[0]?.bookingNumber
+    || matchFirst(normalized, [/\b(B\.[A-Z0-9]+)/i]);
+
+  // Client name(s)
+  const clientNames = [...new Set(lineItems.map(i => i.clientName).filter(Boolean))];
+
+  // Amount to display = commission due (what the hotel owes the agent)
+  const parsedAmount = totalCommission ?? totalPaid ?? totalNett;
+
+  return {
+    invoiceNumber,
+    invoiceDate,
+    supplier,
+    bookingNumber,
+    clientNames,
+    totalNett,
+    totalPaid,
+    totalCommission,
+    parsedAmount,
+    lineItems,
+    invoiceType: 'travel-agent',
+  };
+}
+
+/** Generic heuristic extraction for non-travel-agent invoices. */
+function extractGenericInvoiceFields(text = '') {
   const normalized = normalizeExtractionText(text);
   const lines = getMeaningfulLines(normalized);
 
@@ -227,6 +300,17 @@ function extractInvoiceFields(text = '') {
   const lineItems = extractLineItems(normalized);
 
   return { invoiceNumber, invoiceDate, supplier, parsedAmount, lineItems };
+}
+
+function isTravelAgentInvoice(text = '') {
+  return /Tax Invoice Number\s+[A-Z0-9./\-]+\s+for Creditor/i.test(text)
+    || /Account name:.*Travel/i.test(text)
+    || /\b(HTL|FLT|CAR|TRN|CRU)\s+R\.[A-Z0-9]+\s+B\.[A-Z0-9]+/i.test(text);
+}
+
+function extractInvoiceFields(text = '') {
+  if (isTravelAgentInvoice(text)) return extractTravelAgentInvoice(text);
+  return extractGenericInvoiceFields(text);
 }
 
 export default async function handler(req, res) {
@@ -283,9 +367,8 @@ export default async function handler(req, res) {
     const file        = bucket.file(storagePath);
 
     await file.save(pdf.buffer, { contentType: 'application/pdf', resumable: false });
-    await file.makePublic();
-
-    const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+    // PDFs are kept private; access is via the /api/pdf-link endpoint which enforces retention.
+    const pdfUrl = null; // resolved on demand
     let pdfText = '';
     try {
       pdfText = await extractPdfText(pdf.buffer);

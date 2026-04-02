@@ -59,10 +59,11 @@ export async function getSettings() {
       timezone: "Australia/Melbourne", // Default to Melbourne, Australia
       contractorPhotoRetentionDays: 7,
       vehiclePhotoRetentionDays: 7,
+      pdfRetentionDays: 90,
     };
   } catch (error) {
     console.error("Error getting settings:", error);
-    return { timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7 };
+    return { timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90 };
   }
 }
 
@@ -88,9 +89,12 @@ export function subscribeSettings(callback) {
         vehiclePhotoRetentionDays: Number.isInteger(data.vehiclePhotoRetentionDays)
           ? data.vehiclePhotoRetentionDays
           : 7,
+        pdfRetentionDays: Number.isInteger(data.pdfRetentionDays)
+          ? data.pdfRetentionDays
+          : 90,
       });
     } else {
-      callback({ timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7 });
+      callback({ timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90 });
     }
   });
 }
