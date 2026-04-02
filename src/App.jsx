@@ -12,6 +12,8 @@ import AmenitiesHistory from './pages/AmenitiesHistory';
 import MaintenanceJobs from './pages/MaintenanceJobs';
 import ContractorSignIn from './pages/ContractorSignIn';
 import MaintenanceDashboard from './pages/MaintenanceDashboard';
+import AccountsPayable from './pages/AccountsPayable';
+import AccountsPayableIntake from './pages/AccountsPayableIntake';
 import QRLogin from './pages/QRLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
@@ -162,6 +164,38 @@ export default function App(){
               element={
                 <ProtectedRoute>
                   <ContractorSignIn />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts-payable"
+              element={
+                <ProtectedRoute>
+                  <AccountsPayable />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts-payable/inbox"
+              element={
+                <ProtectedRoute>
+                  <AccountsPayable />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts-payable/review"
+              element={
+                <ProtectedRoute>
+                  <AccountsPayable />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts-payable/intake"
+              element={
+                <ProtectedRoute>
+                  <AccountsPayableIntake />
                 </ProtectedRoute>
               }
             />
