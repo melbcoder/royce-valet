@@ -2,6 +2,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
+import { Readable } from 'node:stream';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -159,13 +160,77 @@ function getFirebaseAdminServices() {
 }
 
 /** Parse multipart/form-data from the raw request */
+function extractFilesFromParsedBody(body, existingFields = {}) {
+  if (!body || typeof body !== 'object' || Buffer.isBuffer(body)) return [];
+
+  const fields = { ...existingFields };
+  const files = [];
+
+  for (const [key, value] of Object.entries(body)) {
+    if (!/^attachment\d+$/i.test(key)) {
+      if (typeof value === 'string' && !(key in fields)) fields[key] = value;
+      continue;
+    }
+
+    let buffer = null;
+    if (Buffer.isBuffer(value)) {
+      buffer = value;
+    } else if (typeof value === 'string' && value.length > 0) {
+      const trimmed = value.trim();
+      const looksBase64 = /^[A-Za-z0-9+/=\r\n]+$/.test(trimmed) && trimmed.length > 100;
+      if (looksBase64) {
+        try {
+          const decoded = Buffer.from(trimmed, 'base64');
+          if (decoded.length > 0) buffer = decoded;
+        } catch {
+          // ignore decode failure and fall back to binary
+        }
+      }
+      if (!buffer) buffer = Buffer.from(value, 'binary');
+    }
+
+    if (buffer?.length) files.push({ name: key, buffer, info: {} });
+  }
+
+  let attachmentInfo = {};
+  const rawInfo = fields['attachment-info'] || body['attachment-info'];
+  if (typeof rawInfo === 'string') {
+    try {
+      attachmentInfo = JSON.parse(rawInfo);
+    } catch {
+      // attachment-info is optional and sometimes malformed
+    }
+  }
+
+  for (const file of files) {
+    const meta = attachmentInfo[file.name] || {};
+    file.info = {
+      filename: meta.filename || `${file.name}.bin`,
+      mimeType: meta.type || meta.contentType || 'application/octet-stream',
+    };
+  }
+
+  return files;
+}
+
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     const contentType = req.headers?.['content-type'] || '';
     if (!contentType.toLowerCase().includes('multipart/form-data')) {
       const body = typeof req.body === 'object' && req.body !== null ? req.body : {};
-      resolve({ fields: body, files: [] });
+      resolve({ fields: body, files: extractFilesFromParsedBody(body, body) });
       return;
+    }
+
+    if (req.body && (typeof req.body === 'object' || typeof req.body === 'string' || Buffer.isBuffer(req.body))) {
+      const bodyFields = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
+        ? req.body
+        : {};
+      const bodyFiles = extractFilesFromParsedBody(bodyFields, bodyFields);
+      if (bodyFiles.length > 0) {
+        resolve({ fields: bodyFields, files: bodyFiles });
+        return;
+      }
     }
 
     if (typeof req.pipe !== 'function') {
@@ -183,9 +248,26 @@ function parseMultipart(req) {
       stream.on('data', c => chunks.push(c));
       stream.on('end', () => files.push({ name, buffer: Buffer.concat(chunks), info }));
     });
-    bb.on('close', () => resolve({ fields, files }));
-    bb.on('finish', () => resolve({ fields, files }));
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+
+      const fallbackFiles = extractFilesFromParsedBody(req.body, fields);
+      const merged = files.length > 0 ? files : fallbackFiles;
+      resolve({ fields, files: merged });
+    };
+
+    bb.on('close', done);
+    bb.on('finish', done);
     bb.on('error', reject);
+
+    if (Buffer.isBuffer(req.body) || typeof req.body === 'string') {
+      const stream = Readable.from([req.body]);
+      stream.pipe(bb);
+      return;
+    }
+
     req.pipe(bb);
   });
 }
@@ -370,6 +452,42 @@ function extractInvoiceFields(text = '') {
   return mergeParsedCandidates(generic, travel);
 }
 
+function extractInvoiceFieldsDetailed(text = '') {
+  const normalized = normalizeExtractionText(text);
+  const generic = extractGenericInvoiceFields(normalized);
+  const travelDetected = isTravelAgentInvoice(normalized);
+
+  if (!travelDetected) {
+    return {
+      parsed: generic,
+      debug: {
+        parserUsed: 'generic',
+        travelDetected: false,
+        genericScore: scoreParsedCandidate(generic),
+        travelScore: null,
+      },
+    };
+  }
+
+  const travel = extractTravelAgentInvoice(normalized);
+  const travelScore = scoreParsedCandidate(travel);
+  const genericScore = scoreParsedCandidate(generic);
+  const parserUsed = travelScore >= genericScore ? 'travel-agent' : 'generic';
+  const parsed = parserUsed === 'travel-agent'
+    ? mergeParsedCandidates(travel, generic)
+    : mergeParsedCandidates(generic, travel);
+
+  return {
+    parsed,
+    debug: {
+      parserUsed,
+      travelDetected: true,
+      genericScore,
+      travelScore,
+    },
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -391,6 +509,9 @@ export default async function handler(req, res) {
     const bodyHtml   = fields.html    || '';   // html body (fallback)
     const toEmail    = fields.to      || '';
     const senderIp   = fields.sender_ip || '';
+    const attachmentsDeclared = Number.parseInt(String(fields.attachments || 0), 10) || 0;
+    const attachmentFieldKeys = Object.keys(fields).filter((k) => /^attachment\d+$/i.test(k));
+    const contentType = req.headers?.['content-type'] || '';
 
     // attachments are named attachment1, attachment2, etc. by SendGrid
     const pdf = files.find(f =>
@@ -401,6 +522,11 @@ export default async function handler(req, res) {
     if (!pdf) {
       console.warn('AP webhook: no PDF in email from', fromEmail, '| subject:', subject);
       // Still save the email record so staff can see it arrived without an attachment
+      const fallbackText = [bodyText, stripHtml(bodyHtml), subject].filter(Boolean).join('\n');
+      const detailed = extractInvoiceFieldsDetailed(fallbackText);
+      const parsed = detailed.parsed;
+      const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
+        .filter(value => value !== null && value !== undefined && value !== '').length;
       await db.collection('ap_invoices').add({
         fromEmail, subject, toEmail, senderIp,
         pdfUrl: null,
@@ -410,7 +536,32 @@ export default async function handler(req, res) {
         department: null,
         confirmedAmount: null,
         warning: 'No PDF attachment found',
-        ...extractInvoiceFields(bodyText || bodyHtml),
+        parseSource: 'email-only-no-pdf',
+        parsePreview: fallbackText.slice(0, 2000),
+        pdfTextLength: 0,
+        parsedFieldCount,
+        parseWarning: 'No PDF attachment found. Parsed from email body/subject only.',
+        parseDebug: {
+          ...detailed.debug,
+          noPdfReason: 'No attachment matched mimeType=application/pdf or filename=.pdf',
+          contentType,
+          attachmentsDeclared,
+          attachmentFieldKeys,
+          parsedFilesCount: files.length,
+          parsedFileMeta: files.slice(0, 5).map((f) => ({
+            name: f.name || null,
+            filename: f.info?.filename || null,
+            mimeType: f.info?.mimeType || null,
+            size: f.buffer?.length || 0,
+          })),
+          sourceLengths: {
+            bodyText: String(bodyText || '').length,
+            bodyHtml: String(bodyHtml || '').length,
+            subject: String(subject || '').length,
+            combined: fallbackText.length,
+          },
+        },
+        ...parsed,
       });
       return res.status(200).json({ received: true, warning: 'No PDF attachment' });
     }
@@ -439,7 +590,8 @@ export default async function handler(req, res) {
       stripHtml(bodyHtml),
       subject,
     ].filter(Boolean).join('\n');
-    const parsed = extractInvoiceFields(parseSourceText);
+    const detailed = extractInvoiceFieldsDetailed(parseSourceText);
+    const parsed = detailed.parsed;
     const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
       .filter(value => value !== null && value !== undefined && value !== '').length;
     const parseWarning = pdfText
@@ -460,6 +612,23 @@ export default async function handler(req, res) {
       pdfTextLength: pdfText.length,
       parsedFieldCount,
       parseWarning,
+      parseDebug: {
+        ...detailed.debug,
+        parsedFilesCount: files.length,
+        parsedFileMeta: files.slice(0, 5).map((f) => ({
+          name: f.name || null,
+          filename: f.info?.filename || null,
+          mimeType: f.info?.mimeType || null,
+          size: f.buffer?.length || 0,
+        })),
+        sourceLengths: {
+          pdfText: pdfText.length,
+          bodyText: String(bodyText || '').length,
+          bodyHtml: String(bodyHtml || '').length,
+          subject: String(subject || '').length,
+          combined: parseSourceText.length,
+        },
+      },
       ...parsed,
     });
 

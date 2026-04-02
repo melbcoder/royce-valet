@@ -107,7 +107,7 @@ function InvoiceModal({ invoice, onClose, onSave }) {
           </div>
         )}
 
-        {(invoice.parseWarning || invoice.parsePreview) && (
+        {(invoice.parseWarning || invoice.warning || invoice.parsePreview || invoice.parseDebug) && (
           <div className="card" style={{ padding: 12, marginBottom: 16, background: '#fafafa', border: '1px solid #eee' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: invoice.parsePreview ? 12 : 0 }}>
               <div>
@@ -120,9 +120,30 @@ function InvoiceModal({ invoice, onClose, onSave }) {
               </div>
             </div>
 
-            {invoice.parseWarning && (
+            {invoice.parseDebug && (
+              <div style={{ fontSize: 12, color: '#555', marginBottom: 12 }}>
+                <div>Parser used: <strong>{invoice.parseDebug.parserUsed || 'unknown'}</strong></div>
+                <div>Travel detected: <strong>{String(!!invoice.parseDebug.travelDetected)}</strong></div>
+                <div>Generic score: <strong>{invoice.parseDebug.genericScore ?? '—'}</strong> | Travel score: <strong>{invoice.parseDebug.travelScore ?? '—'}</strong></div>
+                {invoice.parseDebug.noPdfReason && <div>No PDF reason: <strong>{invoice.parseDebug.noPdfReason}</strong></div>}
+                {(invoice.parseDebug.attachmentsDeclared != null || invoice.parseDebug.parsedFilesCount != null) && (
+                  <div>Attachments declared: <strong>{invoice.parseDebug.attachmentsDeclared ?? 0}</strong> | Files parsed: <strong>{invoice.parseDebug.parsedFilesCount ?? 0}</strong></div>
+                )}
+                {invoice.parseDebug.contentType && <div>Content-Type: <strong>{invoice.parseDebug.contentType}</strong></div>}
+                {Array.isArray(invoice.parseDebug.attachmentFieldKeys) && invoice.parseDebug.attachmentFieldKeys.length > 0 && (
+                  <div>Attachment fields: <strong>{invoice.parseDebug.attachmentFieldKeys.join(', ')}</strong></div>
+                )}
+                {invoice.parseDebug.sourceLengths && (
+                  <div>
+                    Source lengths: PDF {invoice.parseDebug.sourceLengths.pdfText ?? 0}, Text {invoice.parseDebug.sourceLengths.bodyText ?? 0}, HTML {invoice.parseDebug.sourceLengths.bodyHtml ?? 0}, Subject {invoice.parseDebug.sourceLengths.subject ?? 0}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(invoice.parseWarning || invoice.warning) && (
               <div style={{ fontSize: 13, color: '#991b1b', marginBottom: invoice.parsePreview ? 12 : 0 }}>
-                {invoice.parseWarning}
+                {invoice.parseWarning || invoice.warning}
               </div>
             )}
 
