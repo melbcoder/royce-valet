@@ -11,6 +11,7 @@ export default function Nav() {
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
   const isStaffPage = [
     '/dashboard',
     '/valet',
@@ -22,12 +23,11 @@ export default function Nav() {
     '/maintenance',
     '/maintenance/jobs',
     '/maintenance/contractor-sign-in',
-    '/accounts-payable',
     '/settings'
-  ].includes(location.pathname);
+  ].includes(location.pathname) || isAccountsPayablePage;
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [apOpen, setApOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
-  const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -193,12 +193,67 @@ export default function Nav() {
             <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
               Amenities
             </NavLink>
-            <NavLink
-              to="/accounts-payable"
-              style={() => navLinkStyle(isAccountsPayablePage)}
+
+            <div
+              onMouseEnter={() => setApOpen(true)}
+              onMouseLeave={() => setApOpen(false)}
+              style={{ position: 'relative', display: 'inline-block' }}
             >
-              Accounts Payable
-            </NavLink>
+              <NavLink
+                to="/accounts-payable"
+                style={() => navLinkStyle(isAccountsPayablePage)}
+              >
+                Accounts Payable ▾
+              </NavLink>
+              {apOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    background: '#fff',
+                    border: '1px solid #ddd',
+                    borderRadius: 8,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    padding: 6,
+                    zIndex: 50,
+                    minWidth: 220
+                  }}
+                >
+                  <NavLink
+                    to="/accounts-payable"
+                    style={({ isActive }) => ({
+                      ...navLinkStyle(isActive),
+                      display: 'block',
+                      marginRight: 0
+                    })}
+                  >
+                    Overview
+                  </NavLink>
+                  <NavLink
+                    to="/accounts-payable/inbox"
+                    style={({ isActive }) => ({
+                      ...navLinkStyle(isActive),
+                      display: 'block',
+                      marginRight: 0
+                    })}
+                  >
+                    Email Inbox
+                  </NavLink>
+                  <NavLink
+                    to="/accounts-payable/review"
+                    style={({ isActive }) => ({
+                      ...navLinkStyle(isActive),
+                      display: 'block',
+                      marginRight: 0
+                    })}
+                  >
+                    Line Item Review
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
             <div
               onMouseEnter={() => setMaintenanceOpen(true)}
               onMouseLeave={() => setMaintenanceOpen(false)}
