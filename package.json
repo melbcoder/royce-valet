@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "busboy": "^1.6.0",
     "firebase": "^12.5.0",
     "firebase-admin": "^12.7.0",
     "qrcode": "^1.5.4",

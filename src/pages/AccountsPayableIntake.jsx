@@ -71,7 +71,16 @@ export default function AccountsPayableIntake() {
       );
 
       const res = await fetch('/api/ap-webhook', { method: 'POST', body: formData });
-      const body = await res.json().catch(() => ({}));
+      const text = await res.text();
+      let body;
+      try {
+        body = text ? JSON.parse(text) : {};
+      } catch {
+        body = { raw: text };
+      }
+      if (!res.ok && !body.error) {
+        body.error = res.statusText || 'Request failed';
+      }
       setTestResult({ ok: res.ok, status: res.status, body });
     } catch (err) {
       setTestResult({ ok: false, status: 0, body: { error: err.message } });
@@ -116,7 +125,11 @@ export default function AccountsPayableIntake() {
             <strong>Webhook endpoint</strong>
             {testResult === null && <span style={{ color: 'var(--muted)', marginLeft: 6 }}>Not tested yet</span>}
             {testResult?.ok && <span style={{ color: '#166534', marginLeft: 6 }}>Responded {testResult.status} OK</span>}
-            {testResult && !testResult.ok && <span style={{ color: '#991b1b', marginLeft: 6 }}>Failed — {testResult.status} {testResult.body?.error}</span>}
+            {testResult && !testResult.ok && (
+              <span style={{ color: '#991b1b', marginLeft: 6 }}>
+                Failed — {testResult.status} {testResult.body?.error || testResult.body?.detail || 'Unknown error'}
+              </span>
+            )}
           </div>
           {latestInvoice && (
             <div style={{ fontSize: 14 }}>
