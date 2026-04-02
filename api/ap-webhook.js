@@ -3,20 +3,61 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 
-// Init Firebase Admin once
-if (!getApps().length) {
-  initializeApp({
-    credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  });
-}
+function getFirebaseAdminServices() {
+  if (!getApps().length) {
+    const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 
-const db = getFirestore();
-const bucket = getStorage().bucket();
+    if (serviceAccountJson) {
+      let parsed;
+      try {
+        parsed = JSON.parse(serviceAccountJson);
+      } catch {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON');
+      }
+
+      initializeApp({
+        credential: cert(parsed),
+        storageBucket,
+      });
+    } else {
+      const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+      const projectId = process.env.FIREBASE_PROJECT_ID;
+      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
+      if (!projectId || !clientEmail || !privateKey) {
+        throw new Error(
+          'Missing Firebase Admin credentials. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY.'
+        );
+      }
+
+      initializeApp({
+        credential: cert({ projectId, clientEmail, privateKey }),
+        storageBucket,
+      });
+    }
+  }
+
+  const db = getFirestore();
+  const bucket = getStorage().bucket();
+  return { db, bucket };
+}
 
 /** Parse multipart/form-data from the raw request */
 function parseMultipart(req) {
   return new Promise((resolve, reject) => {
+    const contentType = req.headers?.['content-type'] || '';
+    if (!contentType.toLowerCase().includes('multipart/form-data')) {
+      const body = typeof req.body === 'object' && req.body !== null ? req.body : {};
+      resolve({ fields: body, files: [] });
+      return;
+    }
+
+    if (typeof req.pipe !== 'function') {
+      reject(new Error('Request stream is not available for multipart parsing'));
+      return;
+    }
+
     const fields = {};
     const files = [];
     const bb = Busboy({ headers: req.headers });
@@ -28,6 +69,7 @@ function parseMultipart(req) {
       stream.on('end', () => files.push({ name, buffer: Buffer.concat(chunks), info }));
     });
     bb.on('close', () => resolve({ fields, files }));
+    bb.on('finish', () => resolve({ fields, files }));
     bb.on('error', reject);
     req.pipe(bb);
   });
@@ -67,6 +109,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { db, bucket } = getFirebaseAdminServices();
     const { fields, files } = await parseMultipart(req);
 
     // SendGrid Inbound Parse field names
@@ -129,6 +172,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('AP webhook error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error', detail: err?.message || 'Unknown error' });
   }
 }
