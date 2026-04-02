@@ -200,7 +200,8 @@ export default function AccountsPayableIntake() {
             </button>
             <Code>{webhookUrl}</Code>
           </li>
-          <li>Tick: <strong>POST the raw, full MIME message</strong></li>
+          <li>Tick: <strong>Check incoming emails for spam</strong> (optional)</li>
+          <li>Either mode works: <strong>"POST the raw, full MIME message"</strong> may be checked or unchecked</li>
         </ul>
       </Step>
 
