@@ -185,7 +185,7 @@ export default function AccountsPayable() {
             <div style={{ fontSize: 12, color, fontWeight: 600, marginBottom: 4 }}>{label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color }}>${value.toFixed(2)}</div>
           </div>
-        )))
+        ))}
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
