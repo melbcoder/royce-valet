@@ -133,6 +133,20 @@ function InvoiceModal({ invoice, onClose, onSave }) {
                 {Array.isArray(invoice.parseDebug.attachmentFieldKeys) && invoice.parseDebug.attachmentFieldKeys.length > 0 && (
                   <div>Attachment fields: <strong>{invoice.parseDebug.attachmentFieldKeys.join(', ')}</strong></div>
                 )}
+                {invoice.parseDebug.multipartMeta && (
+                  <div>
+                    Multipart path: <strong>{invoice.parseDebug.multipartMeta.path || 'unknown'}</strong>
+                    {invoice.parseDebug.multipartMeta.rawBufferLength != null && (
+                      <span> | Raw bytes: <strong>{invoice.parseDebug.multipartMeta.rawBufferLength}</strong></span>
+                    )}
+                    {invoice.parseDebug.multipartMeta.parsedFieldCount != null && (
+                      <span> | Parsed fields: <strong>{invoice.parseDebug.multipartMeta.parsedFieldCount}</strong></span>
+                    )}
+                    {invoice.parseDebug.multipartMeta.parsedFileCount != null && (
+                      <span> | Parsed files: <strong>{invoice.parseDebug.multipartMeta.parsedFileCount}</strong></span>
+                    )}
+                  </div>
+                )}
                 {invoice.parseDebug.sourceLengths && (
                   <div>
                     Source lengths: PDF {invoice.parseDebug.sourceLengths.pdfText ?? 0}, Text {invoice.parseDebug.sourceLengths.bodyText ?? 0}, HTML {invoice.parseDebug.sourceLengths.bodyHtml ?? 0}, Subject {invoice.parseDebug.sourceLengths.subject ?? 0}

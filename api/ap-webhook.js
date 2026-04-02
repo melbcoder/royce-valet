@@ -213,6 +213,22 @@ function extractFilesFromParsedBody(body, existingFields = {}) {
   return files;
 }
 
+function isPdfFileCandidate(file) {
+  if (!file) return false;
+  const mimeType = String(file.info?.mimeType || '').toLowerCase();
+  const filename = String(file.info?.filename || '').toLowerCase();
+  const buf = file.buffer;
+  const hasPdfSignature = Buffer.isBuffer(buf)
+    && buf.length >= 5
+    && buf[0] === 0x25 // %
+    && buf[1] === 0x50 // P
+    && buf[2] === 0x44 // D
+    && buf[3] === 0x46 // F
+    && buf[4] === 0x2d; // -
+
+  return mimeType.includes('pdf') || filename.endsWith('.pdf') || hasPdfSignature;
+}
+
 /**
  * Capture a diagnostic snapshot of the raw request body state.
  * Saved to every Firestore invoice doc under rawBodyDiag so we can
@@ -282,7 +298,14 @@ function parseMultipart(req) {
       // Non-multipart: use whatever Vercel already parsed
       const body = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
         ? req.body : {};
-      return resolve({ fields: body, files: extractFilesFromParsedBody(body) });
+      return resolve({
+        fields: body,
+        files: extractFilesFromParsedBody(body),
+        parseMeta: {
+          path: 'non-multipart',
+          bodyKeysCount: Object.keys(body).length,
+        },
+      });
     }
 
     // ── Priority 1: Vercel may have already pre-parsed the multipart body into a
@@ -297,7 +320,15 @@ function parseMultipart(req) {
          'dkim', 'charsets', 'sender_ip', 'envelope'].includes(k)
       );
       if (hasSendGridFields || keys.length > 0) {
-        return resolve({ fields: req.body, files: extractFilesFromParsedBody(req.body) });
+        return resolve({
+          fields: req.body,
+          files: extractFilesFromParsedBody(req.body),
+          parseMeta: {
+            path: 'preparsed-object',
+            bodyKeysCount: keys.length,
+            bodyKeysSample: keys.slice(0, 20),
+          },
+        });
       }
     }
 
@@ -309,7 +340,15 @@ function parseMultipart(req) {
       // Last-resort fallback: use whatever is in req.body
       const fallback = (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body))
         ? req.body : {};
-      return resolve({ fields: fallback, files: extractFilesFromParsedBody(fallback) });
+      return resolve({
+        fields: fallback,
+        files: extractFilesFromParsedBody(fallback),
+        parseMeta: {
+          path: 'raw-empty-fallback-object',
+          rawBufferLength: 0,
+          fallbackKeysCount: Object.keys(fallback).length,
+        },
+      });
     }
 
     // Feed raw bytes into Busboy
@@ -328,7 +367,16 @@ function parseMultipart(req) {
     const done = () => {
       if (settled) return;
       settled = true;
-      resolve({ fields, files });
+      resolve({
+        fields,
+        files,
+        parseMeta: {
+          path: 'raw-buffer-busboy',
+          rawBufferLength: rawBuffer.length,
+          parsedFieldCount: Object.keys(fields).length,
+          parsedFileCount: files.length,
+        },
+      });
     };
 
     bb.on('close', done);
@@ -574,7 +622,7 @@ export default async function handler(req, res) {
   try {
     const rawBodyDiag = captureRawBodyDiag(req);
     const { db, getBucket } = getFirebaseAdminServices();
-    const { fields, files } = await parseMultipart(req);
+    const { fields, files, parseMeta } = await parseMultipart(req);
 
     // SendGrid Inbound Parse field names
     // https://docs.sendgrid.com/for-developers/parsing-email/setting-up-the-inbound-parse-webhook
@@ -589,10 +637,7 @@ export default async function handler(req, res) {
     const contentType = req.headers?.['content-type'] || '';
 
     // attachments are named attachment1, attachment2, etc. by SendGrid
-    const pdf = files.find(f =>
-      f.info?.mimeType === 'application/pdf' ||
-      f.info?.filename?.toLowerCase().endsWith('.pdf')
-    );
+    const pdf = files.find((f) => isPdfFileCandidate(f));
 
     if (!pdf) {
       console.warn('AP webhook: no PDF in email from', fromEmail, '| subject:', subject);
@@ -619,7 +664,8 @@ export default async function handler(req, res) {
         parseDebug: {
           ...detailed.debug,
           rawBodyDiag,
-          noPdfReason: 'No attachment matched mimeType=application/pdf or filename=.pdf',
+          multipartMeta: parseMeta,
+          noPdfReason: 'No attachment matched PDF checks (mimeType contains pdf, filename .pdf, or %PDF signature).',
           contentType,
           attachmentsDeclared,
           attachmentFieldKeys,
@@ -691,6 +737,7 @@ export default async function handler(req, res) {
       parseDebug: {
         ...detailed.debug,
         rawBodyDiag,
+        multipartMeta: parseMeta,
         parsedFilesCount: files.length,
         parsedFileMeta: files.slice(0, 5).map((f) => ({
           name: f.name || null,
