@@ -147,6 +147,17 @@ function InvoiceModal({ invoice, onClose, onSave }) {
               </div>
             )}
 
+            {invoice.parseDebug?.rawBodyDiag && (
+              <details style={{ marginBottom: 8 }}>
+                <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Raw Body Diagnostics</summary>
+                <div style={{ marginTop: 8, fontSize: 12, color: '#444', lineHeight: 1.6 }}>
+                  {Object.entries(invoice.parseDebug.rawBodyDiag).map(([k, v]) => (
+                    <div key={k}><strong>{k}:</strong> {v === null ? 'null' : String(Array.isArray(v) ? v.join(', ') : v)}</div>
+                  ))}
+                </div>
+              </details>
+            )}
+
             {invoice.parsePreview && (
               <details>
                 <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Extracted Text Preview</summary>

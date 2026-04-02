@@ -214,28 +214,62 @@ function extractFilesFromParsedBody(body, existingFields = {}) {
 }
 
 /**
+ * Capture a diagnostic snapshot of the raw request body state.
+ * Saved to every Firestore invoice doc under rawBodyDiag so we can
+ * debug body-parsing failures without guessing.
+ */
+function captureRawBodyDiag(req) {
+  const body = req.body;
+  return {
+    bodyTypeof: typeof body,
+    bodyIsBuffer: Buffer.isBuffer(body),
+    bodyIsNull: body === null,
+    bodyIsUndefined: body === undefined,
+    bodyBufferLength: Buffer.isBuffer(body) ? body.length : null,
+    bodyStringLength: typeof body === 'string' ? body.length : null,
+    bodyObjectKeys: (body && typeof body === 'object' && !Buffer.isBuffer(body))
+      ? Object.keys(body).slice(0, 30) : null,
+    rawBodyPropExists: 'rawBody' in req,
+    rawBodyLength: (req.rawBody != null)
+      ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.length : String(req.rawBody).length) : null,
+    readableEnded: req.readableEnded ?? null,
+    destroyed: req.destroyed ?? null,
+    hasOnFn: typeof req.on === 'function',
+    hasPipeFn: typeof req.pipe === 'function',
+    contentType: req.headers?.['content-type'] || null,
+    contentLength: req.headers?.['content-length'] || null,
+  };
+}
+
+/**
  * Read the entire raw request body as a Buffer.
- * Works whether Vercel has pre-buffered the body or whether the stream is still live.
+ * Tries four strategies in order of reliability:
+ *   1. req.rawBody  — some Vercel/custom middleware pre-buffers here
+ *   2. req.body Buffer — Vercel Node.js runtime sometimes exposes raw bytes here
+ *   3. req.body string — binary or base64 stringified body
+ *   4. Live stream  — req.on('data') / req.on('end')
  */
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
-    // Already a Buffer (some Vercel / edge runtime versions)
-    if (Buffer.isBuffer(req.body) && req.body.length > 0) {
-      return resolve(req.body);
+    // Strategy 1: req.rawBody (set by some Vercel middleware / express raw-body)
+    if (req.rawBody != null) {
+      if (Buffer.isBuffer(req.rawBody) && req.rawBody.length > 0) return resolve(req.rawBody);
+      if (typeof req.rawBody === 'string' && req.rawBody.length > 0)
+        return resolve(Buffer.from(req.rawBody, 'binary'));
     }
-    // Already a string (rare)
-    if (typeof req.body === 'string' && req.body.length > 0) {
+    // Strategy 2: req.body as Buffer
+    if (Buffer.isBuffer(req.body) && req.body.length > 0) return resolve(req.body);
+    // Strategy 3: req.body as string
+    if (typeof req.body === 'string' && req.body.length > 0)
       return resolve(Buffer.from(req.body, 'binary'));
-    }
-    // Raw stream — read it ourselves
-    if (typeof req.on === 'function') {
+    // Strategy 4: live stream
+    if (typeof req.on === 'function' && !req.readableEnded && !req.destroyed) {
       const chunks = [];
-      req.on('data', (c) => chunks.push(c));
+      req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
       req.on('end', () => resolve(Buffer.concat(chunks)));
       req.on('error', reject);
       return;
     }
-    // Nothing available
     resolve(Buffer.alloc(0));
   });
 }
@@ -251,20 +285,31 @@ function parseMultipart(req) {
       return resolve({ fields: body, files: extractFilesFromParsedBody(body) });
     }
 
-    // Read raw bytes first — avoids any stream-already-consumed issues
-    let rawBuffer;
-    try {
-      rawBuffer = await readRawBody(req);
-    } catch (err) {
-      return reject(err);
-    }
-
-    if (!rawBuffer || rawBuffer.length === 0) {
-      // Absolute fallback: if Vercel pre-parsed the body as a plain object, use it
-      if (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)) {
+    // ── Priority 1: Vercel may have already pre-parsed the multipart body into a
+    //    plain object (it does this for payloads under its size threshold).  When
+    //    that happens the raw stream is already consumed, so we must use the
+    //    pre-parsed object directly rather than trying to re-read the stream.
+    if (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)) {
+      const keys = Object.keys(req.body);
+      // If any recognised SendGrid or form fields are present, trust this object.
+      const hasSendGridFields = keys.some((k) =>
+        ['from', 'to', 'subject', 'text', 'html', 'attachments', 'attachment1',
+         'dkim', 'charsets', 'sender_ip', 'envelope'].includes(k)
+      );
+      if (hasSendGridFields || keys.length > 0) {
         return resolve({ fields: req.body, files: extractFilesFromParsedBody(req.body) });
       }
-      return resolve({ fields: {}, files: [] });
+    }
+
+    // ── Priority 2: Try to read raw bytes and feed them to Busboy
+    let rawBuffer;
+    try { rawBuffer = await readRawBody(req); } catch (err) { return reject(err); }
+
+    if (!rawBuffer || rawBuffer.length === 0) {
+      // Last-resort fallback: use whatever is in req.body
+      const fallback = (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body))
+        ? req.body : {};
+      return resolve({ fields: fallback, files: extractFilesFromParsedBody(fallback) });
     }
 
     // Feed raw bytes into Busboy
@@ -290,10 +335,9 @@ function parseMultipart(req) {
     bb.on('finish', done);
     bb.on('error', reject);
 
-    // Push the pre-read buffer as a proper byte-mode Readable
     const r = new Readable({ read() {} });
     r.push(rawBuffer);
-    r.push(null); // signal EOF
+    r.push(null);
     r.pipe(bb);
   });
 }
@@ -528,6 +572,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const rawBodyDiag = captureRawBodyDiag(req);
     const { db, getBucket } = getFirebaseAdminServices();
     const { fields, files } = await parseMultipart(req);
 
@@ -573,6 +618,7 @@ export default async function handler(req, res) {
         parseWarning: 'No PDF attachment found. Parsed from email body/subject only.',
         parseDebug: {
           ...detailed.debug,
+          rawBodyDiag,
           noPdfReason: 'No attachment matched mimeType=application/pdf or filename=.pdf',
           contentType,
           attachmentsDeclared,
@@ -644,6 +690,7 @@ export default async function handler(req, res) {
       parseWarning,
       parseDebug: {
         ...detailed.debug,
+        rawBodyDiag,
         parsedFilesCount: files.length,
         parsedFileMeta: files.slice(0, 5).map((f) => ({
           name: f.name || null,
