@@ -9,6 +9,36 @@ function normalizeBucketName(raw = '') {
   return value.replace(/^gs:\/\//i, '').replace(/\/+$/, '');
 }
 
+function stripHtml(html = '') {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function loadPdfParser() {
+  const candidates = ['pdf-parse', 'pdf-parse/lib/pdf-parse.js'];
+  for (const name of candidates) {
+    try {
+      const mod = await import(name);
+      const parser = mod?.default || mod;
+      if (typeof parser === 'function') return parser;
+    } catch {
+      // Try the next candidate import path.
+    }
+  }
+  throw new Error('PDF parser module failed to load. Ensure pdf-parse is installed.');
+}
+
+async function extractPdfText(buffer) {
+  if (!buffer || !buffer.length) return '';
+  const pdfParse = await loadPdfParser();
+  const parsed = await pdfParse(buffer, { max: 8 });
+  return (parsed?.text || '').trim();
+}
+
 function getFirebaseAdminServices() {
   if (!getApps().length) {
     const storageBucket = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET);
@@ -175,16 +205,32 @@ export default async function handler(req, res) {
     await file.makePublic();
 
     const pdfUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
-    const parsed = extractInvoiceFields(bodyText || bodyHtml);
+    let pdfText = '';
+    try {
+      pdfText = await extractPdfText(pdf.buffer);
+    } catch (parseErr) {
+      console.warn('AP webhook: PDF text extraction failed:', parseErr?.message || parseErr);
+    }
+
+    const parseSourceText = [
+      pdfText,
+      bodyText,
+      stripHtml(bodyHtml),
+      subject,
+    ].filter(Boolean).join('\n');
+    const parsed = extractInvoiceFields(parseSourceText);
 
     const docRef = await db.collection('ap_invoices').add({
       fromEmail, subject, toEmail, senderIp,
       pdfUrl,
       storagePath,
+      originalFilename: fileName,
       receivedAt: new Date().toISOString(),
       status: 'pending',
       department: null,
       confirmedAmount: null,
+      parseSource: pdfText ? 'pdf+email' : 'email',
+      parsePreview: parseSourceText.slice(0, 2000),
       ...parsed,
     });
 
