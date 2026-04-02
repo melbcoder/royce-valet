@@ -213,31 +213,61 @@ function extractFilesFromParsedBody(body, existingFields = {}) {
   return files;
 }
 
-function parseMultipart(req) {
+/**
+ * Read the entire raw request body as a Buffer.
+ * Works whether Vercel has pre-buffered the body or whether the stream is still live.
+ */
+function readRawBody(req) {
   return new Promise((resolve, reject) => {
+    // Already a Buffer (some Vercel / edge runtime versions)
+    if (Buffer.isBuffer(req.body) && req.body.length > 0) {
+      return resolve(req.body);
+    }
+    // Already a string (rare)
+    if (typeof req.body === 'string' && req.body.length > 0) {
+      return resolve(Buffer.from(req.body, 'binary'));
+    }
+    // Raw stream — read it ourselves
+    if (typeof req.on === 'function') {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => resolve(Buffer.concat(chunks)));
+      req.on('error', reject);
+      return;
+    }
+    // Nothing available
+    resolve(Buffer.alloc(0));
+  });
+}
+
+function parseMultipart(req) {
+  return new Promise(async (resolve, reject) => {
     const contentType = req.headers?.['content-type'] || '';
+
     if (!contentType.toLowerCase().includes('multipart/form-data')) {
-      const body = typeof req.body === 'object' && req.body !== null ? req.body : {};
-      resolve({ fields: body, files: extractFilesFromParsedBody(body, body) });
-      return;
+      // Non-multipart: use whatever Vercel already parsed
+      const body = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
+        ? req.body : {};
+      return resolve({ fields: body, files: extractFilesFromParsedBody(body) });
     }
 
-    if (req.body && (typeof req.body === 'object' || typeof req.body === 'string' || Buffer.isBuffer(req.body))) {
-      const bodyFields = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
-        ? req.body
-        : {};
-      const bodyFiles = extractFilesFromParsedBody(bodyFields, bodyFields);
-      if (bodyFiles.length > 0) {
-        resolve({ fields: bodyFields, files: bodyFiles });
-        return;
+    // Read raw bytes first — avoids any stream-already-consumed issues
+    let rawBuffer;
+    try {
+      rawBuffer = await readRawBody(req);
+    } catch (err) {
+      return reject(err);
+    }
+
+    if (!rawBuffer || rawBuffer.length === 0) {
+      // Absolute fallback: if Vercel pre-parsed the body as a plain object, use it
+      if (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)) {
+        return resolve({ fields: req.body, files: extractFilesFromParsedBody(req.body) });
       }
+      return resolve({ fields: {}, files: [] });
     }
 
-    if (typeof req.pipe !== 'function') {
-      reject(new Error('Request stream is not available for multipart parsing'));
-      return;
-    }
-
+    // Feed raw bytes into Busboy
     const fields = {};
     const files = [];
     const bb = Busboy({ headers: req.headers });
@@ -245,30 +275,26 @@ function parseMultipart(req) {
     bb.on('field', (name, val) => { fields[name] = val; });
     bb.on('file', (name, stream, info) => {
       const chunks = [];
-      stream.on('data', c => chunks.push(c));
+      stream.on('data', (c) => chunks.push(c));
       stream.on('end', () => files.push({ name, buffer: Buffer.concat(chunks), info }));
     });
+
     let settled = false;
     const done = () => {
       if (settled) return;
       settled = true;
-
-      const fallbackFiles = extractFilesFromParsedBody(req.body, fields);
-      const merged = files.length > 0 ? files : fallbackFiles;
-      resolve({ fields, files: merged });
+      resolve({ fields, files });
     };
 
     bb.on('close', done);
     bb.on('finish', done);
     bb.on('error', reject);
 
-    if (Buffer.isBuffer(req.body) || typeof req.body === 'string') {
-      const stream = Readable.from([req.body]);
-      stream.pipe(bb);
-      return;
-    }
-
-    req.pipe(bb);
+    // Push the pre-read buffer as a proper byte-mode Readable
+    const r = new Readable({ read() {} });
+    r.push(rawBuffer);
+    r.push(null); // signal EOF
+    r.pipe(bb);
   });
 }
 
@@ -487,6 +513,10 @@ function extractInvoiceFieldsDetailed(text = '') {
     },
   };
 }
+
+// Tell Vercel NOT to consume/parse the request body before our handler runs.
+// Without this, the raw multipart stream is drained before Busboy can read it.
+export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
