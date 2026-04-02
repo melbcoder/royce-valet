@@ -174,7 +174,7 @@ export default function AccountsPayable() {
     <div style={{ padding: '0 0 40px' }}>
       <h1 style={{ marginTop: 0 }}>Accounts Payable</h1>
 
-      {/* Summary cards */}
+      {/* Summary cards — NOTE: array starts with [ not ([ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
         {([
           { label: 'Pending', value: totals.pending, ...STATUS_COLORS.pending },
@@ -188,7 +188,6 @@ export default function AccountsPayable() {
         )))
       </div>
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd' }}>
           <option value="all">All Statuses</option>
@@ -203,7 +202,6 @@ export default function AccountsPayable() {
         </select>
       </div>
 
-      {/* Table */}
       {loading ? (
         <p style={{ color: 'var(--muted)' }}>Loading invoices…</p>
       ) : filtered.length === 0 ? (
