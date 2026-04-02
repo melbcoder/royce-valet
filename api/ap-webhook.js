@@ -73,7 +73,7 @@ function matchFirst(text, patterns) {
 }
 
 function inferSupplierFromLines(lines = []) {
-  const blocked = /^(invoice|bill|statement|subject|date|due date|invoice date|invoice number|page|amount|total|balance|remit|ship to|bill to)\b/i;
+  const blocked = /^(invoice|bill|statement|date|due date|invoice date|invoice number|page|amount|total|balance|remit|ship to|bill to)\b/i;
   for (const line of lines.slice(0, 12)) {
     if (line.length < 3 || line.length > 80) continue;
     if (!/[A-Za-z]/.test(line)) continue;
@@ -229,47 +229,6 @@ function isPdfFileCandidate(file) {
   return mimeType.includes('pdf') || filename.endsWith('.pdf') || hasPdfSignature;
 }
 
-async function parseRawMimeEmail(rawMime = '') {
-  if (!rawMime || typeof rawMime !== 'string') {
-    return { subject: '', text: '', html: '', files: [], parser: 'none' };
-  }
-
-  try {
-    const mod = await import('mailparser');
-    const simpleParser = mod?.simpleParser;
-    if (typeof simpleParser !== 'function') {
-      return { subject: '', text: '', html: '', files: [], parser: 'unavailable' };
-    }
-
-    const parsed = await simpleParser(rawMime);
-    const files = (parsed.attachments || []).map((att, idx) => ({
-      name: `mime_attachment_${idx + 1}`,
-      buffer: att.content,
-      info: {
-        filename: att.filename || `attachment_${idx + 1}.bin`,
-        mimeType: att.contentType || 'application/octet-stream',
-      },
-    }));
-
-    return {
-      subject: parsed.subject || '',
-      text: parsed.text || '',
-      html: typeof parsed.html === 'string' ? parsed.html : '',
-      files,
-      parser: 'mailparser',
-    };
-  } catch (error) {
-    return {
-      subject: '',
-      text: '',
-      html: '',
-      files: [],
-      parser: 'mailparser-error',
-      error: error?.message || String(error),
-    };
-  }
-}
-
 /**
  * Capture a diagnostic snapshot of the raw request body state.
  * Saved to every Firestore invoice doc under rawBodyDiag so we can
@@ -415,7 +374,6 @@ function parseMultipart(req) {
           path: 'raw-buffer-busboy',
           rawBufferLength: rawBuffer.length,
           parsedFieldCount: Object.keys(fields).length,
-          parsedFieldNames: Object.keys(fields).slice(0, 20),
           parsedFileCount: files.length,
         },
       });
@@ -666,35 +624,25 @@ export default async function handler(req, res) {
     const { db, getBucket } = getFirebaseAdminServices();
     const { fields, files, parseMeta } = await parseMultipart(req);
 
-    const rawMime = typeof fields.email === 'string' ? fields.email : '';
-    const mimeFallback = (!files.length && rawMime)
-      ? await parseRawMimeEmail(rawMime)
-      : { subject: '', text: '', html: '', files: [], parser: 'not-used' };
-
-    const inboundFiles = mimeFallback.files?.length ? mimeFallback.files : files;
-
     // SendGrid Inbound Parse field names
     // https://docs.sendgrid.com/for-developers/parsing-email/setting-up-the-inbound-parse-webhook
     const fromEmail  = fields.from    || 'unknown';
-    const subject    = fields.subject || mimeFallback.subject || '';
-    const bodyText   = fields.text    || mimeFallback.text || '';   // plain text body
-    const bodyHtml   = fields.html    || mimeFallback.html || '';   // html body (fallback)
+    const subject    = fields.subject || '';
+    const bodyText   = fields.text    || '';   // plain text body
+    const bodyHtml   = fields.html    || '';   // html body (fallback)
     const toEmail    = fields.to      || '';
     const senderIp   = fields.sender_ip || '';
-    const attachmentsDeclared = Number.parseInt(String(fields.attachments || 0), 10)
-      || (mimeFallback.files?.length || 0);
+    const attachmentsDeclared = Number.parseInt(String(fields.attachments || 0), 10) || 0;
     const attachmentFieldKeys = Object.keys(fields).filter((k) => /^attachment\d+$/i.test(k));
     const contentType = req.headers?.['content-type'] || '';
 
     // attachments are named attachment1, attachment2, etc. by SendGrid
-    const pdf = inboundFiles.find((f) => isPdfFileCandidate(f));
+    const pdf = files.find((f) => isPdfFileCandidate(f));
 
     if (!pdf) {
       console.warn('AP webhook: no PDF in email from', fromEmail, '| subject:', subject);
       // Still save the email record so staff can see it arrived without an attachment
-      const fallbackParts = [bodyText, stripHtml(bodyHtml)].filter(Boolean);
-      if (!fallbackParts.length && subject) fallbackParts.push(subject);
-      const fallbackText = fallbackParts.join('\n');
+      const fallbackText = [bodyText, stripHtml(bodyHtml), subject].filter(Boolean).join('\n');
       const detailed = extractInvoiceFieldsDetailed(fallbackText);
       const parsed = detailed.parsed;
       const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
@@ -721,12 +669,8 @@ export default async function handler(req, res) {
           contentType,
           attachmentsDeclared,
           attachmentFieldKeys,
-          rawMimePresent: !!rawMime,
-          rawMimeLength: rawMime.length,
-          rawMimeParser: mimeFallback.parser,
-          rawMimeParsedFiles: mimeFallback.files?.length || 0,
-          parsedFilesCount: inboundFiles.length,
-          parsedFileMeta: inboundFiles.slice(0, 5).map((f) => ({
+          parsedFilesCount: files.length,
+          parsedFileMeta: files.slice(0, 5).map((f) => ({
             name: f.name || null,
             filename: f.info?.filename || null,
             mimeType: f.info?.mimeType || null,
@@ -762,13 +706,12 @@ export default async function handler(req, res) {
       console.warn('AP webhook: PDF text extraction failed:', parseErr?.message || parseErr);
     }
 
-    const parseParts = [
+    const parseSourceText = [
       pdfText,
       bodyText,
       stripHtml(bodyHtml),
-    ].filter(Boolean);
-    if (!parseParts.length && subject) parseParts.push(subject);
-    const parseSourceText = parseParts.join('\n');
+      subject,
+    ].filter(Boolean).join('\n');
     const detailed = extractInvoiceFieldsDetailed(parseSourceText);
     const parsed = detailed.parsed;
     const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
@@ -795,12 +738,8 @@ export default async function handler(req, res) {
         ...detailed.debug,
         rawBodyDiag,
         multipartMeta: parseMeta,
-        rawMimePresent: !!rawMime,
-        rawMimeLength: rawMime.length,
-        rawMimeParser: mimeFallback.parser,
-        rawMimeParsedFiles: mimeFallback.files?.length || 0,
-        parsedFilesCount: inboundFiles.length,
-        parsedFileMeta: inboundFiles.slice(0, 5).map((f) => ({
+        parsedFilesCount: files.length,
+        parsedFileMeta: files.slice(0, 5).map((f) => ({
           name: f.name || null,
           filename: f.info?.filename || null,
           mimeType: f.info?.mimeType || null,
