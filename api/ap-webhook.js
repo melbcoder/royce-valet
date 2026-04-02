@@ -3,9 +3,15 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 
+function normalizeBucketName(raw = '') {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  return value.replace(/^gs:\/\//i, '').replace(/\/+$/, '');
+}
+
 function getFirebaseAdminServices() {
   if (!getApps().length) {
-    const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+    const storageBucket = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET);
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 
     if (serviceAccountJson) {
@@ -18,7 +24,7 @@ function getFirebaseAdminServices() {
 
       initializeApp({
         credential: cert(parsed),
-        storageBucket,
+        ...(storageBucket ? { storageBucket } : {}),
       });
     } else {
       const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
@@ -33,14 +39,27 @@ function getFirebaseAdminServices() {
 
       initializeApp({
         credential: cert({ projectId, clientEmail, privateKey }),
-        storageBucket,
+        ...(storageBucket ? { storageBucket } : {}),
       });
     }
   }
 
   const db = getFirestore();
-  const bucket = getStorage().bucket();
-  return { db, bucket };
+
+  const getBucket = () => {
+    const configured = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET);
+    if (configured) return getStorage().bucket(configured);
+
+    const app = getApps()[0];
+    const projectId = app?.options?.projectId || process.env.FIREBASE_PROJECT_ID;
+    if (projectId) return getStorage().bucket(`${projectId}.appspot.com`);
+
+    throw new Error(
+      'Missing FIREBASE_STORAGE_BUCKET. Set FIREBASE_STORAGE_BUCKET to your bucket (for example: your-project.appspot.com).'
+    );
+  };
+
+  return { db, getBucket };
 }
 
 /** Parse multipart/form-data from the raw request */
@@ -109,7 +128,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { db, bucket } = getFirebaseAdminServices();
+    const { db, getBucket } = getFirebaseAdminServices();
     const { fields, files } = await parseMultipart(req);
 
     // SendGrid Inbound Parse field names
@@ -145,8 +164,10 @@ export default async function handler(req, res) {
     }
 
     // Upload PDF to Firebase Storage
+    const bucket      = getBucket();
     const timestamp   = Date.now();
-    const safeName    = pdf.info.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const fileName    = pdf.info?.filename || 'invoice.pdf';
+    const safeName    = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `ap_invoices/${timestamp}_${safeName}`;
     const file        = bucket.file(storagePath);
 
