@@ -296,7 +296,19 @@ function extractGenericInvoiceFields(text = '') {
     /grand\s*total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
     /total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
   ]);
-  const parsedAmount = parseMoney(amountLabelValue);
+  let parsedAmount = parseMoney(amountLabelValue);
+
+  // Fallback for formats that don't label totals clearly.
+  if (parsedAmount == null) {
+    const tail = lines.slice(-30).join('\n');
+    const moneyMatches = [...tail.matchAll(/\$?([\d,]+\.\d{2})/g)]
+      .map((m) => parseMoney(m[1]))
+      .filter((v) => v != null);
+    if (moneyMatches.length) {
+      parsedAmount = Math.max(...moneyMatches);
+    }
+  }
+
   const lineItems = extractLineItems(normalized);
 
   return { invoiceNumber, invoiceDate, supplier, parsedAmount, lineItems };
@@ -308,9 +320,54 @@ function isTravelAgentInvoice(text = '') {
     || /\b(HTL|FLT|CAR|TRN|CRU)\s+R\.[A-Z0-9]+\s+B\.[A-Z0-9]+/i.test(text);
 }
 
+function scoreParsedCandidate(parsed = {}) {
+  let score = 0;
+  if (parsed.invoiceNumber) score += 2;
+  if (parsed.invoiceDate) score += 1;
+  if (parsed.supplier) score += 1;
+  if (parsed.parsedAmount != null) score += 2;
+  if (Array.isArray(parsed.lineItems) && parsed.lineItems.length > 0) {
+    score += Math.min(2, parsed.lineItems.length > 2 ? 2 : 1);
+  }
+  if (parsed.invoiceType === 'travel-agent' && parsed.totalCommission != null) score += 1;
+  return score;
+}
+
+function mergeParsedCandidates(primary = {}, secondary = {}) {
+  const merged = { ...primary };
+
+  for (const key of Object.keys(secondary)) {
+    const cur = merged[key];
+    const next = secondary[key];
+    const curEmpty = cur == null || cur === '' || (Array.isArray(cur) && cur.length === 0);
+    if (curEmpty && next != null && next !== '') merged[key] = next;
+  }
+
+  if (Array.isArray(primary.lineItems) || Array.isArray(secondary.lineItems)) {
+    const a = Array.isArray(primary.lineItems) ? primary.lineItems : [];
+    const b = Array.isArray(secondary.lineItems) ? secondary.lineItems : [];
+    merged.lineItems = a.length >= b.length ? a : b;
+  }
+
+  return merged;
+}
+
 function extractInvoiceFields(text = '') {
-  if (isTravelAgentInvoice(text)) return extractTravelAgentInvoice(text);
-  return extractGenericInvoiceFields(text);
+  const normalized = normalizeExtractionText(text);
+  const generic = extractGenericInvoiceFields(normalized);
+
+  if (!isTravelAgentInvoice(normalized)) {
+    return generic;
+  }
+
+  const travel = extractTravelAgentInvoice(normalized);
+  const travelScore = scoreParsedCandidate(travel);
+  const genericScore = scoreParsedCandidate(generic);
+
+  if (travelScore >= genericScore) {
+    return mergeParsedCandidates(travel, generic);
+  }
+  return mergeParsedCandidates(generic, travel);
 }
 
 export default async function handler(req, res) {
