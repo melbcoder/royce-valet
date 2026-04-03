@@ -270,9 +270,9 @@ async function parseCommissionInvoice(pdfBuffer) {
       const clientMatch = blockText.match(/([A-Z]+\/[A-Z]+\s+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/i);
       const guestName = clientMatch ? formatGuestName(clientMatch[1]) : '';
 
-      // Booking number: B.0000714286
-      const bookingMatch = blockText.match(/\b(B\.\d{7,})\b/);
-      const bookingNumber = bookingMatch ? bookingMatch[1] : '';
+      // Booking number: use the Reference column (follows B.XXXXXXX in the block)
+      const refMatch = blockText.match(/B\.\d{7,}\s+(\d{5,})/);
+      const bookingNumber = refMatch ? refMatch[1] : '';
 
       // Dates (dd/mm/yy) — typically TransDate, BookDate, DepDate; departure is last
       const dateMatches = [...blockText.matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map(m => m[1]);
