@@ -733,7 +733,7 @@ export default function AccountsPayable() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #eee' }}>
-                {['Received', 'Type', 'Supplier', 'Amount', 'Items', 'Dept', 'PDF', ''].map(h => (
+                {['Received', 'Type', 'Supplier', 'Invoice #', 'Amount', 'Items', 'Status', 'Dept', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -744,6 +744,7 @@ export default function AccountsPayable() {
                 const approved = items.filter(i => i.status === 'approved').length;
                 const duplicateKey = getDuplicateKey(inv);
                 const duplicateCount = duplicateKey ? (duplicateCounts[duplicateKey] || 0) : 0;
+                const status = getInvoiceStatus(inv);
                 return (
                   <tr key={inv.id} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }} onClick={() => setSelected(inv)}>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 13 }}>
@@ -769,6 +770,9 @@ export default function AccountsPayable() {
                       </div>
                     </td>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      {inv.invoiceNumber || <span style={{ color: 'var(--muted)' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                       {inv.confirmedAmount != null ? `$${Number(inv.confirmedAmount).toFixed(2)}` : <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 12 }}>
@@ -780,13 +784,21 @@ export default function AccountsPayable() {
                         <span style={{ color: 'var(--muted)' }}>—</span>
                       )}
                     </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      {inv.department || <span style={{ color: 'var(--muted)' }}>—</span>}
+                    <td style={{ padding: '10px 12px', fontSize: 12 }}>
+                      <span style={{
+                        background: STATUS_COLORS[status]?.background || '#f3f4f6',
+                        color: STATUS_COLORS[status]?.color || '#374151',
+                        border: STATUS_COLORS[status]?.border || '1px solid #d1d5db',
+                        borderRadius: 9999,
+                        padding: '2px 8px',
+                        fontWeight: 600,
+                        textTransform: 'capitalize',
+                      }}>
+                        {status}
+                      </span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      {inv.storagePath
-                        ? <span style={{ color: '#22c55e', fontSize: 16 }} title="PDF attached">���</span>
-                        : <span style={{ color: '#aaa', fontSize: 12 }} title="No PDF">—</span>}
+                      {inv.department || <span style={{ color: 'var(--muted)' }}>—</span>}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       <div style={{ display: 'flex', gap: 6 }}>
