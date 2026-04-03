@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, db } from '../firebase';
 import {
   collection, onSnapshot, doc, updateDoc, query, orderBy
@@ -8,6 +8,19 @@ const DEPARTMENTS = ['Reservations', 'Front Office', 'Housekeeping', 'Maintenanc
 const TYPE_FILTER_OPTIONS = ['supplier', 'commission'];
 const STATUS_FILTER_OPTIONS = ['pending', 'approved', 'paid'];
 const DEPARTMENT_FILTER_OPTIONS = [...DEPARTMENTS, '__unassigned'];
+const TYPE_OPTIONS = [
+  { value: 'supplier', label: 'Supplier' },
+  { value: 'commission', label: 'Commission' },
+];
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'paid', label: 'Paid' },
+];
+const DEPARTMENT_OPTIONS = [
+  ...DEPARTMENTS.map(value => ({ value, label: value })),
+  { value: '__unassigned', label: 'Unassigned' },
+];
 const STATUS_COLORS = {
   pending:  { background: '#fff8e6', color: '#b45309', border: '1px solid #f0d58a' },
   approved: { background: '#e6f4ea', color: '#166534', border: '1px solid #86efac' },
@@ -205,6 +218,101 @@ function CommissionLineItems({ lineItems, setLineItems, inputStyle }) {
         </table>
       </div>
     </>
+  );
+}
+
+function FilterDropdown({ label, options, selectedValues, onChange }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = event => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggle = value => {
+    if (selectedValues.includes(value)) {
+      onChange(selectedValues.filter(v => v !== value));
+      return;
+    }
+    onChange([...selectedValues, value]);
+  };
+
+  const allValues = options.map(o => o.value);
+  const allSelected = selectedValues.length === options.length;
+  const selectedLabels = options.filter(o => selectedValues.includes(o.value)).map(o => o.label);
+
+  let summary = `${selectedValues.length} selected`;
+  if (allSelected) summary = `All ${label}`;
+  if (selectedValues.length === 0) summary = `No ${label.toLowerCase()} selected`;
+  if (selectedValues.length > 0 && selectedValues.length <= 2) summary = selectedLabels.join(', ');
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="btn secondary"
+        onClick={() => setOpen(v => !v)}
+        style={{ padding: '7px 12px', minWidth: 180, textAlign: 'left' }}
+      >
+        <strong>{label}:</strong> {summary}
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            zIndex: 20,
+            background: '#fff',
+            border: '1px solid #ddd',
+            borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,.12)',
+            minWidth: 240,
+            padding: 10,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ padding: '4px 8px', fontSize: 12 }}
+              onClick={() => onChange(allValues)}
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ padding: '4px 8px', fontSize: 12 }}
+              onClick={() => onChange(allValues)}
+            >
+              Reset
+            </button>
+          </div>
+
+          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 6 }}>
+            {options.map(option => (
+              <label key={option.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={selectedValues.includes(option.value)}
+                  onChange={() => toggle(option.value)}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -479,10 +587,6 @@ export default function AccountsPayable() {
     return 'pending';
   };
 
-  const getMultiSelectValues = event => {
-    return Array.from(event.target.selectedOptions).map(o => o.value);
-  };
-
   const filtered = invoices.filter(inv => {
     const type = inv.invoiceType || 'supplier';
     const status = getInvoiceStatus(inv);
@@ -519,25 +623,24 @@ export default function AccountsPayable() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select multiple value={filterTypes} onChange={e => setFilterTypes(getMultiSelectValues(e))}
-          title="Types (multi-select)"
-          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', minWidth: 150, minHeight: 92 }}>
-          <option value="supplier">Supplier</option>
-          <option value="commission">Commission</option>
-        </select>
-        <select multiple value={filterStatuses} onChange={e => setFilterStatuses(getMultiSelectValues(e))}
-          title="Statuses (multi-select)"
-          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', minWidth: 150, minHeight: 92 }}>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="paid">Paid</option>
-        </select>
-        <select multiple value={filterDepts} onChange={e => setFilterDepts(getMultiSelectValues(e))}
-          title="Departments (multi-select)"
-          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', minWidth: 180, minHeight: 120 }}>
-          {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-          <option value="__unassigned">Unassigned</option>
-        </select>
+        <FilterDropdown
+          label="Type"
+          options={TYPE_OPTIONS}
+          selectedValues={filterTypes}
+          onChange={setFilterTypes}
+        />
+        <FilterDropdown
+          label="Status"
+          options={STATUS_OPTIONS}
+          selectedValues={filterStatuses}
+          onChange={setFilterStatuses}
+        />
+        <FilterDropdown
+          label="Department"
+          options={DEPARTMENT_OPTIONS}
+          selectedValues={filterDepts}
+          onChange={setFilterDepts}
+        />
       </div>
 
       {loading ? (
