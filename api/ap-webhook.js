@@ -262,16 +262,64 @@ function parseMultipart(req) {
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
+  // Log immediately so we can confirm the function is being hit
+  console.log('AP webhook hit:', req.method, '| content-type:', req.headers?.['content-type']?.slice(0, 100));
+
+  if (req.method === 'GET') {
+    // Health check endpoint — useful for verifying the function is deployed
+    return res.status(200).json({ ok: true, endpoint: 'ap-webhook', timestamp: new Date().toISOString() });
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const secret = req.headers['x-sendgrid-secret'];
   if (process.env.SENDGRID_WEBHOOK_SECRET && secret !== process.env.SENDGRID_WEBHOOK_SECRET) {
+    console.log('AP webhook: auth failed');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
     const { db, getBucket } = getFirebaseAdminServices();
-    const { fields, files } = await parseMultipart(req);
+
+    let fields, files;
+    try {
+      const parsed = await parseMultipart(req);
+      fields = parsed.fields;
+      files = parsed.files;
+    } catch (parseErr) {
+      console.error('AP webhook: multipart parse failed:', parseErr?.message);
+      // Still save a record so the user knows an email arrived
+      await db.collection('ap_invoices').add({
+        fromEmail: 'unknown (parse failed)',
+        subject: '',
+        toEmail: '',
+        storagePath: null,
+        originalFilename: null,
+        receivedAt: new Date().toISOString(),
+        status: 'pending',
+        supplier: null,
+        invoiceNumber: null,
+        invoiceDate: null,
+        department: null,
+        confirmedAmount: null,
+        paidDate: null,
+        lineItems: [],
+        notes: '',
+        hasPdf: false,
+        pdfSource: null,
+        _diag: {
+          error: 'multipart parse failed',
+          message: parseErr?.message,
+          contentType: req.headers?.['content-type']?.slice(0, 200) || null,
+          bodyType: typeof req.body,
+          bodyIsBuffer: Buffer.isBuffer(req.body),
+          bodyIsNull: req.body === null || req.body === undefined,
+          bodyLength: Buffer.isBuffer(req.body) ? req.body.length : (typeof req.body === 'string' ? req.body.length : null),
+          bodyKeys: (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) ? Object.keys(req.body).slice(0, 20) : null,
+        },
+      });
+      return res.status(200).json({ received: true, warning: 'Parse failed, saved placeholder' });
+    }
 
     const fromEmail = fields.from || 'unknown';
     const subject   = fields.subject || '';
@@ -290,6 +338,12 @@ export default async function handler(req, res) {
       contentType: req.headers?.['content-type']?.slice(0, 120) || null,
       bodyType: typeof req.body,
       bodyIsBuffer: Buffer.isBuffer(req.body),
+      fileMeta: files.slice(0, 5).map(f => ({
+        name: f.name,
+        filename: f.info?.filename,
+        mimeType: f.info?.mimeType,
+        size: f.buffer?.length,
+      })),
     };
     console.log('AP webhook diag:', JSON.stringify(diag));
 

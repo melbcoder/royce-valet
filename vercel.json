@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/ap-webhook.js": {
+      "maxDuration": 10,
+      "memory": 1024
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
