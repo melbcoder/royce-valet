@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 import { Readable } from 'node:stream';
+import pdfParse from 'pdf-parse';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -198,6 +199,154 @@ function extractPdfsFromRawMime(rawMime) {
   return files;
 }
 
+/**
+ * Attempt to parse a commission invoice PDF in the standard travel-agent format.
+ * Returns { parsed: true, invoiceType, supplier, invoiceNumber, invoiceDate, lineItems }
+ * or { parsed: false } if the format doesn't match.
+ */
+async function parseCommissionInvoice(pdfBuffer) {
+  try {
+    const data = await pdfParse(pdfBuffer);
+    const text = data.text || '';
+    if (!text) return { parsed: false };
+
+    // Check if this looks like a commission invoice (standard "Tax Invoice Number PG.XXXX for Creditor" format)
+    const invoiceNumMatch = text.match(/Tax Invoice Number\s+(PG[.\d]+)\s+for Creditor/i);
+    if (!invoiceNumMatch) return { parsed: false };
+
+    const invoiceNumber = invoiceNumMatch[1];
+
+    // Extract invoice date — look for a date pattern like "Wednesday 01 April 2026" or "dd/mm/yy"
+    // The date line is usually near the top of the document
+    let invoiceDate = '';
+    const longDateMatch = text.match(
+      /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i
+    );
+    if (longDateMatch) {
+      const months = { january:'01', february:'02', march:'03', april:'04', may:'05', june:'06',
+                        july:'07', august:'08', september:'09', october:'10', november:'11', december:'12' };
+      const d = longDateMatch[1].padStart(2, '0');
+      const m = months[longDateMatch[2].toLowerCase()];
+      const y = longDateMatch[3];
+      invoiceDate = `${y}-${m}-${d}`; // YYYY-MM-DD for <input type="date">
+    }
+
+    // Extract travel agent / account name from EFT section
+    let supplier = '';
+    const accountNameMatch = text.match(/Account\s*name:\s*(.+?)(?:\n|BSB|$)/i);
+    if (accountNameMatch) {
+      supplier = accountNameMatch[1].trim();
+    }
+    // Fallback: look for company name in the footer area or header
+    if (!supplier) {
+      const footerNameMatch = text.match(/^([A-Z][A-Za-z\s&]+(?:Pty|Ltd|Group|Management|Travel)[^\n]*)/m);
+      if (footerNameMatch) supplier = footerNameMatch[1].trim();
+    }
+
+    // Parse the tabular data — we're looking for rows starting with "HTL"
+    // Format: SEG DocNum BookingNum Consultant ClientProfile CreditorInvoice Reference TransDate BookDate DepDate CreditorNett Paid Due
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    const lineItems = [];
+    for (const line of lines) {
+      // Match lines starting with HTL (hotel segment)
+      if (!/^HTL\s/i.test(line)) continue;
+
+      // Try to extract fields by matching known patterns in the line
+      // Client profile is like HARVEY/ANNIE MRS or DEWITT/HOWARD MR
+      const clientMatch = line.match(/([A-Z]+\/[A-Z]+\s+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/i);
+      const guestName = clientMatch ? formatGuestName(clientMatch[1]) : '';
+
+      // Booking number like B.0000714286
+      const bookingMatch = line.match(/\b(B\.\d{7,})\b/);
+      const bookingNumber = bookingMatch ? bookingMatch[1] : '';
+
+      // Extract all date patterns dd/mm/yy in the line
+      const dateMatches = [...line.matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map(m => m[1]);
+      // Dates in order are typically: Transaction Date, Booking Date, Departure Date
+      const departureDate = dateMatches.length >= 3 ? parseDateDdMmYy(dateMatches[2]) : '';
+
+      // Extract monetary values (numbers with decimal points, typically at the end of the line)
+      const moneyMatches = [...line.matchAll(/\b(\d{1,}[,.]?\d*\.\d{2})\b/g)].map(m =>
+        parseFloat(m[1].replace(/,/g, ''))
+      );
+      // Last 3 numbers are typically: Creditor Nett, Paid, Due
+      let reservationTotal = 0;
+      let totalCommission = 0;
+      if (moneyMatches.length >= 3) {
+        reservationTotal = moneyMatches[moneyMatches.length - 2]; // Paid
+        totalCommission = moneyMatches[moneyMatches.length - 1];  // Due
+      } else if (moneyMatches.length === 2) {
+        reservationTotal = moneyMatches[0];
+        totalCommission = moneyMatches[1];
+      }
+
+      // Calculate commission percentage
+      const commissionPercent = reservationTotal > 0
+        ? parseFloat(((totalCommission / reservationTotal) * 100).toFixed(2))
+        : 0;
+
+      if (guestName || bookingNumber || totalCommission > 0) {
+        lineItems.push({
+          guestName,
+          bookingNumber,
+          departureDate,
+          reservationTotal,
+          commissionPercent,
+          totalCommission,
+          status: 'pending',
+        });
+      }
+    }
+
+    if (lineItems.length === 0) return { parsed: false };
+
+    console.log(`Commission invoice parsed: ${invoiceNumber}, ${supplier}, ${lineItems.length} items`);
+
+    return {
+      parsed: true,
+      invoiceType: 'commission',
+      supplier,
+      invoiceNumber,
+      invoiceDate,
+      lineItems,
+      confirmedAmount: lineItems.reduce((sum, i) => sum + (i.totalCommission || 0), 0),
+    };
+  } catch (err) {
+    console.error('Commission invoice parse error:', err?.message);
+    return { parsed: false };
+  }
+}
+
+/** Convert "HARVEY/ANNIE MRS" → "Annie Harvey" */
+function formatGuestName(raw) {
+  if (!raw) return '';
+  // Remove title suffix
+  const withoutTitle = raw.replace(/\s+(MR|MRS|MS|MISS|DR|PROF|MX)S?\s*$/i, '').trim();
+  const parts = withoutTitle.split('/');
+  if (parts.length === 2) {
+    const surname = parts[0].trim();
+    const first = parts[1].trim();
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return `${cap(first)} ${cap(surname)}`;
+  }
+  return withoutTitle;
+}
+
+/** Convert "20/10/25" or "06/12/24" → "2025-10-20" (YYYY-MM-DD) */
+function parseDateDdMmYy(str) {
+  if (!str) return '';
+  const parts = str.split('/');
+  if (parts.length !== 3) return '';
+  const dd = parts[0].padStart(2, '0');
+  const mm = parts[1].padStart(2, '0');
+  let yy = parts[2];
+  if (yy.length === 2) {
+    yy = parseInt(yy) > 50 ? '19' + yy : '20' + yy;
+  }
+  return `${yy}-${mm}-${dd}`;
+}
+
 function parseMultipart(req) {
   return new Promise(async (resolve, reject) => {
     const contentType = req.headers?.['content-type'] || '';
@@ -378,29 +527,42 @@ export default async function handler(req, res) {
       await file.save(pdf.buffer, { contentType: 'application/pdf', resumable: false });
     }
 
-    const docRef = await db.collection('ap_invoices').add({
+    // Attempt to parse commission invoice data from the PDF
+    let parsedInvoice = { parsed: false };
+    if (pdf?.buffer) {
+      try {
+        parsedInvoice = await parseCommissionInvoice(pdf.buffer);
+      } catch (parseErr) {
+        console.error('AP webhook: PDF parse attempt failed:', parseErr?.message);
+      }
+    }
+
+    const docData = {
       fromEmail,
       subject,
       toEmail,
       storagePath,
       originalFilename,
       receivedAt: new Date().toISOString(),
-      status: 'pending',
-      supplier: null,
-      invoiceNumber: null,
-      invoiceDate: null,
+      invoiceType: parsedInvoice.parsed ? parsedInvoice.invoiceType : null,
+      supplier: parsedInvoice.parsed ? parsedInvoice.supplier : null,
+      invoiceNumber: parsedInvoice.parsed ? parsedInvoice.invoiceNumber : null,
+      invoiceDate: parsedInvoice.parsed ? parsedInvoice.invoiceDate : null,
       department: null,
-      confirmedAmount: null,
+      confirmedAmount: parsedInvoice.parsed ? parsedInvoice.confirmedAmount : null,
       paidDate: null,
-      lineItems: [],
+      lineItems: parsedInvoice.parsed ? parsedInvoice.lineItems : [],
       notes: '',
       hasPdf: !!pdf,
       pdfSource,
+      autoParsed: parsedInvoice.parsed,
       _diag: diag,
-    });
+    };
 
-    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail, '| pdf:', !!pdf, '| source:', pdfSource);
-    return res.status(200).json({ received: true, invoiceId: docRef.id, hasPdf: !!pdf, pdfSource });
+    const docRef = await db.collection('ap_invoices').add(docData);
+
+    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail, '| pdf:', !!pdf, '| source:', pdfSource, '| autoParsed:', parsedInvoice.parsed);
+    return res.status(200).json({ received: true, invoiceId: docRef.id, hasPdf: !!pdf, pdfSource, autoParsed: parsedInvoice.parsed });
 
   } catch (err) {
     console.error('AP webhook error:', err);
