@@ -561,7 +561,7 @@ export default async function handler(req, res) {
       supplier: parsedInvoice.parsed ? parsedInvoice.supplier : null,
       invoiceNumber: parsedInvoice.parsed ? parsedInvoice.invoiceNumber : null,
       invoiceDate: parsedInvoice.parsed ? parsedInvoice.invoiceDate : null,
-      department: null,
+      department: parsedInvoice.parsed && parsedInvoice.invoiceType === 'commission' ? 'Reservations' : null,
       confirmedAmount: parsedInvoice.parsed ? parsedInvoice.confirmedAmount : null,
       paidDate: null,
       lineItems: parsedInvoice.parsed ? parsedInvoice.lineItems : [],

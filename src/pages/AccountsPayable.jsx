@@ -4,7 +4,10 @@ import {
   collection, onSnapshot, doc, updateDoc, query, orderBy
 } from 'firebase/firestore';
 
-const DEPARTMENTS = ['Front Office', 'Housekeeping', 'Maintenance', 'F&B', 'Management', 'Other'];
+const DEPARTMENTS = ['Reservations', 'Front Office', 'Housekeeping', 'Maintenance', 'F&B', 'Management', 'Other'];
+const TYPE_FILTER_OPTIONS = ['supplier', 'commission'];
+const STATUS_FILTER_OPTIONS = ['pending', 'approved', 'paid'];
+const DEPARTMENT_FILTER_OPTIONS = [...DEPARTMENTS, '__unassigned'];
 const STATUS_COLORS = {
   pending:  { background: '#fff8e6', color: '#b45309', border: '1px solid #f0d58a' },
   approved: { background: '#e6f4ea', color: '#166534', border: '1px solid #86efac' },
@@ -211,7 +214,7 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete }) {
   const [supplier, setSupplier] = useState(invoice.supplier || '');
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber || '');
   const [invoiceDate, setInvoiceDate] = useState(invoice.invoiceDate || '');
-  const [dept, setDept] = useState(invoice.department || '');
+  const [dept, setDept] = useState(invoice.department || ((invoice.invoiceType || 'supplier') === 'commission' ? 'Reservations' : ''));
   const [paidDate, setPaidDate] = useState(invoice.paidDate || '');
   const [notes, setNotes] = useState(invoice.notes || '');
   const [saving, setSaving] = useState(false);
@@ -338,7 +341,10 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete }) {
           {[{ value: 'supplier', label: 'Supplier Invoice' }, { value: 'commission', label: 'Commission Invoice' }].map(t => (
             <button key={t.value} className={`btn ${invoiceType === t.value ? '' : 'secondary'}`}
               style={{ padding: '6px 16px', fontSize: 13 }}
-              onClick={() => setInvoiceType(t.value)}>
+              onClick={() => {
+                setInvoiceType(t.value);
+                if (t.value === 'commission' && !dept) setDept('Reservations');
+              }}>
               {t.label}
             </button>
           ))}
@@ -423,9 +429,9 @@ export default function AccountsPayable() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterDept, setFilterDept] = useState('all');
-  const [filterType, setFilterType] = useState('all');
+  const [filterStatuses, setFilterStatuses] = useState(STATUS_FILTER_OPTIONS);
+  const [filterDepts, setFilterDepts] = useState(DEPARTMENT_FILTER_OPTIONS);
+  const [filterTypes, setFilterTypes] = useState(TYPE_FILTER_OPTIONS);
 
   useEffect(() => {
     const q = query(collection(db, 'ap_invoices'), orderBy('receivedAt', 'desc'));
@@ -466,15 +472,25 @@ export default function AccountsPayable() {
     }
   };
 
+  const getInvoiceStatus = inv => {
+    if (inv.paidDate) return 'paid';
+    const items = inv.lineItems || [];
+    if (items.length > 0 && items.every(i => i.status === 'approved')) return 'approved';
+    return 'pending';
+  };
+
+  const getMultiSelectValues = event => {
+    return Array.from(event.target.selectedOptions).map(o => o.value);
+  };
+
   const filtered = invoices.filter(inv => {
-    if (filterType !== 'all' && (inv.invoiceType || 'supplier') !== filterType) return false;
-    if (filterStatus !== 'all') {
-      const items = inv.lineItems || [];
-      if (filterStatus === 'approved' && (!items.length || !items.every(i => i.status === 'approved'))) return false;
-      if (filterStatus === 'pending' && items.length && items.every(i => i.status === 'approved')) return false;
-      if (filterStatus === 'paid' && !inv.paidDate) return false;
-    }
-    if (filterDept !== 'all' && inv.department !== filterDept) return false;
+    const type = inv.invoiceType || 'supplier';
+    const status = getInvoiceStatus(inv);
+    const dept = inv.department || '__unassigned';
+
+    if (!filterTypes.includes(type)) return false;
+    if (!filterStatuses.includes(status)) return false;
+    if (!filterDepts.includes(dept)) return false;
     return true;
   });
 
@@ -503,20 +519,24 @@ export default function AccountsPayable() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd' }}>
-          <option value="all">All Types</option>
+        <select multiple value={filterTypes} onChange={e => setFilterTypes(getMultiSelectValues(e))}
+          title="Types (multi-select)"
+          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', minWidth: 150, minHeight: 92 }}>
           <option value="supplier">Supplier</option>
           <option value="commission">Commission</option>
         </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd' }}>
-          <option value="all">All Statuses</option>
+        <select multiple value={filterStatuses} onChange={e => setFilterStatuses(getMultiSelectValues(e))}
+          title="Statuses (multi-select)"
+          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', minWidth: 150, minHeight: 92 }}>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="paid">Paid</option>
         </select>
-        <select value={filterDept} onChange={e => setFilterDept(e.target.value)} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd' }}>
-          <option value="all">All Departments</option>
+        <select multiple value={filterDepts} onChange={e => setFilterDepts(getMultiSelectValues(e))}
+          title="Departments (multi-select)"
+          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', minWidth: 180, minHeight: 120 }}>
           {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+          <option value="__unassigned">Unassigned</option>
         </select>
       </div>
 
