@@ -250,7 +250,7 @@ function FilterDropdown({ label, options, selectedValues, onChange }) {
   const selectedLabels = options.filter(o => selectedValues.includes(o.value)).map(o => o.label);
 
   let summary = `${selectedValues.length} selected`;
-  if (allSelected) summary = `All ${label}`;
+  if (allSelected) summary = `All ${label}s`;
   if (selectedValues.length === 0) summary = `No ${label.toLowerCase()} selected`;
   if (selectedValues.length > 0 && selectedValues.length <= 2) summary = selectedLabels.join(', ');
 
