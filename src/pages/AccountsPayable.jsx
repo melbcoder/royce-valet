@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { auth, db } from '../firebase';
 import {
   collection, onSnapshot, doc, updateDoc, query, orderBy
@@ -7,6 +7,7 @@ import {
 const DEPARTMENTS = ['Reservations', 'Front Office', 'Housekeeping', 'Maintenance', 'F&B', 'Management', 'Other'];
 const TYPE_FILTER_OPTIONS = ['supplier', 'commission'];
 const STATUS_FILTER_OPTIONS = ['pending', 'approved', 'paid'];
+const DEFAULT_STATUS_FILTERS = ['pending', 'approved'];
 const DEPARTMENT_FILTER_OPTIONS = [...DEPARTMENTS, '__unassigned'];
 const TYPE_OPTIONS = [
   { value: 'supplier', label: 'Supplier' },
@@ -362,7 +363,7 @@ function FilterDropdown({ label, options, selectedValues, onChange }) {
 }
 
 /* ── Invoice Modal ── */
-function InvoiceModal({ invoice, onClose, onSave, onDelete }) {
+function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }) {
   const [invoiceType, setInvoiceType] = useState(invoice.invoiceType || 'supplier');
   const [supplier, setSupplier] = useState(invoice.supplier || '');
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber || '');
@@ -471,6 +472,12 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete }) {
           <div><strong>Subject:</strong> {invoice.subject || '—'}</div>
           <div><strong>Received:</strong> {invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleString() : '—'}</div>
         </div>
+
+        {duplicateCount > 1 && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fde8e8', border: '1px solid #fca5a5', borderRadius: 6, color: '#991b1b', fontSize: 13 }}>
+            Potential duplicate: {duplicateCount} invoices found with the same supplier and invoice number.
+          </div>
+        )}
 
         {/* PDF viewer */}
         {invoice.storagePath ? (
@@ -582,7 +589,7 @@ export default function AccountsPayable() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
-  const [filterStatuses, setFilterStatuses] = useState(STATUS_FILTER_OPTIONS);
+  const [filterStatuses, setFilterStatuses] = useState(DEFAULT_STATUS_FILTERS);
   const [filterDepts, setFilterDepts] = useState(DEPARTMENT_FILTER_OPTIONS);
   const [filterTypes, setFilterTypes] = useState(TYPE_FILTER_OPTIONS);
 
@@ -631,6 +638,23 @@ export default function AccountsPayable() {
     if (items.length > 0 && items.every(i => i.status === 'approved')) return 'approved';
     return 'pending';
   };
+
+  const getDuplicateKey = inv => {
+    const supplier = (inv.supplier || '').trim().toLowerCase();
+    const invoiceNumber = (inv.invoiceNumber || '').trim().toLowerCase();
+    if (!supplier || !invoiceNumber) return '';
+    return `${supplier}::${invoiceNumber}`;
+  };
+
+  const duplicateCounts = useMemo(() => {
+    const counts = {};
+    for (const inv of invoices) {
+      const key = getDuplicateKey(inv);
+      if (!key) continue;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [invoices]);
 
   const filtered = invoices.filter(inv => {
     const type = inv.invoiceType || 'supplier';
@@ -708,6 +732,8 @@ export default function AccountsPayable() {
               {filtered.map(inv => {
                 const items = inv.lineItems || [];
                 const approved = items.filter(i => i.status === 'approved').length;
+                const duplicateKey = getDuplicateKey(inv);
+                const duplicateCount = duplicateKey ? (duplicateCounts[duplicateKey] || 0) : 0;
                 return (
                   <tr key={inv.id} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }} onClick={() => setSelected(inv)}>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 13 }}>
@@ -721,7 +747,16 @@ export default function AccountsPayable() {
                       </span>
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      {inv.supplier || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not entered</span>}
+                      <div>
+                        {inv.supplier || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not entered</span>}
+                        {duplicateCount > 1 && (
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ background: '#fde8e8', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: 9999, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
+                              Duplicate invoice #
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                       {inv.confirmedAmount != null ? `$${Number(inv.confirmedAmount).toFixed(2)}` : <span style={{ color: 'var(--muted)' }}>—</span>}
@@ -780,6 +815,7 @@ export default function AccountsPayable() {
           onClose={() => setSelected(null)}
           onSave={handleSave}
           onDelete={handleDelete}
+          duplicateCount={duplicateCounts[getDuplicateKey(selected)] || 0}
         />
       )}
     </div>
