@@ -28,7 +28,7 @@ function getAdminServices() {
 
   const db = getFirestore();
   const bucketName = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET)
-    || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`;
+    || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`;
   const bucket = getStorage().bucket(bucketName);
   return { db, bucket };
 }

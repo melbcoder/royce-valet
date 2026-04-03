@@ -51,10 +51,10 @@ function getFirebaseAdminServices() {
 
     const app = getApps()[0];
     const projectId = app?.options?.projectId || process.env.FIREBASE_PROJECT_ID;
-    if (projectId) return getStorage().bucket(`${projectId}.appspot.com`);
+    if (projectId) return getStorage().bucket(`${projectId}.firebasestorage.app`);
 
     throw new Error(
-      'Missing FIREBASE_STORAGE_BUCKET. Set FIREBASE_STORAGE_BUCKET to your bucket (for example: your-project.appspot.com).'
+      'Missing FIREBASE_STORAGE_BUCKET. Set FIREBASE_STORAGE_BUCKET to your bucket (e.g. your-project.firebasestorage.app).'
     );
   };
 
