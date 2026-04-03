@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 import {
   collection, onSnapshot, doc, updateDoc, query, orderBy
 } from 'firebase/firestore';
@@ -206,7 +206,7 @@ function CommissionLineItems({ lineItems, setLineItems, inputStyle }) {
 }
 
 /* ── Invoice Modal ── */
-function InvoiceModal({ invoice, onClose, onSave }) {
+function InvoiceModal({ invoice, onClose, onSave, onDelete }) {
   const [invoiceType, setInvoiceType] = useState(invoice.invoiceType || 'supplier');
   const [supplier, setSupplier] = useState(invoice.supplier || '');
   const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber || '');
@@ -215,6 +215,7 @@ function InvoiceModal({ invoice, onClose, onSave }) {
   const [paidDate, setPaidDate] = useState(invoice.paidDate || '');
   const [notes, setNotes] = useState(invoice.notes || '');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [supplierItems, setSupplierItems] = useState(
     invoice.invoiceType !== 'commission' && invoice.lineItems?.length
@@ -276,6 +277,20 @@ function InvoiceModal({ invoice, onClose, onSave }) {
     });
     setSaving(false);
     onClose();
+  };
+
+  const handleDelete = async () => {
+    const ok = window.confirm('Delete this invoice permanently? This cannot be undone.');
+    if (!ok) return;
+    try {
+      setDeleting(true);
+      await onDelete(invoice.id);
+      onClose();
+    } catch (err) {
+      alert(err?.message || 'Failed to delete invoice');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const fieldLabel = { fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 };
@@ -387,6 +402,14 @@ function InvoiceModal({ invoice, onClose, onSave }) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            className="btn secondary"
+            onClick={handleDelete}
+            disabled={deleting || saving}
+            style={{ color: '#991b1b', borderColor: '#fca5a5' }}
+          >
+            {deleting ? 'Deleting…' : 'Delete Invoice'}
+          </button>
           <button className="btn secondary" onClick={onClose}>Cancel</button>
           <button className="btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
@@ -415,6 +438,32 @@ export default function AccountsPayable() {
 
   const handleSave = async (id, updates) => {
     await updateDoc(doc(db, 'ap_invoices', id), updates);
+  };
+
+  const handleDelete = async id => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error('Not authenticated');
+
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch('/api/delete-invoice', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    let payload = {};
+    try {
+      payload = await res.json();
+    } catch {
+      payload = {};
+    }
+
+    if (!res.ok) {
+      throw new Error(payload.error || payload.detail || 'Failed to delete invoice');
+    }
   };
 
   const filtered = invoices.filter(inv => {
@@ -482,7 +531,7 @@ export default function AccountsPayable() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #eee' }}>
-                {['Received', 'From', 'Type', 'Supplier', 'Amount', 'Items', 'Dept', 'PDF', ''].map(h => (
+                {['Received', 'Type', 'Supplier', 'Amount', 'Items', 'Dept', 'PDF', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -495,9 +544,6 @@ export default function AccountsPayable() {
                   <tr key={inv.id} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }} onClick={() => setSelected(inv)}>
                     <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 13 }}>
                       {inv.receivedAt ? new Date(inv.receivedAt).toLocaleDateString() : '—'}
-                    </td>
-                    <td style={{ padding: '10px 12px', fontSize: 13, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {inv.supplier || inv.fromEmail || '—'}
                     </td>
                     <td style={{ padding: '10px 12px', fontSize: 12 }}>
                       <span style={{ background: inv.invoiceType === 'commission' ? '#ede9fe' : '#e8f0fe',
@@ -530,8 +576,27 @@ export default function AccountsPayable() {
                         : <span style={{ color: '#aaa', fontSize: 12 }} title="No PDF">—</span>}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
-                      <button className="btn secondary" style={{ padding: '4px 10px', fontSize: 12 }}
-                        onClick={e => { e.stopPropagation(); setSelected(inv); }}>Review</button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn secondary" style={{ padding: '4px 10px', fontSize: 12 }}
+                          onClick={e => { e.stopPropagation(); setSelected(inv); }}>Review</button>
+                        <button
+                          className="btn secondary"
+                          style={{ padding: '4px 10px', fontSize: 12, color: '#991b1b', borderColor: '#fca5a5' }}
+                          onClick={async e => {
+                            e.stopPropagation();
+                            const ok = window.confirm('Delete this invoice permanently? This cannot be undone.');
+                            if (!ok) return;
+                            try {
+                              await handleDelete(inv.id);
+                              if (selected?.id === inv.id) setSelected(null);
+                            } catch (err) {
+                              alert(err?.message || 'Failed to delete invoice');
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -546,6 +611,7 @@ export default function AccountsPayable() {
           invoice={selected}
           onClose={() => setSelected(null)}
           onSave={handleSave}
+          onDelete={handleDelete}
         />
       )}
     </div>
