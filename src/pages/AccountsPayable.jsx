@@ -21,246 +21,144 @@ function StatusBadge({ status }) {
   );
 }
 
+const emptyLineItem = () => ({ description: '', quantity: 1, unitPrice: '', total: '' });
+
 function InvoiceModal({ invoice, onClose, onSave }) {
+  const [supplier, setSupplier] = useState(invoice.supplier || '');
+  const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoiceNumber || '');
+  const [invoiceDate, setInvoiceDate] = useState(invoice.invoiceDate || '');
   const [dept, setDept] = useState(invoice.department || '');
-  const [confirmedAmount, setConfirmedAmount] = useState(invoice.confirmedAmount ?? invoice.parsedAmount ?? '');
+  const [confirmedAmount, setConfirmedAmount] = useState(invoice.confirmedAmount ?? '');
   const [status, setStatus] = useState(invoice.status || 'pending');
   const [paidDate, setPaidDate] = useState(invoice.paidDate || '');
+  const [notes, setNotes] = useState(invoice.notes || '');
+  const [lineItems, setLineItems] = useState(
+    invoice.lineItems?.length ? invoice.lineItems : [emptyLineItem()]
+  );
   const [saving, setSaving] = useState(false);
+
+  const updateLineItem = (idx, field, value) => {
+    setLineItems(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      // Auto-calc total when qty or unitPrice changes
+      if (field === 'quantity' || field === 'unitPrice') {
+        const qty = parseFloat(field === 'quantity' ? value : updated[idx].quantity) || 0;
+        const price = parseFloat(field === 'unitPrice' ? value : updated[idx].unitPrice) || 0;
+        updated[idx].total = qty && price ? (qty * price).toFixed(2) : '';
+      }
+      return updated;
+    });
+  };
+
+  const addLineItem = () => setLineItems(prev => [...prev, emptyLineItem()]);
+
+  const removeLineItem = (idx) => {
+    setLineItems(prev => prev.length <= 1 ? [emptyLineItem()] : prev.filter((_, i) => i !== idx));
+  };
+
+  // Auto-sum line item totals into confirmed amount
+  const lineItemsTotal = lineItems.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
 
   const handleSave = async () => {
     setSaving(true);
-    await onSave(invoice.id, { department: dept, confirmedAmount: parseFloat(confirmedAmount), status, paidDate });
+    const cleanedItems = lineItems
+      .filter(item => item.description.trim())
+      .map(item => ({
+        description: item.description,
+        quantity: parseFloat(item.quantity) || 0,
+        unitPrice: parseFloat(item.unitPrice) || 0,
+        total: parseFloat(item.total) || 0,
+      }));
+    await onSave(invoice.id, {
+      supplier,
+      invoiceNumber,
+      invoiceDate,
+      department: dept,
+      confirmedAmount: confirmedAmount !== '' ? parseFloat(confirmedAmount) : null,
+      status,
+      paidDate,
+      notes,
+      lineItems: cleanedItems,
+    });
     setSaving(false);
     onClose();
   };
+
+  const fieldLabel = { fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 };
+  const inputStyle = { width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #ddd', boxSizing: 'border-box' };
 
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}
       onClick={onClose}
     >
-      <div className="card pad" style={{ width: 'min(640px, 96vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div className="card pad" style={{ width: 'min(800px, 96vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Invoice: {invoice.invoiceNumber || invoice.id}</h2>
+          <h2 style={{ margin: 0 }}>
+            {invoice.invoiceNumber ? `Invoice: ${invoice.invoiceNumber}` : 'New Invoice'}
+          </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
         </div>
 
-        {/* Header fields */}
-        {invoice.invoiceType === 'travel-agent' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier (Travel Agent)</label>
-              <strong>{invoice.supplier || '—'}</strong>
+        {/* Email info */}
+        <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, padding: 12, background: '#f9f9f9', borderRadius: 6, border: '1px solid #eee' }}>
+          <div><strong>From:</strong> {invoice.fromEmail || '—'}</div>
+          <div><strong>Subject:</strong> {invoice.subject || '—'}</div>
+          <div><strong>Received:</strong> {invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleString() : '—'}</div>
+        </div>
+
+        {/* PDF viewer */}
+        {invoice.storagePath ? (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <strong style={{ fontSize: 14 }}>PDF Attachment</strong>
+              <a
+                href={`/api/pdf-link?id=${encodeURIComponent(invoice.id)}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ fontSize: 13, color: '#1e40af' }}
+              >
+                Open in new tab ↗
+              </a>
             </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Number</label>
-              <strong>{invoice.invoiceNumber || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Date</label>
-              <strong>{invoice.invoiceDate || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Booking Number</label>
-              <strong>{invoice.bookingNumber || (invoice.lineItems?.[0]?.bookingNumber) || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Client(s)</label>
-              <strong>{invoice.clientNames?.join(', ') || (invoice.lineItems?.[0]?.clientName) || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Booking Date</label>
-              <strong>{invoice.lineItems?.[0]?.bookingDate || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Total Reservation (Paid)</label>
-              <strong>${invoice.totalPaid?.toFixed(2) ?? '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Commission Due</label>
-              <strong style={{ color: '#b45309' }}>${invoice.totalCommission?.toFixed(2) ?? invoice.parsedAmount?.toFixed(2) ?? '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Received</label>
-              <strong>{invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleDateString() : '—'}</strong>
-            </div>
+            <iframe
+              src={`/api/pdf-link?id=${encodeURIComponent(invoice.id)}`}
+              title="Invoice PDF"
+              style={{ width: '100%', height: 400, border: '1px solid #ddd', borderRadius: 6, background: '#f5f5f5' }}
+            />
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier</label>
-              <strong>{invoice.supplier || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Invoice Date</label>
-              <strong>{invoice.invoiceDate || '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parsed Amount</label>
-              <strong>${invoice.parsedAmount?.toFixed(2) ?? '—'}</strong>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Received</label>
-              <strong>{invoice.receivedAt ? new Date(invoice.receivedAt).toLocaleDateString() : '—'}</strong>
-            </div>
+          <div style={{ marginBottom: 16, padding: 16, background: '#fff8e6', border: '1px solid #f0d58a', borderRadius: 6, fontSize: 13, color: '#b45309' }}>
+            No PDF attachment was found in the received email.
           </div>
         )}
 
-        {(invoice.parseWarning || invoice.warning || invoice.parsePreview || invoice.parseDebug) && (
-          <div className="card" style={{ padding: 12, marginBottom: 16, background: '#fafafa', border: '1px solid #eee' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: invoice.parsePreview ? 12 : 0 }}>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parse Source</label>
-                <strong>{invoice.parseSource || '—'}</strong>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Parsed Fields</label>
-                <strong>{invoice.parsedFieldCount ?? 0}</strong>
-              </div>
-            </div>
-
-            {invoice.parseDebug && (
-              <div style={{ fontSize: 12, color: '#555', marginBottom: 12 }}>
-                <div>Parser used: <strong>{invoice.parseDebug.parserUsed || 'unknown'}</strong></div>
-                <div>Travel detected: <strong>{String(!!invoice.parseDebug.travelDetected)}</strong></div>
-                <div>Generic score: <strong>{invoice.parseDebug.genericScore ?? '—'}</strong> | Travel score: <strong>{invoice.parseDebug.travelScore ?? '—'}</strong></div>
-                {invoice.parseDebug.noPdfReason && <div>No PDF reason: <strong>{invoice.parseDebug.noPdfReason}</strong></div>}
-                {(invoice.parseDebug.attachmentsDeclared != null || invoice.parseDebug.parsedFilesCount != null) && (
-                  <div>Attachments declared: <strong>{invoice.parseDebug.attachmentsDeclared ?? 0}</strong> | Files parsed: <strong>{invoice.parseDebug.parsedFilesCount ?? 0}</strong></div>
-                )}
-                {invoice.parseDebug.contentType && <div>Content-Type: <strong>{invoice.parseDebug.contentType}</strong></div>}
-                {Array.isArray(invoice.parseDebug.attachmentFieldKeys) && invoice.parseDebug.attachmentFieldKeys.length > 0 && (
-                  <div>Attachment fields: <strong>{invoice.parseDebug.attachmentFieldKeys.join(', ')}</strong></div>
-                )}
-                {invoice.parseDebug.multipartMeta && (
-                  <div>
-                    Multipart path: <strong>{invoice.parseDebug.multipartMeta.path || 'unknown'}</strong>
-                    {invoice.parseDebug.multipartMeta.rawBufferLength != null && (
-                      <span> | Raw bytes: <strong>{invoice.parseDebug.multipartMeta.rawBufferLength}</strong></span>
-                    )}
-                    {invoice.parseDebug.multipartMeta.parsedFieldCount != null && (
-                      <span> | Parsed fields: <strong>{invoice.parseDebug.multipartMeta.parsedFieldCount}</strong></span>
-                    )}
-                    {invoice.parseDebug.multipartMeta.parsedFileCount != null && (
-                      <span> | Parsed files: <strong>{invoice.parseDebug.multipartMeta.parsedFileCount}</strong></span>
-                    )}
-                  </div>
-                )}
-                {invoice.parseDebug.sourceLengths && (
-                  <div>
-                    Source lengths: PDF {invoice.parseDebug.sourceLengths.pdfText ?? 0}, Text {invoice.parseDebug.sourceLengths.bodyText ?? 0}, HTML {invoice.parseDebug.sourceLengths.bodyHtml ?? 0}, Subject {invoice.parseDebug.sourceLengths.subject ?? 0}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {(invoice.parseWarning || invoice.warning) && (
-              <div style={{ fontSize: 13, color: '#991b1b', marginBottom: invoice.parsePreview ? 12 : 0 }}>
-                {invoice.parseWarning || invoice.warning}
-              </div>
-            )}
-
-            {invoice.parseDebug?.rawBodyDiag && (
-              <details style={{ marginBottom: 8 }}>
-                <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Raw Body Diagnostics</summary>
-                <div style={{ marginTop: 8, fontSize: 12, color: '#444', lineHeight: 1.6 }}>
-                  {Object.entries(invoice.parseDebug.rawBodyDiag).map(([k, v]) => (
-                    <div key={k}><strong>{k}:</strong> {v === null ? 'null' : String(Array.isArray(v) ? v.join(', ') : v)}</div>
-                  ))}
-                </div>
-              </details>
-            )}
-
-            {invoice.parsePreview && (
-              <details>
-                <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Extracted Text Preview</summary>
-                <pre style={{ marginTop: 10, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: 10 }}>
-                  {invoice.parsePreview}
-                </pre>
-              </details>
-            )}
-          </div>
-        )}
-
-        {/* Line items */}
-        {invoice.lineItems?.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <h4 style={{ marginBottom: 8 }}>Line Items</h4>
-            <div style={{ overflowX: 'auto' }}>
-            {invoice.invoiceType === 'travel-agent' ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #eee' }}>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Type</th>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Client</th>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Booking #</th>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Reference</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Book Date</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Dep Date</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Nett</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Paid</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Commission</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.lineItems.map((item, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                      <td style={{ padding: '4px 8px' }}>{item.type}</td>
-                      <td style={{ padding: '4px 8px' }}>{item.clientName}</td>
-                      <td style={{ padding: '4px 8px' }}>{item.bookingNumber}</td>
-                      <td style={{ padding: '4px 8px' }}>{item.reference}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.bookingDate}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.departureDate}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.creditorNett != null ? `$${Number(item.creditorNett).toFixed(2)}` : '—'}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.paid != null ? `$${Number(item.paid).toFixed(2)}` : '—'}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right', color: '#b45309', fontWeight: 600 }}>{item.commission != null ? `$${Number(item.commission).toFixed(2)}` : '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #eee' }}>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Unit Price</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.lineItems.map((item, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                      <td style={{ padding: '4px 8px' }}>{item.description}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.quantity}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.unitPrice?.toFixed(2)}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.total?.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-            </div>
-          </div>
-        )}
-
-        {/* Editable fields */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        {/* Invoice details - manual entry */}
+        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Invoice Details</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
           <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Department</label>
-            <select value={dept} onChange={e => setDept(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #ddd' }}>
+            <label style={fieldLabel}>Supplier</label>
+            <input value={supplier} onChange={e => setSupplier(e.target.value)} placeholder="Company name" style={inputStyle} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Invoice Number</label>
+            <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="INV-001" style={inputStyle} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Invoice Date</label>
+            <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={fieldLabel}>Department</label>
+            <select value={dept} onChange={e => setDept(e.target.value)} style={inputStyle}>
               <option value="">— Assign —</option>
               {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Confirmed Amount ($)</label>
-            <input type="number" value={confirmedAmount} onChange={e => setConfirmedAmount(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #ddd', boxSizing: 'border-box' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #ddd' }}>
+            <label style={fieldLabel}>Status</label>
+            <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle}>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="paid">Paid</option>
@@ -269,17 +167,123 @@ function InvoiceModal({ invoice, onClose, onSave }) {
           </div>
           {status === 'paid' && (
             <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Date Paid</label>
-              <input type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: 6, border: '1px solid #ddd', boxSizing: 'border-box' }} />
+              <label style={fieldLabel}>Date Paid</label>
+              <input type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)} style={inputStyle} />
             </div>
           )}
         </div>
 
-        {invoice.storagePath && (
-          <a href={`/api/pdf-link?id=${invoice.id}`} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginBottom: 16, fontSize: 13, color: '#1e40af' }}>
-            View PDF ↗
-          </a>
-        )}
+        {/* Line items */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <h3 style={{ margin: 0, fontSize: 15 }}>Line Items</h3>
+            <button className="btn secondary" style={{ padding: '4px 12px', fontSize: 12 }} onClick={addLineItem}>
+              + Add Item
+            </button>
+          </div>
+          <div style={{ border: '1px solid #eee', borderRadius: 6, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                  <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600 }}>Description</th>
+                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, width: 70 }}>Qty</th>
+                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, width: 100 }}>Unit Price</th>
+                  <th style={{ textAlign: 'right', padding: '8px', fontWeight: 600, width: 100 }}>Total</th>
+                  <th style={{ width: 36, padding: '8px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((item, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                    <td style={{ padding: 4 }}>
+                      <input
+                        value={item.description}
+                        onChange={e => updateLineItem(idx, 'description', e.target.value)}
+                        placeholder="Item description"
+                        style={{ ...inputStyle, padding: '6px 8px' }}
+                      />
+                    </td>
+                    <td style={{ padding: 4 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.quantity}
+                        onChange={e => updateLineItem(idx, 'quantity', e.target.value)}
+                        style={{ ...inputStyle, padding: '6px 8px', textAlign: 'right' }}
+                      />
+                    </td>
+                    <td style={{ padding: 4 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unitPrice}
+                        onChange={e => updateLineItem(idx, 'unitPrice', e.target.value)}
+                        placeholder="0.00"
+                        style={{ ...inputStyle, padding: '6px 8px', textAlign: 'right' }}
+                      />
+                    </td>
+                    <td style={{ padding: 4 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.total}
+                        onChange={e => updateLineItem(idx, 'total', e.target.value)}
+                        placeholder="0.00"
+                        style={{ ...inputStyle, padding: '6px 8px', textAlign: 'right' }}
+                      />
+                    </td>
+                    <td style={{ padding: 4, textAlign: 'center' }}>
+                      <button
+                        onClick={() => removeLineItem(idx)}
+                        style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: 16, padding: '2px 6px' }}
+                        title="Remove item"
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {lineItemsTotal > 0 && (
+            <div style={{ textAlign: 'right', marginTop: 8, fontSize: 14 }}>
+              <strong>Line Items Total: ${lineItemsTotal.toFixed(2)}</strong>
+            </div>
+          )}
+        </div>
+
+        {/* Total amount */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div>
+            <label style={fieldLabel}>
+              Invoice Total ($)
+              {lineItemsTotal > 0 && confirmedAmount === '' && (
+                <button
+                  onClick={() => setConfirmedAmount(lineItemsTotal.toFixed(2))}
+                  style={{ marginLeft: 8, fontSize: 11, padding: '1px 6px', borderRadius: 4, border: '1px solid #ddd', cursor: 'pointer', background: '#f5f5f5' }}
+                >
+                  Use line items total
+                </button>
+              )}
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={confirmedAmount}
+              onChange={e => setConfirmedAmount(e.target.value)}
+              placeholder="0.00"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={fieldLabel}>Notes</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes" style={inputStyle} />
+          </div>
+        </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn secondary" onClick={onClose}>Cancel</button>
@@ -317,16 +321,16 @@ export default function AccountsPayable() {
   });
 
   const totals = {
-    pending:  invoices.filter(i => i.status === 'pending').reduce((s, i) => s + (i.confirmedAmount ?? i.parsedAmount ?? 0), 0),
-    approved: invoices.filter(i => i.status === 'approved').reduce((s, i) => s + (i.confirmedAmount ?? i.parsedAmount ?? 0), 0),
-    paid:     invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.confirmedAmount ?? i.parsedAmount ?? 0), 0),
+    pending:  invoices.filter(i => i.status === 'pending').reduce((s, i) => s + (i.confirmedAmount ?? 0), 0),
+    approved: invoices.filter(i => i.status === 'approved').reduce((s, i) => s + (i.confirmedAmount ?? 0), 0),
+    paid:     invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.confirmedAmount ?? 0), 0),
   };
 
   return (
     <div style={{ padding: '0 0 40px' }}>
       <h1 style={{ marginTop: 0 }}>Accounts Payable</h1>
 
-      {/* Summary cards — NOTE: array starts with [ not ([ */}
+      {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
           { label: 'Pending', value: totals.pending, ...STATUS_COLORS.pending },
@@ -365,7 +369,7 @@ export default function AccountsPayable() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #eee' }}>
-                {['Invoice #', 'Supplier', 'Date', 'Amount', 'Dept', 'Status', 'Paid Date', ''].map(h => (
+                {['Received', 'From', 'Subject', 'Supplier', 'Amount', 'Dept', 'Status', 'PDF', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -373,25 +377,32 @@ export default function AccountsPayable() {
             <tbody>
               {filtered.map(inv => (
                 <tr key={inv.id} style={{ borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }} onClick={() => setSelected(inv)}>
-                  <td style={{ padding: '10px 12px' }}>{inv.invoiceNumber || '—'}</td>
-                  <td style={{ padding: '10px 12px' }}>{inv.supplier || '—'}</td>
-                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{inv.invoiceDate || '—'}</td>
+                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', fontSize: 13 }}>
+                    {inv.receivedAt ? new Date(inv.receivedAt).toLocaleDateString() : '—'}
+                  </td>
+                  <td style={{ padding: '10px 12px', fontSize: 13, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {inv.fromEmail || '—'}
+                  </td>
+                  <td style={{ padding: '10px 12px', fontSize: 13, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {inv.subject || '—'}
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    {inv.supplier || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Not entered</span>}
+                  </td>
                   <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                    {inv.invoiceType === 'travel-agent' ? (
-                      <>
-                        <span style={{ fontWeight: 700 }}>${(inv.confirmedAmount ?? inv.totalCommission ?? inv.parsedAmount ?? 0).toFixed(2)}</span>
-                        {inv.confirmedAmount == null && <span style={{ fontSize: 11, color: '#b45309', marginLeft: 4 }}>(commission)</span>}
-                      </>
+                    {inv.confirmedAmount != null ? `$${Number(inv.confirmedAmount).toFixed(2)}` : <span style={{ color: 'var(--muted)' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '10px 12px' }}>
+                    {inv.department || <span style={{ color: 'var(--muted)' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '10px 12px' }}><StatusBadge status={inv.status || 'pending'} /></td>
+                  <td style={{ padding: '10px 12px' }}>
+                    {inv.storagePath ? (
+                      <span style={{ color: '#22c55e', fontSize: 16 }} title="PDF attached">���</span>
                     ) : (
-                      <>
-                        ${(inv.confirmedAmount ?? inv.parsedAmount ?? 0).toFixed(2)}
-                        {inv.confirmedAmount == null && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>(parsed)</span>}
-                      </>
+                      <span style={{ color: '#aaa', fontSize: 12 }} title="No PDF">—</span>
                     )}
                   </td>
-                  <td style={{ padding: '10px 12px' }}>{inv.department || <span style={{ color: 'var(--muted)' }}>Unassigned</span>}</td>
-                  <td style={{ padding: '10px 12px' }}><StatusBadge status={inv.status || 'pending'} /></td>
-                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{inv.paidDate || '—'}</td>
                   <td style={{ padding: '10px 12px' }}>
                     <button className="btn secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={e => { e.stopPropagation(); setSelected(inv); }}>
                       Review
