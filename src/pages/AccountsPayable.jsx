@@ -257,11 +257,28 @@ function FilterDropdown({ label, options, selectedValues, onChange }) {
     <div ref={rootRef} style={{ position: 'relative' }}>
       <button
         type="button"
-        className="btn secondary"
         onClick={() => setOpen(v => !v)}
-        style={{ padding: '7px 12px', minWidth: 180, textAlign: 'left' }}
+        style={{
+          padding: '8px 12px',
+          minWidth: 210,
+          textAlign: 'left',
+          borderRadius: 8,
+          border: '1px solid #ddd',
+          background: '#fff',
+          color: '#111',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          fontSize: 13,
+          fontWeight: 500,
+        }}
       >
-        <strong>{label}:</strong> {summary}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <strong>{label}:</strong> {summary}
+        </span>
+        <span style={{ color: '#666', fontSize: 12 }}>{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
@@ -276,37 +293,65 @@ function FilterDropdown({ label, options, selectedValues, onChange }) {
             borderRadius: 8,
             boxShadow: '0 8px 24px rgba(0,0,0,.12)',
             minWidth: 240,
+            maxWidth: 280,
             padding: 10,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <button
               type="button"
-              className="btn secondary"
-              style={{ padding: '4px 8px', fontSize: 12 }}
+              style={{
+                padding: '4px 8px',
+                fontSize: 12,
+                border: '1px solid #ddd',
+                background: '#fff',
+                borderRadius: 6,
+                cursor: 'pointer',
+              }}
               onClick={() => onChange(allValues)}
             >
               Select all
             </button>
             <button
               type="button"
-              className="btn secondary"
-              style={{ padding: '4px 8px', fontSize: 12 }}
+              style={{
+                padding: '4px 8px',
+                fontSize: 12,
+                border: '1px solid #ddd',
+                background: '#fff',
+                borderRadius: 6,
+                cursor: 'pointer',
+              }}
               onClick={() => onChange(allValues)}
             >
               Reset
             </button>
           </div>
 
-          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 6 }}>
+          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 2 }}>
             {options.map(option => (
-              <label key={option.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+              <label
+                key={option.value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 13,
+                  textTransform: 'none',
+                  letterSpacing: 'normal',
+                  color: '#111',
+                  padding: '6px 4px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={selectedValues.includes(option.value)}
                   onChange={() => toggle(option.value)}
+                  style={{ margin: 0 }}
                 />
-                <span>{option.label}</span>
+                <span style={{ textTransform: 'none', letterSpacing: 'normal' }}>{option.label}</span>
               </label>
             ))}
           </div>
