@@ -176,23 +176,7 @@ export default function App(){
               }
             />
             <Route
-              path="/accounts-payable/inbox"
-              element={
-                <ProtectedRoute>
-                  <AccountsPayable />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/accounts-payable/review"
-              element={
-                <ProtectedRoute>
-                  <AccountsPayable />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/accounts-payable/intake"
+              path="/accounts-payable/email-setup"
               element={
                 <ProtectedRoute>
                   <AccountsPayableIntake />

@@ -222,43 +222,24 @@ export default function Nav() {
                 >
                   <NavLink
                     to="/accounts-payable"
+                    end
                     style={({ isActive }) => ({
                       ...navLinkStyle(isActive),
                       display: 'block',
                       marginRight: 0
                     })}
                   >
-                    Overview
+                    Invoices
                   </NavLink>
                   <NavLink
-                    to="/accounts-payable/inbox"
+                    to="/accounts-payable/email-setup"
                     style={({ isActive }) => ({
                       ...navLinkStyle(isActive),
                       display: 'block',
                       marginRight: 0
                     })}
                   >
-                    Email Inbox
-                  </NavLink>
-                  <NavLink
-                    to="/accounts-payable/review"
-                    style={({ isActive }) => ({
-                      ...navLinkStyle(isActive),
-                      display: 'block',
-                      marginRight: 0
-                    })}
-                  >
-                    Line Item Review
-                  </NavLink>
-                  <NavLink
-                    to="/accounts-payable/intake"
-                    style={({ isActive }) => ({
-                      ...navLinkStyle(isActive),
-                      display: 'block',
-                      marginRight: 0
-                    })}
-                  >
-                    Inbound Email Setup
+                    Email Setup
                   </NavLink>
                 </div>
               )}
