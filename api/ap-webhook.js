@@ -243,45 +243,58 @@ async function parseCommissionInvoice(pdfBuffer) {
       if (footerNameMatch) supplier = footerNameMatch[1].trim();
     }
 
-    // Parse the tabular data — we're looking for rows starting with "HTL"
-    // Format: SEG DocNum BookingNum Consultant ClientProfile CreditorInvoice Reference TransDate BookDate DepDate CreditorNett Paid Due
+    // Parse the tabular data — pdf-parse extracts each field on its own line,
+    // so we collect multi-line blocks between "HTL" markers.
+    // Each record is roughly: HTL, DocNum, ClientProfile, CreditorInvoice,
+    // TransDate, BookDate, CreditorNett, Paid, Due, Consultant, BookingNum, Reference, DepDate
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
     const lineItems = [];
-    for (const line of lines) {
-      // Match lines starting with HTL (hotel segment)
-      if (!/^HTL\s/i.test(line)) continue;
+    let idx = 0;
+    while (idx < lines.length) {
+      if (lines[idx] !== 'HTL') { idx++; continue; }
 
-      // Try to extract fields by matching known patterns in the line
-      // Client profile is like HARVEY/ANNIE MRS or DEWITT/HOWARD MR
-      const clientMatch = line.match(/([A-Z]+\/[A-Z]+\s+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/i);
+      // Collect lines for this record until the next HTL or a known boundary
+      const block = [];
+      let j = idx + 1;
+      while (j < lines.length && lines[j] !== 'HTL'
+        && !/^(SEG|Total for|Page \d|Head Office|Please pay)/i.test(lines[j])) {
+        block.push(lines[j]);
+        j++;
+      }
+      idx = j;
+
+      const blockText = block.join(' ');
+
+      // Guest name: HARVEY/ANNIE MRS or DEWITT/HOWARD MR
+      const clientMatch = blockText.match(/([A-Z]+\/[A-Z]+\s+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/i);
       const guestName = clientMatch ? formatGuestName(clientMatch[1]) : '';
 
-      // Booking number like B.0000714286
-      const bookingMatch = line.match(/\b(B\.\d{7,})\b/);
+      // Booking number: B.0000714286
+      const bookingMatch = blockText.match(/\b(B\.\d{7,})\b/);
       const bookingNumber = bookingMatch ? bookingMatch[1] : '';
 
-      // Extract all date patterns dd/mm/yy in the line
-      const dateMatches = [...line.matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map(m => m[1]);
-      // Dates in order are typically: Transaction Date, Booking Date, Departure Date
-      const departureDate = dateMatches.length >= 3 ? parseDateDdMmYy(dateMatches[2]) : '';
+      // Dates (dd/mm/yy) — typically TransDate, BookDate, DepDate; departure is last
+      const dateMatches = [...blockText.matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map(m => m[1]);
+      const departureDate = dateMatches.length >= 1
+        ? parseDateDdMmYy(dateMatches[dateMatches.length - 1])
+        : '';
 
-      // Extract monetary values (numbers with decimal points, typically at the end of the line)
-      const moneyMatches = [...line.matchAll(/\b(\d{1,}[,.]?\d*\.\d{2})\b/g)].map(m =>
+      // Monetary values (numbers with exactly 2 decimal places)
+      const moneyMatches = [...blockText.matchAll(/\b(\d[\d,]*\.\d{2})\b/g)].map(m =>
         parseFloat(m[1].replace(/,/g, ''))
       );
-      // Last 3 numbers are typically: Creditor Nett, Paid, Due
+      // First 3 values are: Creditor Nett, Paid, Due (extra values may leak from totals row)
       let reservationTotal = 0;
       let totalCommission = 0;
       if (moneyMatches.length >= 3) {
-        reservationTotal = moneyMatches[moneyMatches.length - 2]; // Paid
-        totalCommission = moneyMatches[moneyMatches.length - 1];  // Due
+        reservationTotal = moneyMatches[1]; // Paid
+        totalCommission = moneyMatches[2];  // Due
       } else if (moneyMatches.length === 2) {
         reservationTotal = moneyMatches[0];
         totalCommission = moneyMatches[1];
       }
 
-      // Calculate commission percentage
       const commissionPercent = reservationTotal > 0
         ? parseFloat(((totalCommission / reservationTotal) * 100).toFixed(2))
         : 0;
