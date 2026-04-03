@@ -138,6 +138,66 @@ function isPdfFileCandidate(file) {
   return mimeType.includes('pdf') || filename.endsWith('.pdf') || hasPdfSignature;
 }
 
+/**
+ * Extract PDF attachments from a raw MIME email string.
+ * SendGrid sends this in the `email` field when "POST the raw, full MIME message" is enabled.
+ * In that mode, attachments are NOT posted as separate form fields — they're base64-encoded
+ * inside the MIME body.
+ */
+function extractPdfsFromRawMime(rawMime) {
+  const files = [];
+  if (!rawMime || typeof rawMime !== 'string') return files;
+
+  // Find the top-level MIME boundary
+  const boundaryMatch = rawMime.match(/Content-Type:\s*multipart\/mixed;\s*boundary="?([^\s"]+)"?/i);
+  if (!boundaryMatch) return files;
+
+  const boundary = boundaryMatch[1];
+  const parts = rawMime.split('--' + boundary);
+
+  for (const part of parts) {
+    // Look for PDF parts
+    const ctMatch = part.match(/Content-Type:\s*(application\/pdf|application\/octet-stream)[^\r\n]*/i);
+    if (!ctMatch) continue;
+
+    const isPdf = /application\/pdf/i.test(ctMatch[1]);
+    const dispMatch = part.match(/Content-Disposition:\s*attachment;\s*filename="?([^"\r\n]+)"?/i);
+    const filename = dispMatch ? dispMatch[1].trim() : 'attachment.pdf';
+
+    // If content-type is octet-stream, only include if filename ends with .pdf
+    if (!isPdf && !filename.toLowerCase().endsWith('.pdf')) continue;
+
+    const encodingMatch = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+    const encoding = encodingMatch ? encodingMatch[1].toLowerCase() : '7bit';
+
+    // The body starts after the first blank line (double CRLF or double LF)
+    const bodyStart = part.match(/\r?\n\r?\n/);
+    if (!bodyStart) continue;
+
+    const bodyText = part.slice(bodyStart.index + bodyStart[0].length).trim();
+    if (!bodyText) continue;
+
+    let buffer;
+    if (encoding === 'base64') {
+      // Strip whitespace and decode
+      const cleaned = bodyText.replace(/[\r\n\s]/g, '');
+      buffer = Buffer.from(cleaned, 'base64');
+    } else {
+      buffer = Buffer.from(bodyText, 'binary');
+    }
+
+    if (buffer.length > 0) {
+      files.push({
+        name: filename,
+        buffer,
+        info: { filename, mimeType: 'application/pdf' },
+      });
+    }
+  }
+
+  return files;
+}
+
 function parseMultipart(req) {
   return new Promise(async (resolve, reject) => {
     const contentType = req.headers?.['content-type'] || '';
@@ -217,8 +277,37 @@ export default async function handler(req, res) {
     const subject   = fields.subject || '';
     const toEmail   = fields.to || '';
 
-    // Find the first PDF attachment
-    const pdf = files.find((f) => isPdfFileCandidate(f));
+    // Diagnostics: log what SendGrid actually sent
+    const fieldKeys = Object.keys(fields);
+    const hasRawMime = typeof fields.email === 'string' && fields.email.length > 0;
+    const attachmentFieldKeys = fieldKeys.filter(k => /^attachment\d+$/i.test(k));
+    const diag = {
+      fieldKeys: fieldKeys.slice(0, 30),
+      fileCount: files.length,
+      attachmentFieldKeys,
+      hasRawMimeEmail: hasRawMime,
+      rawMimeLength: hasRawMime ? fields.email.length : 0,
+      contentType: req.headers?.['content-type']?.slice(0, 120) || null,
+      bodyType: typeof req.body,
+      bodyIsBuffer: Buffer.isBuffer(req.body),
+    };
+    console.log('AP webhook diag:', JSON.stringify(diag));
+
+    // Strategy 1: Look for PDF in parsed attachment fields (SendGrid default/parsed mode)
+    let pdf = files.find((f) => isPdfFileCandidate(f));
+    let pdfSource = pdf ? 'parsed-attachment' : null;
+
+    // Strategy 2: If no PDF found, try extracting from raw MIME email field
+    // (SendGrid raw mode: "POST the raw, full MIME message" is ticked)
+    if (!pdf && hasRawMime) {
+      console.log('AP webhook: No parsed attachments found, trying raw MIME extraction...');
+      const mimePdfs = extractPdfsFromRawMime(fields.email);
+      if (mimePdfs.length > 0) {
+        pdf = mimePdfs[0];
+        pdfSource = 'raw-mime';
+        console.log('AP webhook: Extracted PDF from raw MIME:', pdf.info?.filename, pdf.buffer?.length, 'bytes');
+      }
+    }
 
     let storagePath = null;
     let originalFilename = null;
@@ -252,10 +341,12 @@ export default async function handler(req, res) {
       lineItems: [],
       notes: '',
       hasPdf: !!pdf,
+      pdfSource,
+      _diag: diag,
     });
 
-    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail, '| pdf:', !!pdf);
-    return res.status(200).json({ received: true, invoiceId: docRef.id, hasPdf: !!pdf });
+    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail, '| pdf:', !!pdf, '| source:', pdfSource);
+    return res.status(200).json({ received: true, invoiceId: docRef.id, hasPdf: !!pdf, pdfSource });
 
   } catch (err) {
     console.error('AP webhook error:', err);
