@@ -350,7 +350,17 @@ function FilterDropdown({ label, options, selectedValues, onChange }) {
                   type="checkbox"
                   checked={selectedValues.includes(option.value)}
                   onChange={() => toggle(option.value)}
-                  style={{ margin: 0 }}
+                  style={{
+                    width: 'auto',
+                    minWidth: 14,
+                    height: 14,
+                    padding: 0,
+                    margin: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    boxShadow: 'none',
+                    flex: '0 0 auto',
+                  }}
                 />
                 <span style={{ textTransform: 'none', letterSpacing: 'normal' }}>{option.label}</span>
               </label>
