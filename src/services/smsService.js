@@ -108,15 +108,21 @@ export async function sendWelcomeSMS(phone, tag) {
   // Rate limiting
   checkRateLimit(phone);
 
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const configuredUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  let appOrigin = window.location.origin;
+  try {
+    appOrigin = new URL(configuredUrl).origin;
+  } catch {
+    appOrigin = window.location.origin;
+  }
   
   // Validate app URL
-  if (!appUrl.match(/^https:\/\//i) && !appUrl.match(/^http:\/\/localhost/i)) {
+  if (!appOrigin.match(/^https:\/\//i) && !appOrigin.match(/^http:\/\/localhost/i)) {
     throw new Error('Invalid app URL configuration');
   }
   
   const guestToken = await getGuestAccessLink(tag);
-  const guestLink = `${appUrl}/guest/${encodeURIComponent(guestToken)}`;
+  const guestLink = `${appOrigin}/guest/${encodeURIComponent(guestToken)}`;
   // const from = 'The Royce';
 
   const message = sanitizeMessage(`Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`);

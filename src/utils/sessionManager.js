@@ -28,8 +28,16 @@ export const sessionManager = {
   endSession() {
     localStorage.removeItem(SESSION_EXPIRY_KEY);
     localStorage.removeItem('currentUser');
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.assign('/login');
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname || '';
+      const isPublicPath = path === '/login'
+        || path.startsWith('/guest/')
+        || path.startsWith('/forgot-password')
+        || path.startsWith('/qr-login');
+
+      if (!isPublicPath) {
+        window.location.assign('/login');
+      }
     }
   }
 };
