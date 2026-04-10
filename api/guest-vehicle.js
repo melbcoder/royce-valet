@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore } from './lib/firebaseAdmin.js';
+import { computeGuestAccessExpiry } from './lib/guestAccess.js';
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 
@@ -26,20 +27,34 @@ function getVehicleSnapshotData(vehicle) {
 async function resolveVehicleByToken(token) {
   const db = getAdminFirestore();
   const tokenHash = hashToken(token);
-  const snapshot = await db.collection('vehicles').where('guestAccessTokenHash', '==', tokenHash).limit(1).get();
+  const [activeSnapshot, historySnapshot, settingsSnap] = await Promise.all([
+    db.collection('vehicles').where('guestAccessTokenHash', '==', tokenHash).limit(1).get(),
+    db.collection('valetHistory').where('guestAccessTokenHash', '==', tokenHash).limit(1).get(),
+    db.collection('settings').doc('app').get(),
+  ]);
 
-  if (snapshot.empty) {
+  const docSnap = !activeSnapshot.empty ? activeSnapshot.docs[0] : (!historySnapshot.empty ? historySnapshot.docs[0] : null);
+  if (!docSnap) {
     return null;
   }
 
-  const docSnap = snapshot.docs[0];
   const vehicle = docSnap.data() || {};
-  const expiresAt = Number(vehicle.guestAccessExpiresAt || 0);
-  if (expiresAt && Date.now() > expiresAt) {
-    return { expired: true, ref: docSnap.ref, vehicle };
+  const settings = settingsSnap.exists ? settingsSnap.data() || {} : {};
+  const expiresAt = computeGuestAccessExpiry({
+    departedAt: vehicle.departedAt,
+    settings,
+  });
+
+  if (expiresAt !== null && Date.now() > expiresAt) {
+    return { expired: true, ref: docSnap.ref, vehicle, expiresAt };
   }
 
-  return { ref: docSnap.ref, vehicle };
+  const storedExpiry = vehicle.guestAccessExpiresAt ?? null;
+  if (storedExpiry !== expiresAt) {
+    await docSnap.ref.update({ guestAccessExpiresAt: expiresAt });
+  }
+
+  return { ref: docSnap.ref, vehicle: { ...vehicle, guestAccessExpiresAt: expiresAt } };
 }
 
 async function addGuestAuditLog(db, vehicleTag, action, details = {}) {
@@ -82,9 +97,6 @@ export default async function handler(req, res) {
 
     const { ref, vehicle } = resolved;
     const currentStatus = String(vehicle.status || '').toLowerCase();
-    if (currentStatus === 'departed') {
-      return res.status(410).json({ error: 'Guest link is no longer active' });
-    }
 
     if (req.method === 'GET') {
       return res.status(200).json({ vehicle: getVehicleSnapshotData(vehicle) });

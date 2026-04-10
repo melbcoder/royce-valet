@@ -1,20 +1,6 @@
 import crypto from 'crypto';
 import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
-
-const DEFAULT_GUEST_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
-function computeExpiry(departureDate) {
-  if (typeof departureDate !== 'string' || !departureDate.trim()) {
-    return Date.now() + DEFAULT_GUEST_LINK_TTL_MS;
-  }
-
-  const parsed = Date.parse(`${departureDate}T23:59:59Z`);
-  if (Number.isNaN(parsed)) {
-    return Date.now() + DEFAULT_GUEST_LINK_TTL_MS;
-  }
-
-  return Math.max(Date.now() + 24 * 60 * 60 * 1000, parsed + 48 * 60 * 60 * 1000);
-}
+import { computeGuestAccessExpiry, getGuestLinkRetentionDays } from './lib/guestAccess.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -55,21 +41,24 @@ export default async function handler(req, res) {
     }
 
     const vehicle = vehicleSnap.data() || {};
-    if (String(vehicle.status || '').toLowerCase() === 'departed') {
-      return res.status(409).json({ error: 'Guest access is not available for departed vehicles' });
-    }
+    const settingsSnap = await adminDb.collection('settings').doc('app').get();
+    const settings = settingsSnap.exists ? settingsSnap.data() || {} : {};
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = computeExpiry(vehicle.departureDate);
+    const issuedAt = Date.now();
+    const expiresAt = computeGuestAccessExpiry({
+      departedAt: vehicle.departedAt,
+      settings,
+    });
 
     await vehicleRef.update({
       guestAccessTokenHash: tokenHash,
       guestAccessExpiresAt: expiresAt,
-      guestAccessIssuedAt: Date.now(),
+      guestAccessIssuedAt: issuedAt,
     });
 
-    return res.status(200).json({ token: rawToken, expiresAt });
+    return res.status(200).json({ token: rawToken, expiresAt, retentionDays: getGuestLinkRetentionDays(settings) });
   } catch (error) {
     console.error('guest-access-token error:', error);
     if (error.code === 'auth/id-token-expired' || error.code === 'auth/argument-error') {

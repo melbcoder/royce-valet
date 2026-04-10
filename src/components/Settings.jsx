@@ -129,7 +129,7 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
-  const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles', contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7 })
+  const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles', contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90, guestLinkRetentionDays: 2 })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
   const [retentionDaysInput, setRetentionDaysInput] = useState('7')
@@ -141,6 +141,9 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [pdfRetentionDaysInput, setPdfRetentionDaysInput] = useState('90')
   const [pdfRetentionSuccess, setPdfRetentionSuccess] = useState(false)
   const [pdfRetentionError, setPdfRetentionError] = useState('')
+  const [guestLinkRetentionDaysInput, setGuestLinkRetentionDaysInput] = useState('2')
+  const [guestLinkRetentionSuccess, setGuestLinkRetentionSuccess] = useState(false)
+  const [guestLinkRetentionError, setGuestLinkRetentionError] = useState('')
   const [loading, setLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(false)
   
@@ -212,6 +215,10 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setPdfRetentionDaysInput(String(settings.pdfRetentionDays || 90))
   }, [settings.pdfRetentionDays])
+
+  useEffect(() => {
+    setGuestLinkRetentionDaysInput(String(settings.guestLinkRetentionDays || 2))
+  }, [settings.guestLinkRetentionDays])
 
   // Debug function to check user document
   useEffect(() => {
@@ -572,6 +579,26 @@ export default function Settings({open = false, onClose, asPage = false}){
     }
   }
 
+  async function handleSaveGuestLinkRetentionDays() {
+    try {
+      setGuestLinkRetentionError('')
+      setGuestLinkRetentionSuccess(false)
+
+      const parsed = Number(guestLinkRetentionDaysInput)
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 30) {
+        setGuestLinkRetentionError('Please enter a whole number between 1 and 30 days.')
+        return
+      }
+
+      await updateSettings({ guestLinkRetentionDays: parsed })
+      setGuestLinkRetentionSuccess(true)
+      setTimeout(() => setGuestLinkRetentionSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating guest link retention days:', err)
+      setGuestLinkRetentionError('Failed to update guest link retention days.')
+    }
+  }
+
   async function handleChangePassword(e) {
     e.preventDefault()
     setPasswordError('')
@@ -833,6 +860,33 @@ export default function Settings({open = false, onClose, asPage = false}){
               )}
               {pdfRetentionSuccess && (
                 <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>PDF retention updated successfully!</div>
+              )}
+            </div>
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Guest Link Retention</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                Choose how many days guest valet links stay active after a vehicle is marked as departed.
+              </p>
+              <div className="row" style={{gap: 8, alignItems: 'center'}}>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={guestLinkRetentionDaysInput}
+                  onChange={(e) => setGuestLinkRetentionDaysInput(e.target.value)}
+                  style={{width: 120}}
+                />
+                <span style={{fontSize: 13, color: '#666'}}>days</span>
+                <button type="button" className="btn secondary" onClick={handleSaveGuestLinkRetentionDays}>
+                  Save
+                </button>
+              </div>
+              {guestLinkRetentionError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{guestLinkRetentionError}</div>
+              )}
+              {guestLinkRetentionSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Guest link retention updated successfully!</div>
               )}
             </div>
             </div>

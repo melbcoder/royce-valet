@@ -52,6 +52,12 @@ export async function getSettings() {
         vehiclePhotoRetentionDays: Number.isInteger(data.vehiclePhotoRetentionDays)
           ? data.vehiclePhotoRetentionDays
           : 7,
+        pdfRetentionDays: Number.isInteger(data.pdfRetentionDays)
+          ? data.pdfRetentionDays
+          : 90,
+        guestLinkRetentionDays: Number.isInteger(data.guestLinkRetentionDays)
+          ? data.guestLinkRetentionDays
+          : 2,
       };
     }
     // Return defaults if no settings exist
@@ -60,10 +66,11 @@ export async function getSettings() {
       contractorPhotoRetentionDays: 7,
       vehiclePhotoRetentionDays: 7,
       pdfRetentionDays: 90,
+      guestLinkRetentionDays: 2,
     };
   } catch (error) {
     console.error("Error getting settings:", error);
-    return { timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90 };
+    return { timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90, guestLinkRetentionDays: 2 };
   }
 }
 
@@ -92,9 +99,12 @@ export function subscribeSettings(callback) {
         pdfRetentionDays: Number.isInteger(data.pdfRetentionDays)
           ? data.pdfRetentionDays
           : 90,
+        guestLinkRetentionDays: Number.isInteger(data.guestLinkRetentionDays)
+          ? data.guestLinkRetentionDays
+          : 2,
       });
     } else {
-      callback({ timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90 });
+      callback({ timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90, guestLinkRetentionDays: 2 });
     }
   });
 }
@@ -340,6 +350,7 @@ export async function clearSchedule(tag) {
 // Staff: archive on departure
 export async function archiveVehicle(tag, vehicle) {
   const historyDocId = `${tag}-${Date.now()}`;
+  const departedAt = Date.now();
   
   // Clean the vehicle object - remove any undefined values and convert Firestore timestamps
   const cleanVehicle = Object.entries(vehicle).reduce((acc, [key, value]) => {
@@ -352,6 +363,8 @@ export async function archiveVehicle(tag, vehicle) {
   // Copy vehicle data to history
   await setDoc(doc(historyRef, historyDocId), {
     ...cleanVehicle,
+    status: 'departed',
+    departedAt,
     archivedAt: serverTimestamp(),
   });
 
