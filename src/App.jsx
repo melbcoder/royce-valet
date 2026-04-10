@@ -98,7 +98,7 @@ export default function App(){
             <Route 
               path="/valet" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="valet">
                   <Valet />
                 </ProtectedRoute>
               } 
@@ -106,7 +106,7 @@ export default function App(){
             <Route 
               path="/valet-history" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="valet-history">
                   <ValetHistory />
                 </ProtectedRoute>
               } 
@@ -114,7 +114,7 @@ export default function App(){
             <Route 
               path="/luggage" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="luggage">
                   <Luggage />
                 </ProtectedRoute>
               } 
@@ -122,7 +122,7 @@ export default function App(){
             <Route 
               path="/amenities" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="amenities">
                   <Amenities />
                 </ProtectedRoute>
               } 
@@ -130,7 +130,7 @@ export default function App(){
             <Route 
               path="/luggage-history" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="luggage-history">
                   <LuggageHistory />
                 </ProtectedRoute>
               } 
@@ -138,7 +138,7 @@ export default function App(){
             <Route 
               path="/amenities-history" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="amenities-history">
                   <AmenitiesHistory />
                 </ProtectedRoute>
               } 
@@ -146,7 +146,7 @@ export default function App(){
             <Route
               path="/maintenance"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="maintenance">
                   <MaintenanceDashboard />
                 </ProtectedRoute>
               }
@@ -154,7 +154,7 @@ export default function App(){
             <Route
               path="/maintenance/jobs"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="maintenance">
                   <MaintenanceJobs />
                 </ProtectedRoute>
               }
@@ -162,7 +162,7 @@ export default function App(){
             <Route
               path="/maintenance/contractor-sign-in"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="maintenance">
                   <ContractorSignIn />
                 </ProtectedRoute>
               }
@@ -170,7 +170,7 @@ export default function App(){
             <Route
               path="/accounts-payable"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="accounts-payable">
                   <AccountsPayable />
                 </ProtectedRoute>
               }
@@ -178,7 +178,7 @@ export default function App(){
             <Route
               path="/accounts-payable/email-setup"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="accounts-payable">
                   <AccountsPayableIntake />
                 </ProtectedRoute>
               }

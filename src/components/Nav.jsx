@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { getCurrentUser } from '../services/valetFirestore';
 
 const TOKEN_TTL = 60; // seconds the QR code stays valid
 
@@ -28,6 +29,12 @@ export default function Nav() {
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [apOpen, setApOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
+
+  // Page access: read current user from localStorage
+  const currentUser = getCurrentUser();
+  const userPages = currentUser?.pages || [];
+  const isAdmin = currentUser?.role === 'admin';
+  const hasAccess = (pageId) => isAdmin || userPages.includes(pageId);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -184,116 +191,126 @@ export default function Nav() {
 
         <div className={`nav-content ${mobileMenuOpen ? 'open' : ''}`}>
           <div className="nav-primary-links">
-            <NavLink to="/valet" style={({ isActive }) => navLinkStyle(isActive)}>
-              Valet
-            </NavLink>
-            <NavLink to="/luggage" style={({ isActive }) => navLinkStyle(isActive)}>
-              Luggage
-            </NavLink>
-            <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
-              Amenities
-            </NavLink>
-
-            <div
-              onMouseEnter={() => setApOpen(true)}
-              onMouseLeave={() => setApOpen(false)}
-              style={{ position: 'relative', display: 'inline-block' }}
-            >
-              <NavLink
-                to="/accounts-payable"
-                style={() => navLinkStyle(isAccountsPayablePage)}
-              >
-                Accounts Payable ▾
+            {hasAccess('valet') && (
+              <NavLink to="/valet" style={({ isActive }) => navLinkStyle(isActive)}>
+                Valet
               </NavLink>
-              {apOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    background: '#fff',
-                    border: '1px solid #ddd',
-                    borderRadius: 8,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                    padding: 6,
-                    zIndex: 50,
-                    minWidth: 220
-                  }}
-                >
-                  <NavLink
-                    to="/accounts-payable"
-                    end
-                    style={({ isActive }) => ({
-                      ...navLinkStyle(isActive),
-                      display: 'block',
-                      marginRight: 0
-                    })}
-                  >
-                    Invoices
-                  </NavLink>
-                  <NavLink
-                    to="/accounts-payable/email-setup"
-                    style={({ isActive }) => ({
-                      ...navLinkStyle(isActive),
-                      display: 'block',
-                      marginRight: 0
-                    })}
-                  >
-                    Email Setup
-                  </NavLink>
-                </div>
-              )}
-            </div>
-
-            <div
-              onMouseEnter={() => setMaintenanceOpen(true)}
-              onMouseLeave={() => setMaintenanceOpen(false)}
-              style={{ position: 'relative', display: 'inline-block' }}
-            >
-              <NavLink
-                to="/maintenance"
-                style={() => navLinkStyle(isMaintenancePage)}
-              >
-                Maintenance ▾
+            )}
+            {hasAccess('luggage') && (
+              <NavLink to="/luggage" style={({ isActive }) => navLinkStyle(isActive)}>
+                Luggage
               </NavLink>
-              {maintenanceOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    background: '#fff',
-                    border: '1px solid #ddd',
-                    borderRadius: 8,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                    padding: 6,
-                    zIndex: 50,
-                    minWidth: 200
-                  }}
+            )}
+            {hasAccess('amenities') && (
+              <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
+                Amenities
+              </NavLink>
+            )}
+
+            {hasAccess('accounts-payable') && (
+              <div
+                onMouseEnter={() => setApOpen(true)}
+                onMouseLeave={() => setApOpen(false)}
+                style={{ position: 'relative', display: 'inline-block' }}
+              >
+                <NavLink
+                  to="/accounts-payable"
+                  style={() => navLinkStyle(isAccountsPayablePage)}
                 >
-                  <NavLink
-                    to="/maintenance/jobs"
-                    style={({ isActive }) => ({
-                      ...navLinkStyle(isActive),
-                      display: 'block',
-                      marginRight: 0
-                    })}
+                  Accounts Payable ▾
+                </NavLink>
+                {apOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#fff',
+                      border: '1px solid #ddd',
+                      borderRadius: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                      padding: 6,
+                      zIndex: 50,
+                      minWidth: 220
+                    }}
                   >
-                    Maintenance Jobs
-                  </NavLink>
-                  <NavLink
-                    to="/maintenance/contractor-sign-in"
-                    style={({ isActive }) => ({
-                      ...navLinkStyle(isActive),
-                      display: 'block',
-                      marginRight: 0
-                    })}
+                    <NavLink
+                      to="/accounts-payable"
+                      end
+                      style={({ isActive }) => ({
+                        ...navLinkStyle(isActive),
+                        display: 'block',
+                        marginRight: 0
+                      })}
+                    >
+                      Invoices
+                    </NavLink>
+                    <NavLink
+                      to="/accounts-payable/email-setup"
+                      style={({ isActive }) => ({
+                        ...navLinkStyle(isActive),
+                        display: 'block',
+                        marginRight: 0
+                      })}
+                    >
+                      Email Setup
+                    </NavLink>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {hasAccess('maintenance') && (
+              <div
+                onMouseEnter={() => setMaintenanceOpen(true)}
+                onMouseLeave={() => setMaintenanceOpen(false)}
+                style={{ position: 'relative', display: 'inline-block' }}
+              >
+                <NavLink
+                  to="/maintenance"
+                  style={() => navLinkStyle(isMaintenancePage)}
+                >
+                  Maintenance ▾
+                </NavLink>
+                {maintenanceOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#fff',
+                      border: '1px solid #ddd',
+                      borderRadius: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                      padding: 6,
+                      zIndex: 50,
+                      minWidth: 200
+                    }}
                   >
-                    Contractor Sign In
-                  </NavLink>
-                </div>
-              )}
-            </div>
+                    <NavLink
+                      to="/maintenance/jobs"
+                      style={({ isActive }) => ({
+                        ...navLinkStyle(isActive),
+                        display: 'block',
+                        marginRight: 0
+                      })}
+                    >
+                      Maintenance Jobs
+                    </NavLink>
+                    <NavLink
+                      to="/maintenance/contractor-sign-in"
+                      style={({ isActive }) => ({
+                        ...navLinkStyle(isActive),
+                        display: 'block',
+                        marginRight: 0
+                      })}
+                    >
+                      Contractor Sign In
+                    </NavLink>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {isStaffPage && (
