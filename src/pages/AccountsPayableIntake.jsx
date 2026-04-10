@@ -105,7 +105,8 @@ export default function AccountsPayableIntake() {
       <h1 style={{ marginTop: 0 }}>Inbound Email Setup</h1>
       <p style={{ color: 'var(--muted)', marginBottom: 32 }}>
         Since you already use Twilio, you have access to <strong>SendGrid</strong> at the same account.
-        Follow these steps to start receiving invoices by email.
+        Follow these steps to start receiving invoices by email. The PDF will be stored automatically
+        and you can then manually enter the invoice details from the Accounts Payable page.
       </p>
 
       {/* ── Live status panel ── */}
@@ -136,7 +137,8 @@ export default function AccountsPayableIntake() {
               <StatusDot ok={true} />
               <strong>Last invoice received:</strong>
               <span style={{ color: 'var(--muted)', marginLeft: 6 }}>
-                {latestInvoice.subject || latestInvoice.invoiceNumber || latestInvoice.id}
+                {latestInvoice.subject || latestInvoice.id}
+                {latestInvoice.hasPdf ? ' · PDF attached' : ' · No PDF'}
                 {' · '}
                 {latestInvoice.receivedAt ? new Date(latestInvoice.receivedAt).toLocaleString() : ''}
               </span>
@@ -200,7 +202,8 @@ export default function AccountsPayableIntake() {
             </button>
             <Code>{webhookUrl}</Code>
           </li>
-          <li>Tick: <strong>POST the raw, full MIME message</strong></li>
+          <li>Tick: <strong>Check incoming emails for spam</strong> (optional)</li>
+          <li>Leave <strong>"POST the raw, full MIME message"</strong> unchecked (either mode works, but unchecked is recommended)</li>
         </ul>
       </Step>
 
@@ -228,7 +231,8 @@ export default function AccountsPayableIntake() {
           </button>
         </div>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>
-          After sending, the invoice should appear in the <strong>Overview</strong> table within seconds.
+          After sending, the invoice should appear in the <strong>Accounts Payable</strong> table within seconds.
+          Click into it to view the PDF and manually enter the invoice details.
           Use the <em>Send Test Webhook POST</em> button above to verify connectivity without needing a real email first.
         </p>
       </Step>

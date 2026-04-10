@@ -3,107 +3,12 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 import { Readable } from 'node:stream';
+import pdfParse from 'pdf-parse';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
   if (!value) return '';
   return value.replace(/^gs:\/\//i, '').replace(/\/+$/, '');
-}
-
-function stripHtml(html = '') {
-  return String(html || '')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-async function loadPdfParser() {
-  const candidates = ['pdf-parse', 'pdf-parse/lib/pdf-parse.js'];
-  for (const name of candidates) {
-    try {
-      const mod = await import(name);
-      const parser = mod?.default || mod;
-      if (typeof parser === 'function') return parser;
-    } catch {
-      // Try the next candidate import path.
-    }
-  }
-  throw new Error('PDF parser module failed to load. Ensure pdf-parse is installed.');
-}
-
-async function extractPdfText(buffer) {
-  if (!buffer || !buffer.length) return '';
-  const pdfParse = await loadPdfParser();
-  const parsed = await pdfParse(buffer, { max: 8 });
-  return (parsed?.text || '').trim();
-}
-
-function normalizeExtractionText(text = '') {
-  return String(text || '')
-    .replace(/\r/g, '\n')
-    .replace(/\u00a0/g, ' ')
-    .replace(/\t/g, ' ')
-    .replace(/[ ]{2,}/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function getMeaningfulLines(text = '') {
-  return normalizeExtractionText(text)
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
-}
-
-function parseMoney(value) {
-  if (!value) return null;
-  const cleaned = String(value).replace(/[^\d.,-]/g, '').replace(/,(?=\d{3}(\D|$))/g, '');
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function matchFirst(text, patterns) {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) return match[1].trim();
-  }
-  return null;
-}
-
-function inferSupplierFromLines(lines = []) {
-  const blocked = /^(invoice|bill|statement|date|due date|invoice date|invoice number|page|amount|total|balance|remit|ship to|bill to)\b/i;
-  for (const line of lines.slice(0, 12)) {
-    if (line.length < 3 || line.length > 80) continue;
-    if (!/[A-Za-z]/.test(line)) continue;
-    if (blocked.test(line)) continue;
-    return line;
-  }
-  return null;
-}
-
-function extractLineItems(text = '') {
-  const lineItems = [];
-  const lines = getMeaningfulLines(text);
-  const numericTail = /(.*?)\s+(\d+(?:\.\d+)?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s+\$?([\d,]+(?:\.\d{1,2})?)$/;
-
-  for (const line of lines) {
-    const match = line.match(numericTail);
-    if (!match) continue;
-
-    const description = match[1].trim();
-    if (!description || description.length < 2) continue;
-
-    lineItems.push({
-      description,
-      quantity: Number.parseFloat(match[2]),
-      unitPrice: parseMoney(match[3]),
-      total: parseMoney(match[4]),
-    });
-  }
-
-  return lineItems.slice(0, 50);
 }
 
 function getFirebaseAdminServices() {
@@ -118,7 +23,6 @@ function getFirebaseAdminServices() {
       } catch {
         throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON');
       }
-
       initializeApp({
         credential: cert(parsed),
         ...(storageBucket ? { storageBucket } : {}),
@@ -133,7 +37,6 @@ function getFirebaseAdminServices() {
           'Missing Firebase Admin credentials. Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY.'
         );
       }
-
       initializeApp({
         credential: cert({ projectId, clientEmail, privateKey }),
         ...(storageBucket ? { storageBucket } : {}),
@@ -149,28 +52,50 @@ function getFirebaseAdminServices() {
 
     const app = getApps()[0];
     const projectId = app?.options?.projectId || process.env.FIREBASE_PROJECT_ID;
-    if (projectId) return getStorage().bucket(`${projectId}.appspot.com`);
+    if (projectId) return getStorage().bucket(`${projectId}.firebasestorage.app`);
 
     throw new Error(
-      'Missing FIREBASE_STORAGE_BUCKET. Set FIREBASE_STORAGE_BUCKET to your bucket (for example: your-project.appspot.com).'
+      'Missing FIREBASE_STORAGE_BUCKET. Set FIREBASE_STORAGE_BUCKET to your bucket (e.g. your-project.firebasestorage.app).'
     );
   };
 
   return { db, getBucket };
 }
 
-/** Parse multipart/form-data from the raw request */
-function extractFilesFromParsedBody(body, existingFields = {}) {
+/** Read the entire raw request body as a Buffer. */
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    if (req.rawBody != null) {
+      if (Buffer.isBuffer(req.rawBody) && req.rawBody.length > 0) return resolve(req.rawBody);
+      if (typeof req.rawBody === 'string' && req.rawBody.length > 0)
+        return resolve(Buffer.from(req.rawBody, 'binary'));
+    }
+    if (Buffer.isBuffer(req.body) && req.body.length > 0) return resolve(req.body);
+    if (typeof req.body === 'string' && req.body.length > 0)
+      return resolve(Buffer.from(req.body, 'binary'));
+    if (typeof req.on === 'function' && !req.readableEnded && !req.destroyed) {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      req.on('end', () => resolve(Buffer.concat(chunks)));
+      req.on('error', reject);
+      return;
+    }
+    resolve(Buffer.alloc(0));
+  });
+}
+
+function extractFilesFromParsedBody(body) {
   if (!body || typeof body !== 'object' || Buffer.isBuffer(body)) return [];
 
-  const fields = { ...existingFields };
   const files = [];
+  let attachmentInfo = {};
+  const rawInfo = body['attachment-info'];
+  if (typeof rawInfo === 'string') {
+    try { attachmentInfo = JSON.parse(rawInfo); } catch { /* ignore */ }
+  }
 
   for (const [key, value] of Object.entries(body)) {
-    if (!/^attachment\d+$/i.test(key)) {
-      if (typeof value === 'string' && !(key in fields)) fields[key] = value;
-      continue;
-    }
+    if (!/^attachment\d+$/i.test(key)) continue;
 
     let buffer = null;
     if (Buffer.isBuffer(value)) {
@@ -182,32 +107,22 @@ function extractFilesFromParsedBody(body, existingFields = {}) {
         try {
           const decoded = Buffer.from(trimmed, 'base64');
           if (decoded.length > 0) buffer = decoded;
-        } catch {
-          // ignore decode failure and fall back to binary
-        }
+        } catch { /* ignore */ }
       }
       if (!buffer) buffer = Buffer.from(value, 'binary');
     }
 
-    if (buffer?.length) files.push({ name: key, buffer, info: {} });
-  }
-
-  let attachmentInfo = {};
-  const rawInfo = fields['attachment-info'] || body['attachment-info'];
-  if (typeof rawInfo === 'string') {
-    try {
-      attachmentInfo = JSON.parse(rawInfo);
-    } catch {
-      // attachment-info is optional and sometimes malformed
+    if (buffer?.length) {
+      const meta = attachmentInfo[key] || {};
+      files.push({
+        name: key,
+        buffer,
+        info: {
+          filename: meta.filename || `${key}.bin`,
+          mimeType: meta.type || meta.contentType || 'application/octet-stream',
+        },
+      });
     }
-  }
-
-  for (const file of files) {
-    const meta = attachmentInfo[file.name] || {};
-    file.info = {
-      filename: meta.filename || `${file.name}.bin`,
-      mimeType: meta.type || meta.contentType || 'application/octet-stream',
-    };
   }
 
   return files;
@@ -220,74 +135,229 @@ function isPdfFileCandidate(file) {
   const buf = file.buffer;
   const hasPdfSignature = Buffer.isBuffer(buf)
     && buf.length >= 5
-    && buf[0] === 0x25 // %
-    && buf[1] === 0x50 // P
-    && buf[2] === 0x44 // D
-    && buf[3] === 0x46 // F
-    && buf[4] === 0x2d; // -
-
+    && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2d;
   return mimeType.includes('pdf') || filename.endsWith('.pdf') || hasPdfSignature;
 }
 
 /**
- * Capture a diagnostic snapshot of the raw request body state.
- * Saved to every Firestore invoice doc under rawBodyDiag so we can
- * debug body-parsing failures without guessing.
+ * Extract PDF attachments from a raw MIME email string.
+ * SendGrid sends this in the `email` field when "POST the raw, full MIME message" is enabled.
+ * In that mode, attachments are NOT posted as separate form fields — they're base64-encoded
+ * inside the MIME body.
  */
-function captureRawBodyDiag(req) {
-  const body = req.body;
-  return {
-    bodyTypeof: typeof body,
-    bodyIsBuffer: Buffer.isBuffer(body),
-    bodyIsNull: body === null,
-    bodyIsUndefined: body === undefined,
-    bodyBufferLength: Buffer.isBuffer(body) ? body.length : null,
-    bodyStringLength: typeof body === 'string' ? body.length : null,
-    bodyObjectKeys: (body && typeof body === 'object' && !Buffer.isBuffer(body))
-      ? Object.keys(body).slice(0, 30) : null,
-    rawBodyPropExists: 'rawBody' in req,
-    rawBodyLength: (req.rawBody != null)
-      ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.length : String(req.rawBody).length) : null,
-    readableEnded: req.readableEnded ?? null,
-    destroyed: req.destroyed ?? null,
-    hasOnFn: typeof req.on === 'function',
-    hasPipeFn: typeof req.pipe === 'function',
-    contentType: req.headers?.['content-type'] || null,
-    contentLength: req.headers?.['content-length'] || null,
-  };
+function extractPdfsFromRawMime(rawMime) {
+  const files = [];
+  if (!rawMime || typeof rawMime !== 'string') return files;
+
+  // Find the top-level MIME boundary
+  const boundaryMatch = rawMime.match(/Content-Type:\s*multipart\/mixed;\s*boundary="?([^\s"]+)"?/i);
+  if (!boundaryMatch) return files;
+
+  const boundary = boundaryMatch[1];
+  const parts = rawMime.split('--' + boundary);
+
+  for (const part of parts) {
+    // Look for PDF parts
+    const ctMatch = part.match(/Content-Type:\s*(application\/pdf|application\/octet-stream)[^\r\n]*/i);
+    if (!ctMatch) continue;
+
+    const isPdf = /application\/pdf/i.test(ctMatch[1]);
+    const dispMatch = part.match(/Content-Disposition:\s*attachment;\s*filename="?([^"\r\n]+)"?/i);
+    const filename = dispMatch ? dispMatch[1].trim() : 'attachment.pdf';
+
+    // If content-type is octet-stream, only include if filename ends with .pdf
+    if (!isPdf && !filename.toLowerCase().endsWith('.pdf')) continue;
+
+    const encodingMatch = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+    const encoding = encodingMatch ? encodingMatch[1].toLowerCase() : '7bit';
+
+    // The body starts after the first blank line (double CRLF or double LF)
+    const bodyStart = part.match(/\r?\n\r?\n/);
+    if (!bodyStart) continue;
+
+    const bodyText = part.slice(bodyStart.index + bodyStart[0].length).trim();
+    if (!bodyText) continue;
+
+    let buffer;
+    if (encoding === 'base64') {
+      // Strip whitespace and decode
+      const cleaned = bodyText.replace(/[\r\n\s]/g, '');
+      buffer = Buffer.from(cleaned, 'base64');
+    } else {
+      buffer = Buffer.from(bodyText, 'binary');
+    }
+
+    if (buffer.length > 0) {
+      files.push({
+        name: filename,
+        buffer,
+        info: { filename, mimeType: 'application/pdf' },
+      });
+    }
+  }
+
+  return files;
 }
 
 /**
- * Read the entire raw request body as a Buffer.
- * Tries four strategies in order of reliability:
- *   1. req.rawBody  — some Vercel/custom middleware pre-buffers here
- *   2. req.body Buffer — Vercel Node.js runtime sometimes exposes raw bytes here
- *   3. req.body string — binary or base64 stringified body
- *   4. Live stream  — req.on('data') / req.on('end')
+ * Attempt to parse a commission invoice PDF in the standard travel-agent format.
+ * Returns { parsed: true, invoiceType, supplier, invoiceNumber, invoiceDate, lineItems }
+ * or { parsed: false } if the format doesn't match.
  */
-function readRawBody(req) {
-  return new Promise((resolve, reject) => {
-    // Strategy 1: req.rawBody (set by some Vercel middleware / express raw-body)
-    if (req.rawBody != null) {
-      if (Buffer.isBuffer(req.rawBody) && req.rawBody.length > 0) return resolve(req.rawBody);
-      if (typeof req.rawBody === 'string' && req.rawBody.length > 0)
-        return resolve(Buffer.from(req.rawBody, 'binary'));
+async function parseCommissionInvoice(pdfBuffer) {
+  try {
+    const data = await pdfParse(pdfBuffer);
+    const text = data.text || '';
+    if (!text) return { parsed: false };
+
+    // Check if this looks like a commission invoice (standard "Tax Invoice Number PG.XXXX for Creditor" format)
+    const invoiceNumMatch = text.match(/Tax Invoice Number\s+(PG[.\d]+)\s+for Creditor/i);
+    if (!invoiceNumMatch) return { parsed: false };
+
+    const invoiceNumber = invoiceNumMatch[1];
+
+    // Extract invoice date — look for a date pattern like "Wednesday 01 April 2026" or "dd/mm/yy"
+    // The date line is usually near the top of the document
+    let invoiceDate = '';
+    const longDateMatch = text.match(
+      /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i
+    );
+    if (longDateMatch) {
+      const months = { january:'01', february:'02', march:'03', april:'04', may:'05', june:'06',
+                        july:'07', august:'08', september:'09', october:'10', november:'11', december:'12' };
+      const d = longDateMatch[1].padStart(2, '0');
+      const m = months[longDateMatch[2].toLowerCase()];
+      const y = longDateMatch[3];
+      invoiceDate = `${y}-${m}-${d}`; // YYYY-MM-DD for <input type="date">
     }
-    // Strategy 2: req.body as Buffer
-    if (Buffer.isBuffer(req.body) && req.body.length > 0) return resolve(req.body);
-    // Strategy 3: req.body as string
-    if (typeof req.body === 'string' && req.body.length > 0)
-      return resolve(Buffer.from(req.body, 'binary'));
-    // Strategy 4: live stream
-    if (typeof req.on === 'function' && !req.readableEnded && !req.destroyed) {
-      const chunks = [];
-      req.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
-      req.on('end', () => resolve(Buffer.concat(chunks)));
-      req.on('error', reject);
-      return;
+
+    // Extract travel agent / account name from EFT section
+    let supplier = '';
+    const accountNameMatch = text.match(/Account\s*name:\s*(.+?)(?:\n|BSB|$)/i);
+    if (accountNameMatch) {
+      supplier = accountNameMatch[1].trim();
     }
-    resolve(Buffer.alloc(0));
-  });
+    // Fallback: look for company name in the footer area or header
+    if (!supplier) {
+      const footerNameMatch = text.match(/^([A-Z][A-Za-z\s&]+(?:Pty|Ltd|Group|Management|Travel)[^\n]*)/m);
+      if (footerNameMatch) supplier = footerNameMatch[1].trim();
+    }
+
+    // Parse the tabular data — pdf-parse extracts each field on its own line,
+    // so we collect multi-line blocks between "HTL" markers.
+    // Each record is roughly: HTL, DocNum, ClientProfile, CreditorInvoice,
+    // TransDate, BookDate, CreditorNett, Paid, Due, Consultant, BookingNum, Reference, DepDate
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+    const lineItems = [];
+    let idx = 0;
+    while (idx < lines.length) {
+      if (lines[idx] !== 'HTL') { idx++; continue; }
+
+      // Collect lines for this record until the next HTL or a known boundary
+      const block = [];
+      let j = idx + 1;
+      while (j < lines.length && lines[j] !== 'HTL'
+        && !/^(SEG|Total for|Page \d|Head Office|Please pay)/i.test(lines[j])) {
+        block.push(lines[j]);
+        j++;
+      }
+      idx = j;
+
+      const blockText = block.join(' ');
+
+      // Guest name: HARVEY/ANNIE MRS or DEWITT/HOWARD MR
+      const clientMatch = blockText.match(/([A-Z]+\/[A-Z]+\s+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/i);
+      const guestName = clientMatch ? formatGuestName(clientMatch[1]) : '';
+
+      // Booking number: use the Reference column (follows B.XXXXXXX in the block)
+      const refMatch = blockText.match(/B\.\d{7,}\s+(\d{5,})/);
+      const bookingNumber = refMatch ? refMatch[1] : '';
+
+      // Dates (dd/mm/yy) — typically TransDate, BookDate, DepDate; departure is last
+      const dateMatches = [...blockText.matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map(m => m[1]);
+      const departureDate = dateMatches.length >= 1
+        ? parseDateDdMmYy(dateMatches[dateMatches.length - 1])
+        : '';
+
+      // Monetary values (numbers with exactly 2 decimal places)
+      const moneyMatches = [...blockText.matchAll(/\b(\d[\d,]*\.\d{2})\b/g)].map(m =>
+        parseFloat(m[1].replace(/,/g, ''))
+      );
+      // First 3 values are: Creditor Nett, Paid, Due (extra values may leak from totals row)
+      let reservationTotal = 0;
+      let totalCommission = 0;
+      if (moneyMatches.length >= 3) {
+        reservationTotal = moneyMatches[1]; // Paid
+        totalCommission = moneyMatches[2];  // Due
+      } else if (moneyMatches.length === 2) {
+        reservationTotal = moneyMatches[0];
+        totalCommission = moneyMatches[1];
+      }
+
+      const commissionPercent = reservationTotal > 0
+        ? parseFloat(((totalCommission / reservationTotal) * 100).toFixed(2))
+        : 0;
+
+      if (guestName || bookingNumber || totalCommission > 0) {
+        lineItems.push({
+          guestName,
+          bookingNumber,
+          departureDate,
+          reservationTotal,
+          commissionPercent,
+          totalCommission,
+          status: 'pending',
+        });
+      }
+    }
+
+    if (lineItems.length === 0) return { parsed: false };
+
+    console.log(`Commission invoice parsed: ${invoiceNumber}, ${supplier}, ${lineItems.length} items`);
+
+    return {
+      parsed: true,
+      invoiceType: 'commission',
+      supplier,
+      invoiceNumber,
+      invoiceDate,
+      lineItems,
+      confirmedAmount: lineItems.reduce((sum, i) => sum + (i.totalCommission || 0), 0),
+    };
+  } catch (err) {
+    console.error('Commission invoice parse error:', err?.message);
+    return { parsed: false };
+  }
+}
+
+/** Convert "HARVEY/ANNIE MRS" → "Annie Harvey" */
+function formatGuestName(raw) {
+  if (!raw) return '';
+  // Remove title suffix
+  const withoutTitle = raw.replace(/\s+(MR|MRS|MS|MISS|DR|PROF|MX)S?\s*$/i, '').trim();
+  const parts = withoutTitle.split('/');
+  if (parts.length === 2) {
+    const surname = parts[0].trim();
+    const first = parts[1].trim();
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+    return `${cap(first)} ${cap(surname)}`;
+  }
+  return withoutTitle;
+}
+
+/** Convert "20/10/25" or "06/12/24" → "2025-10-20" (YYYY-MM-DD) */
+function parseDateDdMmYy(str) {
+  if (!str) return '';
+  const parts = str.split('/');
+  if (parts.length !== 3) return '';
+  const dd = parts[0].padStart(2, '0');
+  const mm = parts[1].padStart(2, '0');
+  let yy = parts[2];
+  if (yy.length === 2) {
+    yy = parseInt(yy) > 50 ? '19' + yy : '20' + yy;
+  }
+  return `${yy}-${mm}-${dd}`;
 }
 
 function parseMultipart(req) {
@@ -295,63 +365,33 @@ function parseMultipart(req) {
     const contentType = req.headers?.['content-type'] || '';
 
     if (!contentType.toLowerCase().includes('multipart/form-data')) {
-      // Non-multipart: use whatever Vercel already parsed
       const body = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
         ? req.body : {};
-      return resolve({
-        fields: body,
-        files: extractFilesFromParsedBody(body),
-        parseMeta: {
-          path: 'non-multipart',
-          bodyKeysCount: Object.keys(body).length,
-        },
-      });
+      return resolve({ fields: body, files: extractFilesFromParsedBody(body) });
     }
 
-    // ── Priority 1: Vercel may have already pre-parsed the multipart body into a
-    //    plain object (it does this for payloads under its size threshold).  When
-    //    that happens the raw stream is already consumed, so we must use the
-    //    pre-parsed object directly rather than trying to re-read the stream.
+    // Vercel may have pre-parsed multipart into an object
     if (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)) {
       const keys = Object.keys(req.body);
-      // If any recognised SendGrid or form fields are present, trust this object.
       const hasSendGridFields = keys.some((k) =>
         ['from', 'to', 'subject', 'text', 'html', 'attachments', 'attachment1',
          'dkim', 'charsets', 'sender_ip', 'envelope'].includes(k)
       );
       if (hasSendGridFields || keys.length > 0) {
-        return resolve({
-          fields: req.body,
-          files: extractFilesFromParsedBody(req.body),
-          parseMeta: {
-            path: 'preparsed-object',
-            bodyKeysCount: keys.length,
-            bodyKeysSample: keys.slice(0, 20),
-          },
-        });
+        return resolve({ fields: req.body, files: extractFilesFromParsedBody(req.body) });
       }
     }
 
-    // ── Priority 2: Try to read raw bytes and feed them to Busboy
+    // Read raw bytes and feed to Busboy
     let rawBuffer;
     try { rawBuffer = await readRawBody(req); } catch (err) { return reject(err); }
 
     if (!rawBuffer || rawBuffer.length === 0) {
-      // Last-resort fallback: use whatever is in req.body
       const fallback = (typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body))
         ? req.body : {};
-      return resolve({
-        fields: fallback,
-        files: extractFilesFromParsedBody(fallback),
-        parseMeta: {
-          path: 'raw-empty-fallback-object',
-          rawBufferLength: 0,
-          fallbackKeysCount: Object.keys(fallback).length,
-        },
-      });
+      return resolve({ fields: fallback, files: extractFilesFromParsedBody(fallback) });
     }
 
-    // Feed raw bytes into Busboy
     const fields = {};
     const files = [];
     const bb = Busboy({ headers: req.headers });
@@ -367,16 +407,7 @@ function parseMultipart(req) {
     const done = () => {
       if (settled) return;
       settled = true;
-      resolve({
-        fields,
-        files,
-        parseMeta: {
-          path: 'raw-buffer-busboy',
-          rawBufferLength: rawBuffer.length,
-          parsedFieldCount: Object.keys(fields).length,
-          parsedFileCount: files.length,
-        },
-      });
+      resolve({ fields, files });
     };
 
     bb.on('close', done);
@@ -390,374 +421,161 @@ function parseMultipart(req) {
   });
 }
 
-/** Extract fields from travel-agent commission invoices (New World Travel, similar formats). */
-function extractTravelAgentInvoice(text) {
-  const normalized = normalizeExtractionText(text);
-
-  // Invoice number: "Tax Invoice Number PG.0000000074"
-  const invoiceNumber = matchFirst(normalized, [
-    /Tax Invoice Number\s+([A-Z0-9][A-Z0-9./\-]+)/i,
-    /Invoice Number\s+([A-Z0-9][A-Z0-9./\-]+)/i,
-  ]);
-
-  // Date from header e.g. "Wednesday 01 April 2026 09:57"
-  const invoiceDate = matchFirst(normalized, [
-    /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2}\s+\w+\s+\d{4})/i,
-    /invoice\s*date\s*[:\-]?\s*(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/i,
-  ]);
-
-  // Supplier from EFT account name (the travel agency)
-  const supplier = matchFirst(normalized, [
-    /Account name:\s*(.+)/i,
-  ]);
-
-  // Totals row: "Total for THE ROYCE  271.80  302.00  30.20"  (Nett, Paid, Due/Commission)
-  const totalsMatch = normalized.match(/Total(?:\s+for\s+[A-Z\s]+?)?\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/i);
-  const totalNett       = totalsMatch ? parseMoney(totalsMatch[1]) : null;
-  const totalPaid       = totalsMatch ? parseMoney(totalsMatch[2]) : null;
-  const totalCommission = totalsMatch ? parseMoney(totalsMatch[3]) : null;
-
-  // Line items — each booking row: SEG DocNum BookNum Consultant ClientProfile ... TransDate BookDate DepDate Nett Paid Due
-  const lineItems = [];
-  const rowRe = /\b(HTL|FLT|CAR|TRN|CRU|INS|PKG|ACT)\b\s+(R\.[A-Z0-9]+)\s+(B\.[A-Z0-9]+)\s+(\S+)\s+(.+?)\s+(\S+)\s+(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})\s+(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})\s+(\d{2}[\/\-]\d{2}[\/\-]\d{2,4})\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)\s+([\d,]+\.?\d*)/gi;
-  let m;
-  while ((m = rowRe.exec(normalized)) !== null) {
-    lineItems.push({
-      type:            m[1].toUpperCase(),
-      documentNumber:  m[2],
-      bookingNumber:   m[3],
-      consultant:      m[4],
-      clientName:      m[5].trim(),
-      reference:       m[6],
-      transactionDate: m[7],
-      bookingDate:     m[8],
-      departureDate:   m[9],
-      creditorNett:    parseMoney(m[10]),
-      paid:            parseMoney(m[11]),
-      commission:      parseMoney(m[12]),
-    });
-  }
-
-  // Primary booking number from first line item or standalone pattern
-  const bookingNumber = lineItems[0]?.bookingNumber
-    || matchFirst(normalized, [/\b(B\.[A-Z0-9]+)/i]);
-
-  // Client name(s)
-  const clientNames = [...new Set(lineItems.map(i => i.clientName).filter(Boolean))];
-
-  // Amount to display = commission due (what the hotel owes the agent)
-  const parsedAmount = totalCommission ?? totalPaid ?? totalNett;
-
-  return {
-    invoiceNumber,
-    invoiceDate,
-    supplier,
-    bookingNumber,
-    clientNames,
-    totalNett,
-    totalPaid,
-    totalCommission,
-    parsedAmount,
-    lineItems,
-    invoiceType: 'travel-agent',
-  };
-}
-
-/** Generic heuristic extraction for non-travel-agent invoices. */
-function extractGenericInvoiceFields(text = '') {
-  const normalized = normalizeExtractionText(text);
-  const lines = getMeaningfulLines(normalized);
-
-  const invoiceNumber = matchFirst(normalized, [
-    /invoice\s*(?:no\.?|number|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]+)/i,
-    /inv\s*(?:no\.?|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]+)/i,
-    /reference\s*(?:no\.?|#)?\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-\/]+)/i,
-  ]);
-
-  const invoiceDate = matchFirst(normalized, [
-    /invoice\s*date\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
-    /date\s*issued\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
-    /issue\s*date\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
-    /(?:^|\n)date\s*[:\-]?\s*(\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4})/i,
-  ]);
-
-  const supplier = matchFirst(normalized, [
-    /supplier\s*[:\-]?\s*(.+)/i,
-    /vendor\s*[:\-]?\s*(.+)/i,
-    /from\s*[:\-]?\s*(.+)/i,
-    /bill\s*from\s*[:\-]?\s*(.+)/i,
-  ]) || inferSupplierFromLines(lines);
-
-  const amountLabelValue = matchFirst(normalized, [
-    /balance\s*due\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /amount\s*due\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /total\s*due\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /invoice\s*total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /grand\s*total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-    /total\s*[:\-]?\s*\$?([\d,]+(?:\.\d{1,2})?)/i,
-  ]);
-  let parsedAmount = parseMoney(amountLabelValue);
-
-  // Fallback for formats that don't label totals clearly.
-  if (parsedAmount == null) {
-    const tail = lines.slice(-30).join('\n');
-    const moneyMatches = [...tail.matchAll(/\$?([\d,]+\.\d{2})/g)]
-      .map((m) => parseMoney(m[1]))
-      .filter((v) => v != null);
-    if (moneyMatches.length) {
-      parsedAmount = Math.max(...moneyMatches);
-    }
-  }
-
-  const lineItems = extractLineItems(normalized);
-
-  return { invoiceNumber, invoiceDate, supplier, parsedAmount, lineItems };
-}
-
-function isTravelAgentInvoice(text = '') {
-  return /Tax Invoice Number\s+[A-Z0-9./\-]+\s+for Creditor/i.test(text)
-    || /Account name:.*Travel/i.test(text)
-    || /\b(HTL|FLT|CAR|TRN|CRU)\s+R\.[A-Z0-9]+\s+B\.[A-Z0-9]+/i.test(text);
-}
-
-function scoreParsedCandidate(parsed = {}) {
-  let score = 0;
-  if (parsed.invoiceNumber) score += 2;
-  if (parsed.invoiceDate) score += 1;
-  if (parsed.supplier) score += 1;
-  if (parsed.parsedAmount != null) score += 2;
-  if (Array.isArray(parsed.lineItems) && parsed.lineItems.length > 0) {
-    score += Math.min(2, parsed.lineItems.length > 2 ? 2 : 1);
-  }
-  if (parsed.invoiceType === 'travel-agent' && parsed.totalCommission != null) score += 1;
-  return score;
-}
-
-function mergeParsedCandidates(primary = {}, secondary = {}) {
-  const merged = { ...primary };
-
-  for (const key of Object.keys(secondary)) {
-    const cur = merged[key];
-    const next = secondary[key];
-    const curEmpty = cur == null || cur === '' || (Array.isArray(cur) && cur.length === 0);
-    if (curEmpty && next != null && next !== '') merged[key] = next;
-  }
-
-  if (Array.isArray(primary.lineItems) || Array.isArray(secondary.lineItems)) {
-    const a = Array.isArray(primary.lineItems) ? primary.lineItems : [];
-    const b = Array.isArray(secondary.lineItems) ? secondary.lineItems : [];
-    merged.lineItems = a.length >= b.length ? a : b;
-  }
-
-  return merged;
-}
-
-function extractInvoiceFields(text = '') {
-  const normalized = normalizeExtractionText(text);
-  const generic = extractGenericInvoiceFields(normalized);
-
-  if (!isTravelAgentInvoice(normalized)) {
-    return generic;
-  }
-
-  const travel = extractTravelAgentInvoice(normalized);
-  const travelScore = scoreParsedCandidate(travel);
-  const genericScore = scoreParsedCandidate(generic);
-
-  if (travelScore >= genericScore) {
-    return mergeParsedCandidates(travel, generic);
-  }
-  return mergeParsedCandidates(generic, travel);
-}
-
-function extractInvoiceFieldsDetailed(text = '') {
-  const normalized = normalizeExtractionText(text);
-  const generic = extractGenericInvoiceFields(normalized);
-  const travelDetected = isTravelAgentInvoice(normalized);
-
-  if (!travelDetected) {
-    return {
-      parsed: generic,
-      debug: {
-        parserUsed: 'generic',
-        travelDetected: false,
-        genericScore: scoreParsedCandidate(generic),
-        travelScore: null,
-      },
-    };
-  }
-
-  const travel = extractTravelAgentInvoice(normalized);
-  const travelScore = scoreParsedCandidate(travel);
-  const genericScore = scoreParsedCandidate(generic);
-  const parserUsed = travelScore >= genericScore ? 'travel-agent' : 'generic';
-  const parsed = parserUsed === 'travel-agent'
-    ? mergeParsedCandidates(travel, generic)
-    : mergeParsedCandidates(generic, travel);
-
-  return {
-    parsed,
-    debug: {
-      parserUsed,
-      travelDetected: true,
-      genericScore,
-      travelScore,
-    },
-  };
-}
-
-// Tell Vercel NOT to consume/parse the request body before our handler runs.
-// Without this, the raw multipart stream is drained before Busboy can read it.
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
+  // Log immediately so we can confirm the function is being hit
+  console.log('AP webhook hit:', req.method, '| content-type:', req.headers?.['content-type']?.slice(0, 100));
+
+  if (req.method === 'GET') {
+    // Health check endpoint — useful for verifying the function is deployed
+    return res.status(200).json({ ok: true, endpoint: 'ap-webhook', timestamp: new Date().toISOString() });
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Optional: verify SendGrid shared secret
   const secret = req.headers['x-sendgrid-secret'];
   if (process.env.SENDGRID_WEBHOOK_SECRET && secret !== process.env.SENDGRID_WEBHOOK_SECRET) {
+    console.log('AP webhook: auth failed');
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    const rawBodyDiag = captureRawBodyDiag(req);
     const { db, getBucket } = getFirebaseAdminServices();
-    const { fields, files, parseMeta } = await parseMultipart(req);
 
-    // SendGrid Inbound Parse field names
-    // https://docs.sendgrid.com/for-developers/parsing-email/setting-up-the-inbound-parse-webhook
-    const fromEmail  = fields.from    || 'unknown';
-    const subject    = fields.subject || '';
-    const bodyText   = fields.text    || '';   // plain text body
-    const bodyHtml   = fields.html    || '';   // html body (fallback)
-    const toEmail    = fields.to      || '';
-    const senderIp   = fields.sender_ip || '';
-    const attachmentsDeclared = Number.parseInt(String(fields.attachments || 0), 10) || 0;
-    const attachmentFieldKeys = Object.keys(fields).filter((k) => /^attachment\d+$/i.test(k));
-    const contentType = req.headers?.['content-type'] || '';
-
-    // attachments are named attachment1, attachment2, etc. by SendGrid
-    const pdf = files.find((f) => isPdfFileCandidate(f));
-
-    if (!pdf) {
-      console.warn('AP webhook: no PDF in email from', fromEmail, '| subject:', subject);
-      // Still save the email record so staff can see it arrived without an attachment
-      const fallbackText = [bodyText, stripHtml(bodyHtml), subject].filter(Boolean).join('\n');
-      const detailed = extractInvoiceFieldsDetailed(fallbackText);
-      const parsed = detailed.parsed;
-      const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
-        .filter(value => value !== null && value !== undefined && value !== '').length;
+    let fields, files;
+    try {
+      const parsed = await parseMultipart(req);
+      fields = parsed.fields;
+      files = parsed.files;
+    } catch (parseErr) {
+      console.error('AP webhook: multipart parse failed:', parseErr?.message);
+      // Still save a record so the user knows an email arrived
       await db.collection('ap_invoices').add({
-        fromEmail, subject, toEmail, senderIp,
-        pdfUrl: null,
+        fromEmail: 'unknown (parse failed)',
+        subject: '',
+        toEmail: '',
         storagePath: null,
+        originalFilename: null,
         receivedAt: new Date().toISOString(),
         status: 'pending',
+        supplier: null,
+        invoiceNumber: null,
+        invoiceDate: null,
         department: null,
         confirmedAmount: null,
-        warning: 'No PDF attachment found',
-        parseSource: 'email-only-no-pdf',
-        parsePreview: fallbackText.slice(0, 2000),
-        pdfTextLength: 0,
-        parsedFieldCount,
-        parseWarning: 'No PDF attachment found. Parsed from email body/subject only.',
-        parseDebug: {
-          ...detailed.debug,
-          rawBodyDiag,
-          multipartMeta: parseMeta,
-          noPdfReason: 'No attachment matched PDF checks (mimeType contains pdf, filename .pdf, or %PDF signature).',
-          contentType,
-          attachmentsDeclared,
-          attachmentFieldKeys,
-          parsedFilesCount: files.length,
-          parsedFileMeta: files.slice(0, 5).map((f) => ({
-            name: f.name || null,
-            filename: f.info?.filename || null,
-            mimeType: f.info?.mimeType || null,
-            size: f.buffer?.length || 0,
-          })),
-          sourceLengths: {
-            bodyText: String(bodyText || '').length,
-            bodyHtml: String(bodyHtml || '').length,
-            subject: String(subject || '').length,
-            combined: fallbackText.length,
-          },
+        paidDate: null,
+        lineItems: [],
+        notes: '',
+        hasPdf: false,
+        pdfSource: null,
+        _diag: {
+          error: 'multipart parse failed',
+          message: parseErr?.message,
+          contentType: req.headers?.['content-type']?.slice(0, 200) || null,
+          bodyType: typeof req.body,
+          bodyIsBuffer: Buffer.isBuffer(req.body),
+          bodyIsNull: req.body === null || req.body === undefined,
+          bodyLength: Buffer.isBuffer(req.body) ? req.body.length : (typeof req.body === 'string' ? req.body.length : null),
+          bodyKeys: (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) ? Object.keys(req.body).slice(0, 20) : null,
         },
-        ...parsed,
       });
-      return res.status(200).json({ received: true, warning: 'No PDF attachment' });
+      return res.status(200).json({ received: true, warning: 'Parse failed, saved placeholder' });
     }
 
-    // Upload PDF to Firebase Storage
-    const bucket      = getBucket();
-    const timestamp   = Date.now();
-    const fileName    = pdf.info?.filename || 'invoice.pdf';
-    const safeName    = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `ap_invoices/${timestamp}_${safeName}`;
-    const file        = bucket.file(storagePath);
+    const fromEmail = fields.from || 'unknown';
+    const subject   = fields.subject || '';
+    const toEmail   = fields.to || '';
 
-    await file.save(pdf.buffer, { contentType: 'application/pdf', resumable: false });
-    // PDFs are kept private; access is via the /api/pdf-link endpoint which enforces retention.
-    const pdfUrl = null; // resolved on demand
-    let pdfText = '';
-    try {
-      pdfText = await extractPdfText(pdf.buffer);
-    } catch (parseErr) {
-      console.warn('AP webhook: PDF text extraction failed:', parseErr?.message || parseErr);
+    // Diagnostics: log what SendGrid actually sent
+    const fieldKeys = Object.keys(fields);
+    const hasRawMime = typeof fields.email === 'string' && fields.email.length > 0;
+    const attachmentFieldKeys = fieldKeys.filter(k => /^attachment\d+$/i.test(k));
+    const diag = {
+      fieldKeys: fieldKeys.slice(0, 30),
+      fileCount: files.length,
+      attachmentFieldKeys,
+      hasRawMimeEmail: hasRawMime,
+      rawMimeLength: hasRawMime ? fields.email.length : 0,
+      contentType: req.headers?.['content-type']?.slice(0, 120) || null,
+      bodyType: typeof req.body,
+      bodyIsBuffer: Buffer.isBuffer(req.body),
+      fileMeta: files.slice(0, 5).map(f => ({
+        name: f.name,
+        filename: f.info?.filename,
+        mimeType: f.info?.mimeType,
+        size: f.buffer?.length,
+      })),
+    };
+    console.log('AP webhook diag:', JSON.stringify(diag));
+
+    // Strategy 1: Look for PDF in parsed attachment fields (SendGrid default/parsed mode)
+    let pdf = files.find((f) => isPdfFileCandidate(f));
+    let pdfSource = pdf ? 'parsed-attachment' : null;
+
+    // Strategy 2: If no PDF found, try extracting from raw MIME email field
+    // (SendGrid raw mode: "POST the raw, full MIME message" is ticked)
+    if (!pdf && hasRawMime) {
+      console.log('AP webhook: No parsed attachments found, trying raw MIME extraction...');
+      const mimePdfs = extractPdfsFromRawMime(fields.email);
+      if (mimePdfs.length > 0) {
+        pdf = mimePdfs[0];
+        pdfSource = 'raw-mime';
+        console.log('AP webhook: Extracted PDF from raw MIME:', pdf.info?.filename, pdf.buffer?.length, 'bytes');
+      }
     }
 
-    const parseSourceText = [
-      pdfText,
-      bodyText,
-      stripHtml(bodyHtml),
+    let storagePath = null;
+    let originalFilename = null;
+
+    if (pdf) {
+      const bucket    = getBucket();
+      const timestamp = Date.now();
+      const fileName  = pdf.info?.filename || 'invoice.pdf';
+      const safeName  = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      storagePath     = `ap_invoices/${timestamp}_${safeName}`;
+      originalFilename = fileName;
+
+      const file = bucket.file(storagePath);
+      await file.save(pdf.buffer, { contentType: 'application/pdf', resumable: false });
+    }
+
+    // Attempt to parse commission invoice data from the PDF
+    let parsedInvoice = { parsed: false };
+    if (pdf?.buffer) {
+      try {
+        parsedInvoice = await parseCommissionInvoice(pdf.buffer);
+      } catch (parseErr) {
+        console.error('AP webhook: PDF parse attempt failed:', parseErr?.message);
+      }
+    }
+
+    const docData = {
+      fromEmail,
       subject,
-    ].filter(Boolean).join('\n');
-    const detailed = extractInvoiceFieldsDetailed(parseSourceText);
-    const parsed = detailed.parsed;
-    const parsedFieldCount = [parsed.invoiceNumber, parsed.invoiceDate, parsed.supplier, parsed.parsedAmount]
-      .filter(value => value !== null && value !== undefined && value !== '').length;
-    const parseWarning = pdfText
-      ? (parsedFieldCount === 0 ? 'PDF text extracted, but no invoice fields matched current parser heuristics.' : null)
-      : 'No extractable text found in PDF. This usually means the PDF is image-based/scanned and needs OCR.';
-
-    const docRef = await db.collection('ap_invoices').add({
-      fromEmail, subject, toEmail, senderIp,
-      pdfUrl,
+      toEmail,
       storagePath,
-      originalFilename: fileName,
+      originalFilename,
       receivedAt: new Date().toISOString(),
-      status: 'pending',
-      department: null,
-      confirmedAmount: null,
-      parseSource: pdfText ? 'pdf+email' : 'email',
-      parsePreview: parseSourceText.slice(0, 2000),
-      pdfTextLength: pdfText.length,
-      parsedFieldCount,
-      parseWarning,
-      parseDebug: {
-        ...detailed.debug,
-        rawBodyDiag,
-        multipartMeta: parseMeta,
-        parsedFilesCount: files.length,
-        parsedFileMeta: files.slice(0, 5).map((f) => ({
-          name: f.name || null,
-          filename: f.info?.filename || null,
-          mimeType: f.info?.mimeType || null,
-          size: f.buffer?.length || 0,
-        })),
-        sourceLengths: {
-          pdfText: pdfText.length,
-          bodyText: String(bodyText || '').length,
-          bodyHtml: String(bodyHtml || '').length,
-          subject: String(subject || '').length,
-          combined: parseSourceText.length,
-        },
-      },
-      ...parsed,
-    });
+      invoiceType: parsedInvoice.parsed ? parsedInvoice.invoiceType : null,
+      supplier: parsedInvoice.parsed ? parsedInvoice.supplier : null,
+      invoiceNumber: parsedInvoice.parsed ? parsedInvoice.invoiceNumber : null,
+      invoiceDate: parsedInvoice.parsed ? parsedInvoice.invoiceDate : null,
+      department: parsedInvoice.parsed && parsedInvoice.invoiceType === 'commission' ? 'Reservations' : null,
+      confirmedAmount: parsedInvoice.parsed ? parsedInvoice.confirmedAmount : null,
+      paidDate: null,
+      lineItems: parsedInvoice.parsed ? parsedInvoice.lineItems : [],
+      notes: '',
+      hasPdf: !!pdf,
+      pdfSource,
+      autoParsed: parsedInvoice.parsed,
+      _diag: diag,
+    };
 
-    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail);
-    return res.status(200).json({ received: true, invoiceId: docRef.id });
+    const docRef = await db.collection('ap_invoices').add(docData);
+
+    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail, '| pdf:', !!pdf, '| source:', pdfSource, '| autoParsed:', parsedInvoice.parsed);
+    return res.status(200).json({ received: true, invoiceId: docRef.id, hasPdf: !!pdf, pdfSource, autoParsed: parsedInvoice.parsed });
 
   } catch (err) {
     console.error('AP webhook error:', err);
