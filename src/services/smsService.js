@@ -3,9 +3,10 @@ import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 const DEFAULT_SMS_TEMPLATES = {
-  welcome: "Welcome to The Royce Hotel. Your valet tag is #[TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [LINK]",
-  vehicleReady: 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+  welcome: "Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [VALET_LINK]",
+  vehicleReady: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
   roomReady: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+  departure: 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
 };
 
 const SETTINGS_CACHE_TTL_MS = 60 * 1000;
@@ -109,6 +110,9 @@ const getSmsTemplates = async () => {
       roomReady: typeof data.smsRoomReadyTemplate === 'string' && data.smsRoomReadyTemplate.trim()
         ? data.smsRoomReadyTemplate
         : DEFAULT_SMS_TEMPLATES.roomReady,
+      departure: typeof data.smsDepartureTemplate === 'string' && data.smsDepartureTemplate.trim()
+        ? data.smsDepartureTemplate
+        : DEFAULT_SMS_TEMPLATES.departure,
     };
 
     smsTemplateCache = {
@@ -186,8 +190,9 @@ export async function sendWelcomeSMS(phone, tag) {
   const guestLink = `${appOrigin}/guest/${encodeURIComponent(guestToken)}`;
   const templates = await getSmsTemplates();
   const message = sanitizeMessage(applySmsTemplate(templates.welcome, {
-    TAG: tag,
-    LINK: guestLink,
+    VALET_TAG: tag,
+    ARR_TAGS: tag,
+    VALET_LINK: guestLink,
   }));
 
   console.log('Attempting to send SMS to:', phone.replace(/\d(?=\d{4})/g, '*'));
@@ -232,7 +237,7 @@ export async function sendVehicleReadySMS(phone, tag) {
   checkRateLimit(phone);
   const templates = await getSmsTemplates();
   const message = sanitizeMessage(applySmsTemplate(templates.vehicleReady, {
-    TAG: tag,
+    VALET_TAG: tag,
   }));
 
   try {
@@ -294,6 +299,47 @@ export async function sendRoomReadySMS(phone, roomNumber) {
     return { success: true, messageSid: data.messageSid, status: data.status };
   } catch (error) {
     console.error('Error sending SMS:', error);
+    throw error;
+  }
+}
+
+export async function sendDepartureSMS(phone, tagList) {
+  if (!validatePhoneNumber(phone)) {
+    throw new Error('Invalid phone number format');
+  }
+
+  const cleanTagList = String(tagList || '').trim();
+  if (!cleanTagList) {
+    throw new Error('Tag list is required');
+  }
+
+  checkRateLimit(phone);
+  const templates = await getSmsTemplates();
+  const message = sanitizeMessage(applySmsTemplate(templates.departure, {
+    DEP_TAGS: cleanTagList,
+  }));
+
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        to: phone,
+        message,
+      }),
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Failed to send SMS');
+    }
+
+    return { success: true, messageSid: data.messageSid, status: data.status };
+  } catch (error) {
+    console.error('Error sending departure SMS:', error);
     throw error;
   }
 }

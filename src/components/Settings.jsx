@@ -6,9 +6,10 @@ import { countryCodes } from '../utils/countryCodes'
 import CountryCodeSelect from './CountryCodeSelect'
 import Modal from './Modal'
 
-const DEFAULT_SMS_WELCOME_TEMPLATE = "Welcome to The Royce Hotel. Your valet tag is #[TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [LINK]"
-const DEFAULT_SMS_VEHICLE_READY_TEMPLATE = 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!'
+const DEFAULT_SMS_WELCOME_TEMPLATE = "Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [VALET_LINK]"
+const DEFAULT_SMS_VEHICLE_READY_TEMPLATE = 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!'
 const DEFAULT_SMS_ROOM_READY_TEMPLATE = 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.'
+const DEFAULT_SMS_DEPARTURE_TEMPLATE = 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.'
 
 const getPrimaryCode = (codeStr) => String(codeStr || '').split(',')[0]?.trim() || ''
 
@@ -142,6 +143,7 @@ export default function Settings({open = false, onClose, asPage = false}){
     smsWelcomeTemplate: DEFAULT_SMS_WELCOME_TEMPLATE,
     smsVehicleReadyTemplate: DEFAULT_SMS_VEHICLE_READY_TEMPLATE,
     smsRoomReadyTemplate: DEFAULT_SMS_ROOM_READY_TEMPLATE,
+    smsDepartureTemplate: DEFAULT_SMS_DEPARTURE_TEMPLATE,
   })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
@@ -160,6 +162,7 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [smsWelcomeTemplateInput, setSmsWelcomeTemplateInput] = useState(DEFAULT_SMS_WELCOME_TEMPLATE)
   const [smsVehicleReadyTemplateInput, setSmsVehicleReadyTemplateInput] = useState(DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
   const [smsRoomReadyTemplateInput, setSmsRoomReadyTemplateInput] = useState(DEFAULT_SMS_ROOM_READY_TEMPLATE)
+  const [smsDepartureTemplateInput, setSmsDepartureTemplateInput] = useState(DEFAULT_SMS_DEPARTURE_TEMPLATE)
   const [smsTemplateSuccess, setSmsTemplateSuccess] = useState(false)
   const [smsTemplateError, setSmsTemplateError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -249,6 +252,10 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setSmsRoomReadyTemplateInput(settings.smsRoomReadyTemplate || DEFAULT_SMS_ROOM_READY_TEMPLATE)
   }, [settings.smsRoomReadyTemplate])
+
+  useEffect(() => {
+    setSmsDepartureTemplateInput(settings.smsDepartureTemplate || DEFAULT_SMS_DEPARTURE_TEMPLATE)
+  }, [settings.smsDepartureTemplate])
 
   // Debug function to check user document
   useEffect(() => {
@@ -637,13 +644,14 @@ export default function Settings({open = false, onClose, asPage = false}){
       const welcome = String(smsWelcomeTemplateInput || '').trim()
       const vehicleReady = String(smsVehicleReadyTemplateInput || '').trim()
       const roomReady = String(smsRoomReadyTemplateInput || '').trim()
+      const departure = String(smsDepartureTemplateInput || '').trim()
 
-      if (!welcome || !vehicleReady || !roomReady) {
+      if (!welcome || !vehicleReady || !roomReady || !departure) {
         setSmsTemplateError('All SMS templates are required.')
         return
       }
 
-      if (welcome.length > 1600 || vehicleReady.length > 1600 || roomReady.length > 1600) {
+      if (welcome.length > 1600 || vehicleReady.length > 1600 || roomReady.length > 1600 || departure.length > 1600) {
         setSmsTemplateError('Each template must be 1600 characters or fewer.')
         return
       }
@@ -652,6 +660,7 @@ export default function Settings({open = false, onClose, asPage = false}){
         smsWelcomeTemplate: welcome,
         smsVehicleReadyTemplate: vehicleReady,
         smsRoomReadyTemplate: roomReady,
+        smsDepartureTemplate: departure,
       })
       setSmsTemplateSuccess(true)
       setTimeout(() => setSmsTemplateSuccess(false), 3000)
@@ -958,12 +967,12 @@ export default function Settings({open = false, onClose, asPage = false}){
                 Configure guest-facing SMS content. Variables are replaced automatically when sent.
               </p>
               <p style={{marginBottom: 10, fontSize: 13, color: '#4b5563'}}>
-                Available variables: <strong>[TAG]</strong>, <strong>[LINK]</strong>, <strong>[ROOM_NUMBER]</strong>
+                Available variables: <strong>[VALET_TAG]</strong>, <strong>[VALET_LINK]</strong>, <strong>[ROOM_NUMBER]</strong>, <strong>[DEP_TAGS]</strong>, <strong>[ARR_TAGS]</strong>
               </p>
 
               <div style={{display: 'grid', gap: 10}}>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Welcome SMS</label>
+                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Valet Welcome SMS</label>
                   <textarea
                     value={smsWelcomeTemplateInput}
                     onChange={(e) => setSmsWelcomeTemplateInput(e.target.value)}
@@ -987,6 +996,16 @@ export default function Settings({open = false, onClose, asPage = false}){
                   <textarea
                     value={smsRoomReadyTemplateInput}
                     onChange={(e) => setSmsRoomReadyTemplateInput(e.target.value)}
+                    rows={3}
+                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Departure Luggage SMS</label>
+                  <textarea
+                    value={smsDepartureTemplateInput}
+                    onChange={(e) => setSmsDepartureTemplateInput(e.target.value)}
                     rows={3}
                     style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
                   />

@@ -10,7 +10,7 @@ import {
   getSettings,
   getLuggageAuditLog,
 } from '../services/valetFirestore';
-import { sendRoomReadySMS, sendSMS } from '../services/smsService';
+import { sendDepartureSMS, sendRoomReadySMS } from '../services/smsService';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
 import { formatPhoneNumber } from '../utils/phoneFormatter';
@@ -166,7 +166,7 @@ export default function Luggage() {
         const tagList = (newLuggage.tags || []).join(', ');
         if (formattedPhone && tagList) {
           try {
-            await sendSMS(formattedPhone, `Your bags are in very good company.\nTag numbers: ${tagList}.\nGo explore, indulge, wander — we’ll mind the details.`);
+            await sendDepartureSMS(formattedPhone, tagList);
             await updateLuggage(docId, { tagMessageSent: true });
             showToast('Departure luggage created and tag reminder SMS sent.');
           } catch (error) {
