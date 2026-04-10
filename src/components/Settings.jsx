@@ -6,6 +6,10 @@ import { countryCodes } from '../utils/countryCodes'
 import CountryCodeSelect from './CountryCodeSelect'
 import Modal from './Modal'
 
+const DEFAULT_SMS_WELCOME_TEMPLATE = "Welcome to The Royce Hotel. Your valet tag is #[TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [LINK]"
+const DEFAULT_SMS_VEHICLE_READY_TEMPLATE = 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!'
+const DEFAULT_SMS_ROOM_READY_TEMPLATE = 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.'
+
 const getPrimaryCode = (codeStr) => String(codeStr || '').split(',')[0]?.trim() || ''
 
 const resolveCountryCode = (value) => {
@@ -129,7 +133,16 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [changePasswordData, setChangePasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState(false)
-  const [settings, setSettings] = useState({ timezone: 'America/Los_Angeles', contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90, guestLinkRetentionDays: 2 })
+  const [settings, setSettings] = useState({
+    timezone: 'America/Los_Angeles',
+    contractorPhotoRetentionDays: 7,
+    vehiclePhotoRetentionDays: 7,
+    pdfRetentionDays: 90,
+    guestLinkRetentionDays: 2,
+    smsWelcomeTemplate: DEFAULT_SMS_WELCOME_TEMPLATE,
+    smsVehicleReadyTemplate: DEFAULT_SMS_VEHICLE_READY_TEMPLATE,
+    smsRoomReadyTemplate: DEFAULT_SMS_ROOM_READY_TEMPLATE,
+  })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
   const [retentionDaysInput, setRetentionDaysInput] = useState('7')
@@ -144,6 +157,11 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [guestLinkRetentionDaysInput, setGuestLinkRetentionDaysInput] = useState('2')
   const [guestLinkRetentionSuccess, setGuestLinkRetentionSuccess] = useState(false)
   const [guestLinkRetentionError, setGuestLinkRetentionError] = useState('')
+  const [smsWelcomeTemplateInput, setSmsWelcomeTemplateInput] = useState(DEFAULT_SMS_WELCOME_TEMPLATE)
+  const [smsVehicleReadyTemplateInput, setSmsVehicleReadyTemplateInput] = useState(DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
+  const [smsRoomReadyTemplateInput, setSmsRoomReadyTemplateInput] = useState(DEFAULT_SMS_ROOM_READY_TEMPLATE)
+  const [smsTemplateSuccess, setSmsTemplateSuccess] = useState(false)
+  const [smsTemplateError, setSmsTemplateError] = useState('')
   const [loading, setLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(false)
   
@@ -219,6 +237,18 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setGuestLinkRetentionDaysInput(String(settings.guestLinkRetentionDays || 2))
   }, [settings.guestLinkRetentionDays])
+
+  useEffect(() => {
+    setSmsWelcomeTemplateInput(settings.smsWelcomeTemplate || DEFAULT_SMS_WELCOME_TEMPLATE)
+  }, [settings.smsWelcomeTemplate])
+
+  useEffect(() => {
+    setSmsVehicleReadyTemplateInput(settings.smsVehicleReadyTemplate || DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
+  }, [settings.smsVehicleReadyTemplate])
+
+  useEffect(() => {
+    setSmsRoomReadyTemplateInput(settings.smsRoomReadyTemplate || DEFAULT_SMS_ROOM_READY_TEMPLATE)
+  }, [settings.smsRoomReadyTemplate])
 
   // Debug function to check user document
   useEffect(() => {
@@ -599,6 +629,38 @@ export default function Settings({open = false, onClose, asPage = false}){
     }
   }
 
+  async function handleSaveSmsTemplates() {
+    try {
+      setSmsTemplateError('')
+      setSmsTemplateSuccess(false)
+
+      const welcome = String(smsWelcomeTemplateInput || '').trim()
+      const vehicleReady = String(smsVehicleReadyTemplateInput || '').trim()
+      const roomReady = String(smsRoomReadyTemplateInput || '').trim()
+
+      if (!welcome || !vehicleReady || !roomReady) {
+        setSmsTemplateError('All SMS templates are required.')
+        return
+      }
+
+      if (welcome.length > 1600 || vehicleReady.length > 1600 || roomReady.length > 1600) {
+        setSmsTemplateError('Each template must be 1600 characters or fewer.')
+        return
+      }
+
+      await updateSettings({
+        smsWelcomeTemplate: welcome,
+        smsVehicleReadyTemplate: vehicleReady,
+        smsRoomReadyTemplate: roomReady,
+      })
+      setSmsTemplateSuccess(true)
+      setTimeout(() => setSmsTemplateSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating SMS templates:', err)
+      setSmsTemplateError('Failed to update SMS templates.')
+    }
+  }
+
   async function handleChangePassword(e) {
     e.preventDefault()
     setPasswordError('')
@@ -888,6 +950,61 @@ export default function Settings({open = false, onClose, asPage = false}){
               {guestLinkRetentionSuccess && (
                 <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Guest link retention updated successfully!</div>
               )}
+            </div>
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Guest SMS Templates</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                Configure guest-facing SMS content. Variables are replaced automatically when sent.
+              </p>
+              <p style={{marginBottom: 10, fontSize: 13, color: '#4b5563'}}>
+                Available variables: <strong>[TAG]</strong>, <strong>[LINK]</strong>, <strong>[ROOM_NUMBER]</strong>
+              </p>
+
+              <div style={{display: 'grid', gap: 10}}>
+                <div>
+                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Welcome SMS</label>
+                  <textarea
+                    value={smsWelcomeTemplateInput}
+                    onChange={(e) => setSmsWelcomeTemplateInput(e.target.value)}
+                    rows={4}
+                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Vehicle Ready SMS</label>
+                  <textarea
+                    value={smsVehicleReadyTemplateInput}
+                    onChange={(e) => setSmsVehicleReadyTemplateInput(e.target.value)}
+                    rows={3}
+                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
+                  />
+                </div>
+
+                <div>
+                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Room Ready SMS</label>
+                  <textarea
+                    value={smsRoomReadyTemplateInput}
+                    onChange={(e) => setSmsRoomReadyTemplateInput(e.target.value)}
+                    rows={3}
+                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
+                  />
+                </div>
+
+                <div className="row" style={{gap: 8, alignItems: 'center'}}>
+                  <button type="button" className="btn secondary" onClick={handleSaveSmsTemplates}>
+                    Save Templates
+                  </button>
+                </div>
+
+                {smsTemplateError && (
+                  <div style={{color: '#ff4444', fontSize: 12}}>{smsTemplateError}</div>
+                )}
+                {smsTemplateSuccess && (
+                  <div style={{color: '#4CAF50', fontSize: 12}}>SMS templates updated successfully!</div>
+                )}
+              </div>
             </div>
             </div>
           </section>

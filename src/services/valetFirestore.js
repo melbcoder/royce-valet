@@ -58,6 +58,15 @@ export async function getSettings() {
         guestLinkRetentionDays: Number.isInteger(data.guestLinkRetentionDays)
           ? data.guestLinkRetentionDays
           : 2,
+        smsWelcomeTemplate: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
+          ? data.smsWelcomeTemplate
+          : 'Welcome to The Royce Hotel. Your valet tag is #[TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [LINK]',
+        smsVehicleReadyTemplate: typeof data.smsVehicleReadyTemplate === 'string' && data.smsVehicleReadyTemplate.trim()
+          ? data.smsVehicleReadyTemplate
+          : 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+        smsRoomReadyTemplate: typeof data.smsRoomReadyTemplate === 'string' && data.smsRoomReadyTemplate.trim()
+          ? data.smsRoomReadyTemplate
+          : 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
       };
     }
     // Return defaults if no settings exist
@@ -67,10 +76,22 @@ export async function getSettings() {
       vehiclePhotoRetentionDays: 7,
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
+      smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [LINK]',
+      smsVehicleReadyTemplate: 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+      smsRoomReadyTemplate: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
     };
   } catch (error) {
     console.error("Error getting settings:", error);
-    return { timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90, guestLinkRetentionDays: 2 };
+    return {
+      timezone: "Australia/Melbourne",
+      contractorPhotoRetentionDays: 7,
+      vehiclePhotoRetentionDays: 7,
+      pdfRetentionDays: 90,
+      guestLinkRetentionDays: 2,
+      smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [LINK]',
+      smsVehicleReadyTemplate: 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+      smsRoomReadyTemplate: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+    };
   }
 }
 
@@ -102,9 +123,27 @@ export function subscribeSettings(callback) {
         guestLinkRetentionDays: Number.isInteger(data.guestLinkRetentionDays)
           ? data.guestLinkRetentionDays
           : 2,
+        smsWelcomeTemplate: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
+          ? data.smsWelcomeTemplate
+          : 'Welcome to The Royce Hotel. Your valet tag is #[TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [LINK]',
+        smsVehicleReadyTemplate: typeof data.smsVehicleReadyTemplate === 'string' && data.smsVehicleReadyTemplate.trim()
+          ? data.smsVehicleReadyTemplate
+          : 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+        smsRoomReadyTemplate: typeof data.smsRoomReadyTemplate === 'string' && data.smsRoomReadyTemplate.trim()
+          ? data.smsRoomReadyTemplate
+          : 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
       });
     } else {
-      callback({ timezone: "Australia/Melbourne", contractorPhotoRetentionDays: 7, vehiclePhotoRetentionDays: 7, pdfRetentionDays: 90, guestLinkRetentionDays: 2 });
+      callback({
+        timezone: "Australia/Melbourne",
+        contractorPhotoRetentionDays: 7,
+        vehiclePhotoRetentionDays: 7,
+        pdfRetentionDays: 90,
+        guestLinkRetentionDays: 2,
+        smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [LINK]',
+        smsVehicleReadyTemplate: 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+        smsRoomReadyTemplate: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+      });
     }
   });
 }

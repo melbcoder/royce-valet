@@ -1,5 +1,18 @@
 // SMS Service - Frontend interface for sending SMS via Twilio
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+
+const DEFAULT_SMS_TEMPLATES = {
+  welcome: "Welcome to The Royce Hotel. Your valet tag is #[TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [LINK]",
+  vehicleReady: 'Your vehicle (#[TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+  roomReady: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+};
+
+const SETTINGS_CACHE_TTL_MS = 60 * 1000;
+let smsTemplateCache = {
+  expiresAt: 0,
+  templates: DEFAULT_SMS_TEMPLATES,
+};
 
 // ⚠️ SECURITY WARNING: Client-side rate limiting can be bypassed
 // Implement server-side rate limiting in your /api/send-sms endpoint
@@ -66,6 +79,54 @@ const checkRateLimit = (phone) => {
   smsRateLimit.set(key, recentAttempts);
 };
 
+const applySmsTemplate = (template, variables = {}) => {
+  const source = String(template || '');
+  return source.replace(/\[([A-Z_]+)\]/gi, (full, variableName) => {
+    const key = String(variableName || '').toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(variables, key)) {
+      return String(variables[key] ?? '');
+    }
+    return full;
+  });
+};
+
+const getSmsTemplates = async () => {
+  const now = Date.now();
+  if (smsTemplateCache.expiresAt > now) {
+    return smsTemplateCache.templates;
+  }
+
+  try {
+    const settingsSnap = await getDoc(doc(db, 'settings', 'app'));
+    const data = settingsSnap.exists() ? (settingsSnap.data() || {}) : {};
+    const templates = {
+      welcome: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
+        ? data.smsWelcomeTemplate
+        : DEFAULT_SMS_TEMPLATES.welcome,
+      vehicleReady: typeof data.smsVehicleReadyTemplate === 'string' && data.smsVehicleReadyTemplate.trim()
+        ? data.smsVehicleReadyTemplate
+        : DEFAULT_SMS_TEMPLATES.vehicleReady,
+      roomReady: typeof data.smsRoomReadyTemplate === 'string' && data.smsRoomReadyTemplate.trim()
+        ? data.smsRoomReadyTemplate
+        : DEFAULT_SMS_TEMPLATES.roomReady,
+    };
+
+    smsTemplateCache = {
+      expiresAt: now + SETTINGS_CACHE_TTL_MS,
+      templates,
+    };
+
+    return templates;
+  } catch (error) {
+    console.warn('Failed to load SMS templates from settings, using defaults:', error);
+    smsTemplateCache = {
+      expiresAt: now + 10 * 1000,
+      templates: DEFAULT_SMS_TEMPLATES,
+    };
+    return DEFAULT_SMS_TEMPLATES;
+  }
+};
+
 const getAuthHeaders = async () => {
   const currentUser = auth.currentUser;
   if (!currentUser) {
@@ -123,9 +184,11 @@ export async function sendWelcomeSMS(phone, tag) {
   
   const guestToken = await getGuestAccessLink(tag);
   const guestLink = `${appOrigin}/guest/${encodeURIComponent(guestToken)}`;
-  // const from = 'The Royce';
-
-  const message = sanitizeMessage(`Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`);
+  const templates = await getSmsTemplates();
+  const message = sanitizeMessage(applySmsTemplate(templates.welcome, {
+    TAG: tag,
+    LINK: guestLink,
+  }));
 
   console.log('Attempting to send SMS to:', phone.replace(/\d(?=\d{4})/g, '*'));
   
@@ -167,8 +230,10 @@ export async function sendVehicleReadySMS(phone, tag) {
   }
 
   checkRateLimit(phone);
-
-  const message = sanitizeMessage(`Your vehicle (#${tag}) is ready at the driveway. Thank you for choosing The Royce Hotel!`);
+  const templates = await getSmsTemplates();
+  const message = sanitizeMessage(applySmsTemplate(templates.vehicleReady, {
+    TAG: tag,
+  }));
 
   try {
     const headers = await getAuthHeaders();
@@ -202,8 +267,10 @@ export async function sendRoomReadySMS(phone, roomNumber) {
   }
 
   checkRateLimit(phone);
-
-  const message = sanitizeMessage(`Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.`);
+  const templates = await getSmsTemplates();
+  const message = sanitizeMessage(applySmsTemplate(templates.roomReady, {
+    ROOM_NUMBER: roomNumber,
+  }));
 
   try {
     const headers = await getAuthHeaders();
