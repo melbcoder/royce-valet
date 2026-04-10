@@ -56,6 +56,7 @@ const AVAILABLE_PAGES = [
   { id: 'amenities', label: 'Amenities', icon: '🎁' },
   { id: 'amenities-history', label: 'Amenities History', icon: '📋' },
   { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
+  { id: 'accounts-payable', label: 'Accounts Payable', icon: '💰' },
 ]
 
 // Group permissions by section
@@ -95,6 +96,15 @@ const AVAILABLE_SECTIONS = [
       { id: 'maintenance', label: 'Maintenance' },
       { id: 'maintenance/jobs', label: 'Maintenance Jobs' },
       { id: 'maintenance/contractor-sign-in', label: 'Contractor Sign In' },
+    ],
+  },
+  {
+    id: 'accounts-payable-section',
+    label: 'Accounts Payable',
+    icon: '💰',
+    pages: [
+      { id: 'accounts-payable', label: 'Accounts Payable' },
+      { id: 'accounts-payable/intake', label: 'AP Intake' },
     ],
   },
 ]
