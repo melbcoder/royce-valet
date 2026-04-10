@@ -2,20 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { getCurrentUser } from '../services/valetFirestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export default function ProtectedRoute({ children, requiredPage }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
+  const [isAuthorized, setIsAuthorized] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAuthenticated(!!user);
-      setLoading(false);
+    let active = true;
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!active) return;
+
+      if (!user) {
+        setIsAuthenticated(false);
+        setIsAuthorized(false);
+        setLoading(false);
+        return;
+      }
+
+      setIsAuthenticated(true);
+
+      if (!requiredPage) {
+        setIsAuthorized(true);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const isAdmin = userData?.role === 'admin';
+        const pages = Array.isArray(userData?.pages) ? userData.pages : [];
+        setIsAuthorized(isAdmin || pages.includes(requiredPage));
+      } catch (error) {
+        console.error('ProtectedRoute authorization check failed:', error);
+        setIsAuthorized(false);
+      } finally {
+        if (active) setLoading(false);
+      }
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [requiredPage]);
 
   // Show loading state while checking authentication
   if (loading) {
@@ -30,14 +64,8 @@ export default function ProtectedRoute({ children, requiredPage }) {
     return <Navigate to="/login" replace />;
   }
 
-  // Check page-level access if requiredPage is specified
-  if (requiredPage) {
-    const currentUser = getCurrentUser();
-    const isAdmin = currentUser?.role === 'admin';
-    const userPages = currentUser?.pages || [];
-    if (!isAdmin && !userPages.includes(requiredPage)) {
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (requiredPage && !isAuthorized) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

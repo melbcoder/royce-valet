@@ -383,6 +383,9 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }
   const [notes, setNotes] = useState(invoice.notes || '');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   const [supplierItems, setSupplierItems] = useState(
     invoice.invoiceType !== 'commission' && invoice.lineItems?.length
@@ -404,6 +407,58 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }
     : activeItems.filter(i => (i.description || '').trim());
   const approvedCount = filledItems.filter(i => i.status === 'approved').length;
   const totalItems = filledItems.length;
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPdfUrl() {
+      if (!invoice.storagePath) {
+        setPdfUrl('');
+        setPdfError('');
+        return;
+      }
+
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        if (active) {
+          setPdfError('Not authenticated');
+          setPdfUrl('');
+        }
+        return;
+      }
+
+      setPdfLoading(true);
+      setPdfError('');
+
+      try {
+        const idToken = await currentUser.getIdToken();
+        const res = await fetch(`/api/pdf-link?id=${encodeURIComponent(invoice.id)}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+          },
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data?.signedUrl) {
+          throw new Error(data?.error || 'Failed to load PDF');
+        }
+
+        if (active) setPdfUrl(data.signedUrl);
+      } catch (err) {
+        if (active) {
+          setPdfUrl('');
+          setPdfError(err?.message || 'Failed to load PDF');
+        }
+      } finally {
+        if (active) setPdfLoading(false);
+      }
+    }
+
+    loadPdfUrl();
+    return () => {
+      active = false;
+    };
+  }, [invoice.id, invoice.storagePath]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -494,11 +549,33 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <strong style={{ fontSize: 14 }}>PDF Attachment</strong>
-              <a href={`/api/pdf-link?id=${encodeURIComponent(invoice.id)}`} target="_blank" rel="noreferrer"
-                style={{ fontSize: 13, color: '#1e40af' }}>Open in new tab ↗</a>
+              {pdfUrl && (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  onClick={() => window.open(pdfUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  Open in new tab ↗
+                </button>
+              )}
             </div>
-            <iframe src={`/api/pdf-link?id=${encodeURIComponent(invoice.id)}`} title="Invoice PDF"
-              style={{ width: '100%', height: 400, border: '1px solid #ddd', borderRadius: 6, background: '#f5f5f5' }} />
+            {pdfLoading ? (
+              <div style={{ padding: 16, border: '1px solid #ddd', borderRadius: 6, color: 'var(--muted)' }}>
+                Loading PDF…
+              </div>
+            ) : pdfError ? (
+              <div style={{ padding: 16, border: '1px solid #fca5a5', borderRadius: 6, color: '#991b1b', background: '#fde8e8' }}>
+                {pdfError}
+              </div>
+            ) : pdfUrl ? (
+              <iframe src={pdfUrl} title="Invoice PDF"
+                style={{ width: '100%', height: 400, border: '1px solid #ddd', borderRadius: 6, background: '#f5f5f5' }} />
+            ) : (
+              <div style={{ padding: 16, border: '1px solid #ddd', borderRadius: 6, color: 'var(--muted)' }}>
+                Preparing PDF…
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ marginBottom: 16, padding: 16, background: '#fff8e6', border: '1px solid #f0d58a', borderRadius: 6, fontSize: 13, color: '#b45309' }}>

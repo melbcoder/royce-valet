@@ -1,4 +1,5 @@
 // SMS Service - Frontend interface for sending SMS via Twilio
+import { auth } from '../firebase';
 
 // ⚠️ SECURITY WARNING: Client-side rate limiting can be bypassed
 // Implement server-side rate limiting in your /api/send-sms endpoint
@@ -65,6 +66,35 @@ const checkRateLimit = (phone) => {
   smsRateLimit.set(key, recentAttempts);
 };
 
+const getAuthHeaders = async () => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('You must be signed in to send SMS');
+  }
+
+  const idToken = await currentUser.getIdToken();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${idToken}`,
+  };
+};
+
+const getGuestAccessLink = async (tag) => {
+  const headers = await getAuthHeaders();
+  const response = await fetch('/api/guest-access-token', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ tag: String(tag).trim() }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data?.token) {
+    throw new Error(data?.error || 'Failed to create guest link');
+  }
+
+  return data.token;
+};
+
 export async function sendWelcomeSMS(phone, tag) {
   // Input validation
   if (!validatePhoneNumber(phone)) {
@@ -85,9 +115,8 @@ export async function sendWelcomeSMS(phone, tag) {
     throw new Error('Invalid app URL configuration');
   }
   
-  // Ensure tag is properly encoded
-  const encodedTag = encodeURIComponent(String(tag));
-  const guestLink = `${appUrl}/guest/${encodedTag}`;
+  const guestToken = await getGuestAccessLink(tag);
+  const guestLink = `${appUrl}/guest/${encodeURIComponent(guestToken)}`;
   // const from = 'The Royce';
 
   const message = sanitizeMessage(`Welcome to The Royce Hotel. Your valet tag is #${tag} — we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: ${guestLink}`);
@@ -95,11 +124,10 @@ export async function sendWelcomeSMS(phone, tag) {
   console.log('Attempting to send SMS to:', phone.replace(/\d(?=\d{4})/g, '*'));
   
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch('/api/send-sms', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         to: phone,
         message: message,
@@ -137,11 +165,10 @@ export async function sendVehicleReadySMS(phone, tag) {
   const message = sanitizeMessage(`Your vehicle (#${tag}) is ready at the driveway. Thank you for choosing The Royce Hotel!`);
 
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch('/api/send-sms', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         to: phone,
         message: message,
@@ -173,11 +200,10 @@ export async function sendRoomReadySMS(phone, roomNumber) {
   const message = sanitizeMessage(`Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.`);
 
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch('/api/send-sms', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         to: phone,
         message: message,
@@ -217,11 +243,10 @@ export async function sendSMS(phone, message) {
   // Option 1: Using Firebase Functions (recommended for security)
   // Call a Cloud Function that handles SMS sending
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch('/api/send-sms', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         to: phone,
         message: sanitized,

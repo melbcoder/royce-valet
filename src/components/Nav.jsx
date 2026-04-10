@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { getCurrentUser } from '../services/valetFirestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 const TOKEN_TTL = 60; // seconds the QR code stays valid
 
@@ -29,11 +29,9 @@ export default function Nav() {
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [apOpen, setApOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userPages, setUserPages] = useState([]);
 
-  // Page access: read current user from localStorage
-  const currentUser = getCurrentUser();
-  const userPages = currentUser?.pages || [];
-  const isAdmin = currentUser?.role === 'admin';
   const hasAccess = (pageId) => isAdmin || userPages.includes(pageId);
 
   useEffect(() => {
@@ -147,10 +145,36 @@ export default function Nav() {
   useEffect(() => () => stopCountdown(), [stopCountdown]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let active = true;
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!active) return;
+
       setIsAuthenticated(!!user);
+      if (!user) {
+        setIsAdmin(false);
+        setUserPages([]);
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        if (!active) return;
+        setIsAdmin(userData?.role === 'admin');
+        setUserPages(Array.isArray(userData?.pages) ? userData.pages : []);
+      } catch (error) {
+        console.error('Failed to load user navigation permissions:', error);
+        if (!active) return;
+        setIsAdmin(false);
+        setUserPages([]);
+      }
     });
-    return () => unsubscribe();
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {

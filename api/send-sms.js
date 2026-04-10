@@ -1,3 +1,5 @@
+import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+
 // Vercel Serverless Function for sending SMS via Twilio
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -5,10 +7,45 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { to, message } = req.body;
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing authorization token' });
+  }
+
+  const idToken = authHeader.slice(7);
+
+  let decoded;
+  try {
+    decoded = await getAdminAuth().verifyIdToken(idToken);
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const userDoc = await getAdminFirestore().collection('users').doc(decoded.uid).get();
+  if (!userDoc.exists) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const userData = userDoc.data() || {};
+  const pages = Array.isArray(userData.pages) ? userData.pages : [];
+  const hasSmsAccess = userData.role === 'admin' || pages.some((p) => ['valet', 'luggage', 'amenities'].includes(p));
+  if (!hasSmsAccess) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const to = typeof req.body?.to === 'string' ? req.body.to.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
 
   if (!to || !message) {
     return res.status(400).json({ error: 'Missing required fields: to, message' });
+  }
+
+  if (!/^\+[1-9]\d{1,14}$/.test(to)) {
+    return res.status(400).json({ error: 'Invalid phone number format' });
+  }
+
+  if (message.length > 1600) {
+    return res.status(400).json({ error: 'Message is too long' });
   }
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -53,19 +90,13 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error('Twilio API error:', data);
-      return res.status(response.status).json({
-        error: 'Failed to send SMS',
-        details: data
-      });
+      return res.status(response.status).json({ error: 'Failed to send SMS' });
     }
 
     // Twilio can return 200 with error info embedded
     if (data.error_code || data.error_message || data.status === 'failed' || data.status === 'undelivered') {
       console.error('Twilio message failure:', data);
-      return res.status(502).json({
-        error: 'Failed to send SMS',
-        details: data
-      });
+      return res.status(502).json({ error: 'Failed to send SMS' });
     }
 
     return res.status(200).json({
@@ -75,9 +106,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error sending SMS:', error);
-    return res.status(500).json({ 
-      error: 'Failed to send SMS', 
-      details: error.message 
-    });
+    return res.status(500).json({ error: 'Failed to send SMS' });
   }
 }

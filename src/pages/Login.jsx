@@ -84,8 +84,9 @@ export default function Login() {
       return;
     }
     
-    if (!cleanPassword || cleanPassword.length < 6 || cleanPassword.length > 100) {
-      setError('Password must be 6-100 characters long.');
+    const minPasswordLength = isFirstSetup ? 12 : 6;
+    if (!cleanPassword || cleanPassword.length < minPasswordLength || cleanPassword.length > 100) {
+      setError(`Password must be ${minPasswordLength}-100 characters long.`);
       setLoading(false);
       return;
     }
@@ -99,26 +100,23 @@ export default function Login() {
     try {
       setDebugInfo('Checking if users exist...');
       
-      // If no users exist and default credentials are used, create default admin
-      if (isFirstSetup && cleanUsername === 'admin' && cleanPassword === 'admin123') {
-        setDebugInfo('Creating default admin account...');
-        
+      if (isFirstSetup) {
+        setDebugInfo('Creating initial admin account...');
+
         try {
-          await initializeDefaultAdmin();
-          setDebugInfo('Default admin created. Waiting for Firestore sync...');
-          
-          // Longer delay to ensure Firestore write completes
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          setDebugInfo('Attempting authentication...');
+          await initializeDefaultAdmin({
+            username: cleanUsername,
+            password: cleanPassword,
+          });
         } catch (createError) {
-          // If user already exists, continue with authentication
           if (createError.code !== 'auth/email-already-in-use') {
-            setError('Failed to create default admin: ' + createError.message);
-            setLoading(false);
-            return;
+            throw createError;
           }
         }
+
+        setDebugInfo('Admin account created. Waiting for Firestore sync...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsFirstSetup(false);
       }
 
       setDebugInfo('Authenticating user...');
@@ -144,12 +142,6 @@ export default function Login() {
         if (user.mustChangePassword === true) {
           window.location.href = '/force-change-password';
           return;
-        }
-        
-        // Check if this is default admin with default password
-        if (user.isDefaultAdmin && cleanUsername === 'admin' && cleanPassword === 'admin123') {
-          setError('');
-          alert('⚠️ SECURITY WARNING: You are using the default admin credentials. Please change your password immediately for security.');
         }
         
         const elapsed = Date.now() - startTime;
@@ -283,11 +275,10 @@ export default function Login() {
             border: '1px solid #2196F3'
           }}>
             <strong>First-time setup:</strong><br />
-            Username: <code>admin</code><br />
-            Password: <code>admin123</code><br />
+            The first successful login creates your initial admin account using the username and password entered below.
+            <br />
             <small style={{ color: '#666' }}>
-              This default account will be created automatically when you log in.<br />
-              Please create a second admin account afterward!
+              Use a strong password with at least 12 characters.
             </small>
           </div>
         )}

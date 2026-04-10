@@ -86,7 +86,7 @@ export default function App(){
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/force-change-password" element={<ForceChangePassword />} />
             <Route path="/qr-login" element={<QRLogin />} />
-            <Route path="/guest/:tag" element={<Guest />} />
+            <Route path="/guest/:accessToken" element={<Guest />} />
             <Route 
               path="/dashboard" 
               element={

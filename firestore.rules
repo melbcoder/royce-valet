@@ -41,9 +41,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
-    // Vehicles - public read for guest access
+    // Vehicles - authenticated staff access only
     match /vehicles/{vehicleId} {
-      allow read: if true;
+      allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }
     

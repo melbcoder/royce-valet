@@ -1,6 +1,5 @@
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -8,33 +7,21 @@ function normalizeBucketName(raw = '') {
   return value.replace(/^gs:\/\//i, '').replace(/\/+$/, '');
 }
 
-function getAdminServices() {
-  if (!getApps().length) {
-    const storageBucket = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET);
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-
-    if (serviceAccountJson) {
-      let parsed;
-      try { parsed = JSON.parse(serviceAccountJson); } catch { throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON'); }
-      initializeApp({ credential: cert(parsed), ...(storageBucket ? { storageBucket } : {}) });
-    } else {
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-      const projectId  = process.env.FIREBASE_PROJECT_ID;
-      const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-      if (!projectId || !clientEmail || !privateKey) throw new Error('Missing Firebase Admin credentials.');
-      initializeApp({ credential: cert({ projectId, clientEmail, privateKey }), ...(storageBucket ? { storageBucket } : {}) });
-    }
-  }
-
-  const db = getFirestore();
+function getBucket() {
   const bucketName = normalizeBucketName(process.env.FIREBASE_STORAGE_BUCKET)
     || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`;
-  const bucket = getStorage().bucket(bucketName);
-  return { db, bucket };
+  return getStorage().bucket(bucketName);
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing authorization token' });
+  }
+
+  const idToken = authHeader.slice(7);
 
   const { id } = req.query;
   if (!id || typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id)) {
@@ -42,7 +29,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { db, bucket } = getAdminServices();
+    const adminAuth = getAdminAuth();
+    const db = getAdminFirestore();
+    const bucket = getBucket();
+
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    const userDoc = await db.collection('users').doc(decoded.uid).get();
+    if (!userDoc.exists) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const userData = userDoc.data() || {};
+    const pages = Array.isArray(userData.pages) ? userData.pages : [];
+    const hasAccess = userData.role === 'admin' || pages.includes('accounts-payable');
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     // Fetch invoice and settings in parallel
     const [invoiceSnap, settingsSnap] = await Promise.all([
@@ -72,16 +73,20 @@ export default async function handler(req, res) {
 
     // Generate a short-lived signed URL (15 minutes)
     const file = bucket.file(invoice.storagePath);
+    const expiresAt = Date.now() + 15 * 60 * 1000;
     const [signedUrl] = await file.getSignedUrl({
       version: 'v4',
       action: 'read',
-      expires: Date.now() + 15 * 60 * 1000,
+      expires: expiresAt,
     });
 
-    return res.redirect(302, signedUrl);
+    return res.status(200).json({ signedUrl, expiresAt });
 
   } catch (err) {
     console.error('pdf-link error:', err);
-    return res.status(500).json({ error: 'Internal server error', detail: err?.message || 'Unknown error' });
+    if (err.code === 'auth/id-token-expired' || err.code === 'auth/argument-error') {
+      return res.status(401).json({ error: 'Session expired, please refresh the page' });
+    }
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

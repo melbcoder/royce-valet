@@ -483,23 +483,35 @@ export async function checkUsersExist() {
   return !snapshot.empty;
 }
 
-// Initialize default admin user
-export async function initializeDefaultAdmin() {
+// Initialize admin user during first-time setup with operator-provided credentials
+export async function initializeDefaultAdmin({ username, password, phoneNumber = '+61000000000' } = {}) {
   const { createUserWithEmailAndPassword } = await import('firebase/auth');
   const { auth } = await import('../firebase');
   
+  const cleanUsername = sanitizeString(String(username || '').toLowerCase().trim(), 50);
+  const cleanPassword = String(password || '');
+  const cleanPhone = String(phoneNumber || '').replace(/[\s\-\(\)]/g, '');
+
+  if (!cleanUsername || cleanUsername.length < 2) {
+    throw new Error('A valid admin username is required for setup');
+  }
+
+  if (cleanPassword.length < 12) {
+    throw new Error('Admin setup password must be at least 12 characters');
+  }
+
   try {
-    const email = "admin@royce-valet.internal";
-    const password = "admin123"; // Changed to match your requirement
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const email = `${cleanUsername}@royce-valet.internal`;
+    const userCredential = await createUserWithEmailAndPassword(auth, email, cleanPassword);
     
     // Use Firebase Auth UID as document ID for easy rule matching
     await setDoc(doc(usersRef, userCredential.user.uid), {
       uid: userCredential.user.uid,
-      username: "admin",
+      username: cleanUsername,
+      email,
       role: "admin",
-      phoneNumber: "+61000000000", // Default placeholder phone number
-      isDefaultAdmin: true, // Mark as default admin
+      phoneNumber: cleanPhone,
+      isDefaultAdmin: true,
       createdAt: serverTimestamp(),
     });
     return userCredential.user.uid;

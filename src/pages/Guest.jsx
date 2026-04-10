@@ -1,19 +1,5 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { subscribeVehicleByTag, requestVehicle, cancelRequest, scheduleRequest, clearSchedule } from '../services/valetFirestore'
-
-// Security utilities
-const sanitizeText = (str) => {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-};
-
-const validateTag = (tag) => {
-  // Tag should be alphanumeric, max 20 characters
-  return /^[a-zA-Z0-9]{1,20}$/.test(tag);
-};
 
 const StatusBadge = ({ status }) => {
   const s = String(status || '').toLowerCase() || 'parked'
@@ -22,38 +8,97 @@ const StatusBadge = ({ status }) => {
 }
 
 export default function Guest(){
-  const { tag } = useParams()
+  const { accessToken } = useParams()
   const [v, setV] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
 
-  // Validate tag parameter
+  const loadVehicle = async (token) => {
+    const res = await fetch(`/api/guest-vehicle?t=${encodeURIComponent(token)}`)
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Unable to load guest access')
+    }
+
+    return data.vehicle || null
+  }
+
+  const postGuestAction = async (action, extra = {}) => {
+    const res = await fetch('/api/guest-vehicle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: accessToken, action, ...extra }),
+    })
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Unable to update vehicle')
+    }
+
+    if (data.vehicle) setV(data.vehicle)
+    return data.vehicle
+  }
+
+  // Validate guest token parameter
   useEffect(() => {
-    if (tag && !validateTag(tag)) {
+    if (accessToken && !/^[a-f0-9]{64}$/.test(accessToken)) {
+      setError('This guest link is invalid. Please request a fresh link from valet.')
       setLoaded(true);
       return;
     }
-  }, [tag]);
+  }, [accessToken]);
 
   useEffect(()=>{
-    if (!tag || !validateTag(tag)) return;
-    
-    const unsub = subscribeVehicleByTag(tag, (doc)=>{ setV(doc); setLoaded(true) })
-    return ()=> unsub && unsub()
-  }, [tag])
+    if (!accessToken || !/^[a-f0-9]{64}$/.test(accessToken)) return;
+
+    let active = true
+
+    const refresh = async () => {
+      try {
+        const vehicle = await loadVehicle(accessToken)
+        if (!active) return
+        setV(vehicle)
+        setError('')
+      } catch (err) {
+        if (!active) return
+        setV(null)
+        setError(err?.message || 'Unable to load guest access')
+      } finally {
+        if (active) setLoaded(true)
+      }
+    }
+
+    refresh()
+    const interval = setInterval(refresh, 10000)
+    return ()=> {
+      active = false
+      clearInterval(interval)
+    }
+  }, [accessToken])
 
   if(!loaded){ return <section className="card pad"><p>Loading…</p></section> }
   
-  if (!tag || !validateTag(tag)) {
+  if (!accessToken || !/^[a-f0-9]{64}$/.test(accessToken)) {
     return (
       <section className="card pad">
         <h1>Valet Link</h1>
-        <p>Invalid tag format. Please check with the concierge.</p>
+        <p>{error || 'Invalid guest link. Please check with the concierge.'}</p>
       </section>
     );
   }
+
+  if (error) {
+    return (
+      <section className="card pad">
+        <h1>Valet Link</h1>
+        <p>{error}</p>
+      </section>
+    )
+  }
   
-  if(!v){ return <section className="card pad"><h1>Valet Link</h1><p>We couldn't find details for tag <strong>{tag}</strong>. Please check with the concierge.</p></section> }
+  if(!v){ return <section className="card pad"><h1>Valet Link</h1><p>We couldn't find your valet details. Please check with the concierge.</p></section> }
 
   // normalized status to make rendering/guards consistent
   const status = String(v?.status || '').toLowerCase()
@@ -62,13 +107,13 @@ export default function Guest(){
     if(sending) return
     if (String(v?.status || '').toLowerCase() === 'out') { alert('Vehicle is out and cannot be requested.'); return }
     setSending(true)
-    try { await requestVehicle(v.tag) } catch(e){ alert(e?.message || 'Unable to request right now.') } finally { setSending(false) }
+    try { await postGuestAction('request') } catch(e){ alert(e?.message || 'Unable to request right now.') } finally { setSending(false) }
   }
 
   async function onCancel(){
     if(sending) return
     setSending(true)
-    try { await cancelRequest(v.tag) } finally { setSending(false) }
+    try { await postGuestAction('cancel') } catch(e){ alert(e?.message || 'Unable to cancel right now.') } finally { setSending(false) }
   }
 
   async function onSchedule(){
@@ -77,8 +122,12 @@ export default function Guest(){
     const when = new Date(el.value)
     if(isNaN(+when)){ alert('Please choose a valid date and time.'); return }
     if(when.getTime() - Date.now() < 10*60*1000){ alert('Please schedule at least 10 minutes in advance.'); return }
-    await scheduleRequest(v.tag, when.toISOString())
-    alert('Pickup scheduled. We will move your request into the queue ~10 minutes prior.')
+    try {
+      await postGuestAction('schedule', { time: when.toISOString() })
+      alert('Pickup scheduled. We will move your request into the queue ~10 minutes prior.')
+    } catch (e) {
+      alert(e?.message || 'Unable to schedule pickup right now.')
+    }
   }
 
   const canRequest = status !== 'out' && status !== 'departed'
@@ -113,7 +162,13 @@ export default function Guest(){
                 min={new Date(Date.now() + 10*60*1000).toISOString().slice(0, 16)}
               />
               <button className="btn secondary" onClick={onSchedule}>Schedule</button>
-              {v.scheduledAt && <button className="btn secondary" onClick={async()=>{ await clearSchedule(v.tag) }}>Clear</button>}
+              {v.scheduledAt && <button className="btn secondary" onClick={async()=>{
+                try {
+                  await postGuestAction('clear')
+                } catch (e) {
+                  alert(e?.message || 'Unable to clear schedule right now.')
+                }
+              }}>Clear</button>}
             </div>
             {v.scheduledAt && <small>Scheduled for: {new Date(v.scheduledAt).toLocaleString()}</small>}
           </div>
