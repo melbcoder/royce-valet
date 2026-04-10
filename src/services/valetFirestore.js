@@ -61,15 +61,19 @@ export async function getSettings() {
         smsWelcomeTemplate: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
           ? data.smsWelcomeTemplate
           : 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
+        smsWelcomeEnabled: data.smsWelcomeEnabled !== false,
         smsVehicleReadyTemplate: typeof data.smsVehicleReadyTemplate === 'string' && data.smsVehicleReadyTemplate.trim()
           ? data.smsVehicleReadyTemplate
           : 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+        smsVehicleReadyEnabled: data.smsVehicleReadyEnabled !== false,
         smsRoomReadyTemplate: typeof data.smsRoomReadyTemplate === 'string' && data.smsRoomReadyTemplate.trim()
           ? data.smsRoomReadyTemplate
           : 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+        smsRoomReadyEnabled: data.smsRoomReadyEnabled !== false,
         smsDepartureTemplate: typeof data.smsDepartureTemplate === 'string' && data.smsDepartureTemplate.trim()
           ? data.smsDepartureTemplate
           : 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
+        smsDepartureEnabled: data.smsDepartureEnabled !== false,
       };
     }
     // Return defaults if no settings exist
@@ -80,9 +84,13 @@ export async function getSettings() {
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
       smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
+      smsWelcomeEnabled: true,
       smsVehicleReadyTemplate: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+      smsVehicleReadyEnabled: true,
       smsRoomReadyTemplate: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+      smsRoomReadyEnabled: true,
       smsDepartureTemplate: 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
+      smsDepartureEnabled: true,
     };
   } catch (error) {
     console.error("Error getting settings:", error);
@@ -93,9 +101,13 @@ export async function getSettings() {
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
       smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
+      smsWelcomeEnabled: true,
       smsVehicleReadyTemplate: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+      smsVehicleReadyEnabled: true,
       smsRoomReadyTemplate: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+      smsRoomReadyEnabled: true,
       smsDepartureTemplate: 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
+      smsDepartureEnabled: true,
     };
   }
 }
@@ -131,15 +143,19 @@ export function subscribeSettings(callback) {
         smsWelcomeTemplate: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
           ? data.smsWelcomeTemplate
           : 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
+        smsWelcomeEnabled: data.smsWelcomeEnabled !== false,
         smsVehicleReadyTemplate: typeof data.smsVehicleReadyTemplate === 'string' && data.smsVehicleReadyTemplate.trim()
           ? data.smsVehicleReadyTemplate
           : 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+        smsVehicleReadyEnabled: data.smsVehicleReadyEnabled !== false,
         smsRoomReadyTemplate: typeof data.smsRoomReadyTemplate === 'string' && data.smsRoomReadyTemplate.trim()
           ? data.smsRoomReadyTemplate
           : 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+        smsRoomReadyEnabled: data.smsRoomReadyEnabled !== false,
         smsDepartureTemplate: typeof data.smsDepartureTemplate === 'string' && data.smsDepartureTemplate.trim()
           ? data.smsDepartureTemplate
           : 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
+        smsDepartureEnabled: data.smsDepartureEnabled !== false,
       });
     } else {
       callback({
@@ -149,9 +165,13 @@ export function subscribeSettings(callback) {
         pdfRetentionDays: 90,
         guestLinkRetentionDays: 2,
         smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
+        smsWelcomeEnabled: true,
         smsVehicleReadyTemplate: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
+        smsVehicleReadyEnabled: true,
         smsRoomReadyTemplate: 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.',
+        smsRoomReadyEnabled: true,
         smsDepartureTemplate: 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
+        smsDepartureEnabled: true,
       });
     }
   });

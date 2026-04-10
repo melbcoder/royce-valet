@@ -338,8 +338,12 @@ export default function Staff() {
     
     // Send welcome SMS with guest link
     try {
-      await sendWelcomeSMS(formattedPhone, tag);
-      showToast("Vehicle created and guest notified via SMS.");
+      const smsResult = await sendWelcomeSMS(formattedPhone, tag);
+      if (smsResult?.skipped) {
+        showToast('Vehicle created (welcome SMS is disabled in settings).')
+      } else {
+        showToast("Vehicle created and guest notified via SMS.");
+      }
     } catch (error) {
       console.error("Failed to send SMS:", error);
       showToast("Vehicle created (SMS failed to send).");

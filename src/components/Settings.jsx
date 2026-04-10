@@ -141,9 +141,13 @@ export default function Settings({open = false, onClose, asPage = false}){
     pdfRetentionDays: 90,
     guestLinkRetentionDays: 2,
     smsWelcomeTemplate: DEFAULT_SMS_WELCOME_TEMPLATE,
+    smsWelcomeEnabled: true,
     smsVehicleReadyTemplate: DEFAULT_SMS_VEHICLE_READY_TEMPLATE,
+    smsVehicleReadyEnabled: true,
     smsRoomReadyTemplate: DEFAULT_SMS_ROOM_READY_TEMPLATE,
+    smsRoomReadyEnabled: true,
     smsDepartureTemplate: DEFAULT_SMS_DEPARTURE_TEMPLATE,
+    smsDepartureEnabled: true,
   })
   const [timezoneSuccess, setTimezoneSuccess] = useState(false)
   const [timezoneError, setTimezoneError] = useState('')
@@ -160,9 +164,13 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [guestLinkRetentionSuccess, setGuestLinkRetentionSuccess] = useState(false)
   const [guestLinkRetentionError, setGuestLinkRetentionError] = useState('')
   const [smsWelcomeTemplateInput, setSmsWelcomeTemplateInput] = useState(DEFAULT_SMS_WELCOME_TEMPLATE)
+  const [smsWelcomeEnabledInput, setSmsWelcomeEnabledInput] = useState(true)
   const [smsVehicleReadyTemplateInput, setSmsVehicleReadyTemplateInput] = useState(DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
+  const [smsVehicleReadyEnabledInput, setSmsVehicleReadyEnabledInput] = useState(true)
   const [smsRoomReadyTemplateInput, setSmsRoomReadyTemplateInput] = useState(DEFAULT_SMS_ROOM_READY_TEMPLATE)
+  const [smsRoomReadyEnabledInput, setSmsRoomReadyEnabledInput] = useState(true)
   const [smsDepartureTemplateInput, setSmsDepartureTemplateInput] = useState(DEFAULT_SMS_DEPARTURE_TEMPLATE)
+  const [smsDepartureEnabledInput, setSmsDepartureEnabledInput] = useState(true)
   const [smsTemplateSuccess, setSmsTemplateSuccess] = useState(false)
   const [smsTemplateError, setSmsTemplateError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -246,16 +254,32 @@ export default function Settings({open = false, onClose, asPage = false}){
   }, [settings.smsWelcomeTemplate])
 
   useEffect(() => {
+    setSmsWelcomeEnabledInput(settings.smsWelcomeEnabled !== false)
+  }, [settings.smsWelcomeEnabled])
+
+  useEffect(() => {
     setSmsVehicleReadyTemplateInput(settings.smsVehicleReadyTemplate || DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
   }, [settings.smsVehicleReadyTemplate])
+
+  useEffect(() => {
+    setSmsVehicleReadyEnabledInput(settings.smsVehicleReadyEnabled !== false)
+  }, [settings.smsVehicleReadyEnabled])
 
   useEffect(() => {
     setSmsRoomReadyTemplateInput(settings.smsRoomReadyTemplate || DEFAULT_SMS_ROOM_READY_TEMPLATE)
   }, [settings.smsRoomReadyTemplate])
 
   useEffect(() => {
+    setSmsRoomReadyEnabledInput(settings.smsRoomReadyEnabled !== false)
+  }, [settings.smsRoomReadyEnabled])
+
+  useEffect(() => {
     setSmsDepartureTemplateInput(settings.smsDepartureTemplate || DEFAULT_SMS_DEPARTURE_TEMPLATE)
   }, [settings.smsDepartureTemplate])
+
+  useEffect(() => {
+    setSmsDepartureEnabledInput(settings.smsDepartureEnabled !== false)
+  }, [settings.smsDepartureEnabled])
 
   // Debug function to check user document
   useEffect(() => {
@@ -663,9 +687,13 @@ export default function Settings({open = false, onClose, asPage = false}){
 
       await updateSettings({
         smsWelcomeTemplate: welcome,
+        smsWelcomeEnabled: smsWelcomeEnabledInput,
         smsVehicleReadyTemplate: vehicleReady,
+        smsVehicleReadyEnabled: smsVehicleReadyEnabledInput,
         smsRoomReadyTemplate: roomReady,
+        smsRoomReadyEnabled: smsRoomReadyEnabledInput,
         smsDepartureTemplate: departure,
+        smsDepartureEnabled: smsDepartureEnabledInput,
       })
       setSmsTemplateSuccess(true)
       setTimeout(() => setSmsTemplateSuccess(false), 3000)
@@ -679,9 +707,13 @@ export default function Settings({open = false, onClose, asPage = false}){
     setSmsTemplateError('')
     setSmsTemplateSuccess(false)
     setSmsWelcomeTemplateInput(settings.smsWelcomeTemplate || DEFAULT_SMS_WELCOME_TEMPLATE)
+    setSmsWelcomeEnabledInput(settings.smsWelcomeEnabled !== false)
     setSmsVehicleReadyTemplateInput(settings.smsVehicleReadyTemplate || DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
+    setSmsVehicleReadyEnabledInput(settings.smsVehicleReadyEnabled !== false)
     setSmsRoomReadyTemplateInput(settings.smsRoomReadyTemplate || DEFAULT_SMS_ROOM_READY_TEMPLATE)
+    setSmsRoomReadyEnabledInput(settings.smsRoomReadyEnabled !== false)
     setSmsDepartureTemplateInput(settings.smsDepartureTemplate || DEFAULT_SMS_DEPARTURE_TEMPLATE)
+    setSmsDepartureEnabledInput(settings.smsDepartureEnabled !== false)
   }
 
   async function handleChangePassword(e) {
@@ -989,7 +1021,17 @@ export default function Settings({open = false, onClose, asPage = false}){
 
               <div style={{display: 'grid', gap: 10}}>
                 <div>
-                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Valet Welcome SMS</label>
+                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
+                    <span>Valet Welcome SMS</span>
+                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
+                      <input
+                        type="checkbox"
+                        checked={smsWelcomeEnabledInput}
+                        onChange={(e) => setSmsWelcomeEnabledInput(e.target.checked)}
+                      />
+                      Enabled
+                    </span>
+                  </label>
                   <textarea
                     value={smsWelcomeTemplateInput}
                     onChange={(e) => setSmsWelcomeTemplateInput(e.target.value)}
@@ -999,7 +1041,17 @@ export default function Settings({open = false, onClose, asPage = false}){
                 </div>
 
                 <div>
-                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Vehicle Ready SMS</label>
+                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
+                    <span>Vehicle Ready SMS</span>
+                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
+                      <input
+                        type="checkbox"
+                        checked={smsVehicleReadyEnabledInput}
+                        onChange={(e) => setSmsVehicleReadyEnabledInput(e.target.checked)}
+                      />
+                      Enabled
+                    </span>
+                  </label>
                   <textarea
                     value={smsVehicleReadyTemplateInput}
                     onChange={(e) => setSmsVehicleReadyTemplateInput(e.target.value)}
@@ -1009,7 +1061,17 @@ export default function Settings({open = false, onClose, asPage = false}){
                 </div>
 
                 <div>
-                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Room Ready SMS</label>
+                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
+                    <span>Room Ready SMS</span>
+                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
+                      <input
+                        type="checkbox"
+                        checked={smsRoomReadyEnabledInput}
+                        onChange={(e) => setSmsRoomReadyEnabledInput(e.target.checked)}
+                      />
+                      Enabled
+                    </span>
+                  </label>
                   <textarea
                     value={smsRoomReadyTemplateInput}
                     onChange={(e) => setSmsRoomReadyTemplateInput(e.target.value)}
@@ -1019,7 +1081,17 @@ export default function Settings({open = false, onClose, asPage = false}){
                 </div>
 
                 <div>
-                  <label style={{display: 'block', fontSize: 13, marginBottom: 4, color: '#333'}}>Departure Luggage SMS</label>
+                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
+                    <span>Departure Luggage SMS</span>
+                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
+                      <input
+                        type="checkbox"
+                        checked={smsDepartureEnabledInput}
+                        onChange={(e) => setSmsDepartureEnabledInput(e.target.checked)}
+                      />
+                      Enabled
+                    </span>
+                  </label>
                   <textarea
                     value={smsDepartureTemplateInput}
                     onChange={(e) => setSmsDepartureTemplateInput(e.target.value)}

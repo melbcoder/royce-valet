@@ -9,10 +9,18 @@ const DEFAULT_SMS_TEMPLATES = {
   departure: 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.',
 };
 
+const DEFAULT_SMS_TEMPLATE_ENABLED = {
+  welcome: true,
+  vehicleReady: true,
+  roomReady: true,
+  departure: true,
+};
+
 const SETTINGS_CACHE_TTL_MS = 60 * 1000;
 let smsTemplateCache = {
   expiresAt: 0,
   templates: DEFAULT_SMS_TEMPLATES,
+  enabled: DEFAULT_SMS_TEMPLATE_ENABLED,
 };
 
 // ⚠️ SECURITY WARNING: Client-side rate limiting can be bypassed
@@ -94,7 +102,7 @@ const applySmsTemplate = (template, variables = {}) => {
 const getSmsTemplates = async () => {
   const now = Date.now();
   if (smsTemplateCache.expiresAt > now) {
-    return smsTemplateCache.templates;
+    return smsTemplateCache;
   }
 
   try {
@@ -114,22 +122,36 @@ const getSmsTemplates = async () => {
         ? data.smsDepartureTemplate
         : DEFAULT_SMS_TEMPLATES.departure,
     };
+    const enabled = {
+      welcome: data.smsWelcomeEnabled !== false,
+      vehicleReady: data.smsVehicleReadyEnabled !== false,
+      roomReady: data.smsRoomReadyEnabled !== false,
+      departure: data.smsDepartureEnabled !== false,
+    };
 
     smsTemplateCache = {
       expiresAt: now + SETTINGS_CACHE_TTL_MS,
       templates,
+      enabled,
     };
 
-    return templates;
+    return smsTemplateCache;
   } catch (error) {
     console.warn('Failed to load SMS templates from settings, using defaults:', error);
     smsTemplateCache = {
       expiresAt: now + 10 * 1000,
       templates: DEFAULT_SMS_TEMPLATES,
+      enabled: DEFAULT_SMS_TEMPLATE_ENABLED,
     };
-    return DEFAULT_SMS_TEMPLATES;
+    return smsTemplateCache;
   }
 };
+
+const createTemplateDisabledResult = (templateName) => ({
+  success: false,
+  skipped: true,
+  reason: `Template disabled: ${templateName}`,
+});
 
 const getAuthHeaders = async () => {
   const currentUser = auth.currentUser;
@@ -188,7 +210,10 @@ export async function sendWelcomeSMS(phone, tag) {
   
   const guestToken = await getGuestAccessLink(tag);
   const guestLink = `${appOrigin}/guest/${encodeURIComponent(guestToken)}`;
-  const templates = await getSmsTemplates();
+  const { templates, enabled } = await getSmsTemplates();
+  if (!enabled.welcome) {
+    return createTemplateDisabledResult('welcome');
+  }
   const message = sanitizeMessage(applySmsTemplate(templates.welcome, {
     VALET_TAG: tag,
     ARR_TAGS: tag,
@@ -235,7 +260,10 @@ export async function sendVehicleReadySMS(phone, tag) {
   }
 
   checkRateLimit(phone);
-  const templates = await getSmsTemplates();
+  const { templates, enabled } = await getSmsTemplates();
+  if (!enabled.vehicleReady) {
+    return createTemplateDisabledResult('vehicle-ready');
+  }
   const message = sanitizeMessage(applySmsTemplate(templates.vehicleReady, {
     VALET_TAG: tag,
   }));
@@ -272,7 +300,10 @@ export async function sendRoomReadySMS(phone, roomNumber) {
   }
 
   checkRateLimit(phone);
-  const templates = await getSmsTemplates();
+  const { templates, enabled } = await getSmsTemplates();
+  if (!enabled.roomReady) {
+    return createTemplateDisabledResult('room-ready');
+  }
   const message = sanitizeMessage(applySmsTemplate(templates.roomReady, {
     ROOM_NUMBER: roomNumber,
   }));
@@ -314,7 +345,10 @@ export async function sendDepartureSMS(phone, tagList) {
   }
 
   checkRateLimit(phone);
-  const templates = await getSmsTemplates();
+  const { templates, enabled } = await getSmsTemplates();
+  if (!enabled.departure) {
+    return createTemplateDisabledResult('departure');
+  }
   const message = sanitizeMessage(applySmsTemplate(templates.departure, {
     DEP_TAGS: cleanTagList,
   }));

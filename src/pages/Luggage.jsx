@@ -166,9 +166,13 @@ export default function Luggage() {
         const tagList = (newLuggage.tags || []).join(', ');
         if (formattedPhone && tagList) {
           try {
-            await sendDepartureSMS(formattedPhone, tagList);
-            await updateLuggage(docId, { tagMessageSent: true });
-            showToast('Departure luggage created and tag reminder SMS sent.');
+            const smsResult = await sendDepartureSMS(formattedPhone, tagList);
+            await updateLuggage(docId, { tagMessageSent: !smsResult?.skipped });
+            if (smsResult?.skipped) {
+              showToast('Departure luggage created (departure SMS is disabled in settings).');
+            } else {
+              showToast('Departure luggage created and tag reminder SMS sent.');
+            }
           } catch (error) {
             console.error('Failed to send tag SMS:', error);
             await updateLuggage(docId, { tagMessageSent: false });
@@ -228,9 +232,13 @@ export default function Luggage() {
   const confirmNotification = async () => {
     if (itemToNotify) {
       try {
-        await sendRoomReadySMS(itemToNotify.phone, itemToNotify.roomNumber);
-        await updateLuggage(itemToNotify.id, { notified: true });
-        showToast('Luggage delivered and guest notified via SMS.');
+        const smsResult = await sendRoomReadySMS(itemToNotify.phone, itemToNotify.roomNumber);
+        await updateLuggage(itemToNotify.id, { notified: !smsResult?.skipped });
+        if (smsResult?.skipped) {
+          showToast('Luggage delivered (room-ready SMS is disabled in settings).');
+        } else {
+          showToast('Luggage delivered and guest notified via SMS.');
+        }
       } catch (error) {
         console.error('Failed to send SMS:', error);
         await updateLuggage(itemToNotify.id, { notified: false });
@@ -252,9 +260,13 @@ export default function Luggage() {
 
   const handleNotify = async (item) => {
     try {
-      await sendRoomReadySMS(item.phone, item.roomNumber);
-      await updateLuggage(item.id, { notified: true });
-      showToast('Guest notified via SMS.');
+      const smsResult = await sendRoomReadySMS(item.phone, item.roomNumber);
+      await updateLuggage(item.id, { notified: !smsResult?.skipped });
+      if (smsResult?.skipped) {
+        showToast('Room-ready SMS is disabled in settings.');
+      } else {
+        showToast('Guest notified via SMS.');
+      }
     } catch (error) {
       console.error('Failed to send SMS:', error);
       showToast('Failed to send SMS notification.');
