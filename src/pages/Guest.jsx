@@ -124,7 +124,6 @@ export default function Guest(){
     if(when.getTime() - Date.now() < 10*60*1000){ alert('Please schedule at least 10 minutes in advance.'); return }
     try {
       await postGuestAction('schedule', { time: when.toISOString() })
-      alert('Pickup scheduled. We will move your request into the queue ~10 minutes prior.')
     } catch (e) {
       alert(e?.message || 'Unable to schedule pickup right now.')
     }
@@ -170,6 +169,7 @@ export default function Guest(){
                 }
               }}>Clear</button>}
             </div>
+            {v.scheduledAt && <small style={{display: 'block', marginTop: 6, color: '#1e40af'}}>Pickup scheduled.</small>}
             {v.scheduledAt && <small>Scheduled for: {new Date(v.scheduledAt).toLocaleString()}</small>}
           </div>
         )}
