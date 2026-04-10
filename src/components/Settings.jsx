@@ -641,6 +641,11 @@ export default function Settings({open = false, onClose, asPage = false}){
       setSmsTemplateError('')
       setSmsTemplateSuccess(false)
 
+      const confirmed = window.confirm(
+        'Saving these templates will change the SMS messages guests receive. Do you want to continue?'
+      )
+      if (!confirmed) return
+
       const welcome = String(smsWelcomeTemplateInput || '').trim()
       const vehicleReady = String(smsVehicleReadyTemplateInput || '').trim()
       const roomReady = String(smsRoomReadyTemplateInput || '').trim()
@@ -668,6 +673,15 @@ export default function Settings({open = false, onClose, asPage = false}){
       console.error('Error updating SMS templates:', err)
       setSmsTemplateError('Failed to update SMS templates.')
     }
+  }
+
+  function handleResetSmsTemplatesToSaved() {
+    setSmsTemplateError('')
+    setSmsTemplateSuccess(false)
+    setSmsWelcomeTemplateInput(settings.smsWelcomeTemplate || DEFAULT_SMS_WELCOME_TEMPLATE)
+    setSmsVehicleReadyTemplateInput(settings.smsVehicleReadyTemplate || DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
+    setSmsRoomReadyTemplateInput(settings.smsRoomReadyTemplate || DEFAULT_SMS_ROOM_READY_TEMPLATE)
+    setSmsDepartureTemplateInput(settings.smsDepartureTemplate || DEFAULT_SMS_DEPARTURE_TEMPLATE)
   }
 
   async function handleChangePassword(e) {
@@ -966,6 +980,9 @@ export default function Settings({open = false, onClose, asPage = false}){
               <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
                 Configure guest-facing SMS content. Variables are replaced automatically when sent.
               </p>
+              <p style={{marginBottom: 10, fontSize: 13, color: '#b45309'}}>
+                Warning: Saving these templates immediately changes the messages guests receive.
+              </p>
               <p style={{marginBottom: 10, fontSize: 13, color: '#4b5563'}}>
                 Available variables: <strong>[VALET_TAG]</strong>, <strong>[VALET_LINK]</strong>, <strong>[ROOM_NUMBER]</strong>, <strong>[DEP_TAGS]</strong>, <strong>[ARR_TAGS]</strong>
               </p>
@@ -1014,6 +1031,9 @@ export default function Settings({open = false, onClose, asPage = false}){
                 <div className="row" style={{gap: 8, alignItems: 'center'}}>
                   <button type="button" className="btn secondary" onClick={handleSaveSmsTemplates}>
                     Save Templates
+                  </button>
+                  <button type="button" className="btn secondary" onClick={handleResetSmsTemplatesToSaved}>
+                    Revert to Saved
                   </button>
                 </div>
 
