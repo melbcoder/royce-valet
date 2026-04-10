@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminFirestore } from './lib/firebaseAdmin.js';
-import { computeGuestAccessExpiry } from './lib/guestAccess.js';
+import { getAdminFirestore } from '../server/lib/firebaseAdmin.js';
+import { computeGuestAccessExpiry } from '../server/lib/guestAccess.js';
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 

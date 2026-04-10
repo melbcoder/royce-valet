@@ -1,4 +1,4 @@
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 // Vercel Serverless Function for sending SMS via Twilio
 export default async function handler(req, res) {

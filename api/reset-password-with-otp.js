@@ -1,5 +1,5 @@
 // Vercel Serverless Function for resetting password with verified OTP
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

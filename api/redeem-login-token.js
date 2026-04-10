@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 // Expected token format: 64 lowercase hex characters
 const TOKEN_REGEX = /^[a-f0-9]{64}$/;

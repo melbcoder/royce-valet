@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 const TOKEN_TTL_MS = 60 * 1000; // 60 seconds
 

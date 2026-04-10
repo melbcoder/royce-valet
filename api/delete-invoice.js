@@ -1,5 +1,5 @@
 import { getStorage } from 'firebase-admin/storage';
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();

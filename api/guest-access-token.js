@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
-import { computeGuestAccessExpiry, getGuestLinkRetentionDays } from './lib/guestAccess.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
+import { computeGuestAccessExpiry, getGuestLinkRetentionDays } from '../server/lib/guestAccess.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

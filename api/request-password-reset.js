@@ -1,5 +1,5 @@
 // Vercel Serverless Function for requesting password reset via SMS OTP
-import { getAdminAuth, getAdminFirestore } from './lib/firebaseAdmin.js';
+import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 function maskPhoneLast3(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
