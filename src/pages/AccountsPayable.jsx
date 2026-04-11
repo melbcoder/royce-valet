@@ -803,7 +803,7 @@ export default function AccountsPayable() {
         <p style={{ color: 'var(--muted)' }}>Loading invoices…</p>
       ) : filtered.length === 0 ? (
         <div className="card pad" style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          No invoices found. Send a PDF invoice to the AP intake email to get started.
+          No invoices found yet. Send a PDF invoice to the AP inbox to get started.
         </div>
       ) : (
         <div className="card" style={{ overflowX: 'auto' }}>

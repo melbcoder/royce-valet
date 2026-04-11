@@ -109,7 +109,6 @@ const AVAILABLE_SECTIONS = [
     icon: '💰',
     pages: [
       { id: 'accounts-payable', label: 'Accounts Payable' },
-      { id: 'accounts-payable/intake', label: 'AP Intake' },
     ],
   },
 ]
@@ -343,6 +342,7 @@ export default function Settings({open = false, onClose, asPage = false}){
     () => AVAILABLE_SECTIONS.flatMap(section => section.pages.map(p => p.id)),
     []
   )
+  const validPageIdSet = useMemo(() => new Set(allPageIds), [allPageIds])
 
   const filteredUsers = useMemo(() => {
     const query = userSearchQuery.trim().toLowerCase()
@@ -437,7 +437,7 @@ export default function Settings({open = false, onClose, asPage = false}){
         // Prevent admins from accidentally removing their own role/access.
         if (!isEditingSelf) {
           updates.role = formData.role
-          updates.pages = formData.pages
+          updates.pages = formData.pages.filter((id) => validPageIdSet.has(id))
         }
 
         await updateUser(editingUser.id, updates)
@@ -449,7 +449,7 @@ export default function Settings({open = false, onClose, asPage = false}){
           password: randomPassword,
           role: formData.role,
           phoneNumber: formattedPhone,
-          pages: formData.pages,
+          pages: formData.pages.filter((id) => validPageIdSet.has(id)),
           mustChangePassword: true
         })
         
@@ -489,7 +489,7 @@ export default function Settings({open = false, onClose, asPage = false}){
       role: user.role,
       countryCode: splitPhone.countryCode,
       phone: splitPhone.phone,
-      pages: user.pages || []
+      pages: (user.pages || []).filter((id) => validPageIdSet.has(id))
     })
     setError('')
     setShowAddUser(true)

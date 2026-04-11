@@ -27,7 +27,6 @@ export default function Nav() {
     '/settings'
   ].includes(location.pathname) || isAccountsPayablePage;
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
-  const [apOpen, setApOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPages, setUserPages] = useState([]);
@@ -232,56 +231,12 @@ export default function Nav() {
             )}
 
             {hasAccess('accounts-payable') && (
-              <div
-                onMouseEnter={() => setApOpen(true)}
-                onMouseLeave={() => setApOpen(false)}
-                style={{ position: 'relative', display: 'inline-block' }}
+              <NavLink
+                to="/accounts-payable"
+                style={() => navLinkStyle(isAccountsPayablePage)}
               >
-                <NavLink
-                  to="/accounts-payable"
-                  style={() => navLinkStyle(isAccountsPayablePage)}
-                >
-                  Accounts Payable ▾
-                </NavLink>
-                {apOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      background: '#fff',
-                      border: '1px solid #ddd',
-                      borderRadius: 8,
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                      padding: 6,
-                      zIndex: 50,
-                      minWidth: 220
-                    }}
-                  >
-                    <NavLink
-                      to="/accounts-payable"
-                      end
-                      style={({ isActive }) => ({
-                        ...navLinkStyle(isActive),
-                        display: 'block',
-                        marginRight: 0
-                      })}
-                    >
-                      Invoices
-                    </NavLink>
-                    <NavLink
-                      to="/accounts-payable/email-setup"
-                      style={({ isActive }) => ({
-                        ...navLinkStyle(isActive),
-                        display: 'block',
-                        marginRight: 0
-                      })}
-                    >
-                      Email Setup
-                    </NavLink>
-                  </div>
-                )}
-              </div>
+                Accounts Payable
+              </NavLink>
             )}
 
             {hasAccess('maintenance') && (

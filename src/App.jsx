@@ -13,7 +13,6 @@ import MaintenanceJobs from './pages/MaintenanceJobs';
 import ContractorSignIn from './pages/ContractorSignIn';
 import MaintenanceDashboard from './pages/MaintenanceDashboard';
 import AccountsPayable from './pages/AccountsPayable';
-import AccountsPayableIntake from './pages/AccountsPayableIntake';
 import QRLogin from './pages/QRLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
@@ -195,14 +194,6 @@ export default function App(){
               element={
                 <ProtectedRoute requiredPage="accounts-payable">
                   <AccountsPayable />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/accounts-payable/email-setup"
-              element={
-                <ProtectedRoute requiredPage="accounts-payable">
-                  <AccountsPayableIntake />
                 </ProtectedRoute>
               }
             />
