@@ -62,6 +62,8 @@ const AVAILABLE_PAGES = [
   { id: 'amenities-history', label: 'Amenities History', icon: '📋' },
   { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
   { id: 'accounts-payable', label: 'Accounts Payable', icon: '💰' },
+  { id: 'accounts-payable/travel-agents', label: 'Travel Agents', icon: '💰' },
+  { id: 'accounts-payable/suppliers', label: 'Suppliers', icon: '💰' },
 ]
 
 // Group permissions by section
@@ -109,6 +111,8 @@ const AVAILABLE_SECTIONS = [
     icon: '💰',
     pages: [
       { id: 'accounts-payable', label: 'Accounts Payable' },
+      { id: 'accounts-payable/travel-agents', label: 'Travel Agents' },
+      { id: 'accounts-payable/suppliers', label: 'Suppliers' },
     ],
   },
 ]

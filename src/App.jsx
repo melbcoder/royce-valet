@@ -202,7 +202,7 @@ export default function App(){
             <Route
               path="/accounts-payable/travel-agents"
               element={
-                <ProtectedRoute requiredPage="accounts-payable">
+                <ProtectedRoute requiredPage="accounts-payable/travel-agents">
                   <TravelAgentDatabase />
                 </ProtectedRoute>
               }
@@ -210,7 +210,7 @@ export default function App(){
             <Route
               path="/accounts-payable/suppliers"
               element={
-                <ProtectedRoute requiredPage="accounts-payable">
+                <ProtectedRoute requiredPage="accounts-payable/suppliers">
                   <SupplierDatabase />
                 </ProtectedRoute>
               }

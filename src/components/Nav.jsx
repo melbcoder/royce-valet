@@ -33,6 +33,15 @@ export default function Nav() {
   const [userPages, setUserPages] = useState([]);
 
   const hasAccess = (pageId) => isAdmin || userPages.includes(pageId);
+  const canAccessAccountsPayable =
+    hasAccess('accounts-payable')
+    || hasAccess('accounts-payable/travel-agents')
+    || hasAccess('accounts-payable/suppliers');
+  const apDefaultPath = hasAccess('accounts-payable')
+    ? '/accounts-payable'
+    : hasAccess('accounts-payable/travel-agents')
+      ? '/accounts-payable/travel-agents'
+      : '/accounts-payable/suppliers';
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -231,13 +240,96 @@ export default function Nav() {
               </NavLink>
             )}
 
-            {hasAccess('accounts-payable') && (
-              <NavLink
-                to="/accounts-payable"
-                style={() => navLinkStyle(isAccountsPayablePage)}
+            {canAccessAccountsPayable && (
+              <div
+                onMouseEnter={() => setApOpen(true)}
+                onMouseLeave={() => setApOpen(false)}
+                style={{ position: 'relative', display: 'inline-block' }}
               >
-                Accounts Payable
-              </NavLink>
+                <button
+                  type="button"
+                  onClick={() => setApOpen(v => !v)}
+                  style={{
+                    ...navLinkStyle(isAccountsPayablePage),
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Accounts Payable ▾
+                </button>
+                {apOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#fff',
+                      border: '1px solid #ddd',
+                      borderRadius: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                      padding: 6,
+                      zIndex: 50,
+                      minWidth: 220,
+                    }}
+                  >
+                    {hasAccess('accounts-payable') && (
+                      <NavLink
+                        to="/accounts-payable"
+                        end
+                        onClick={() => setApOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Invoices
+                      </NavLink>
+                    )}
+                    {hasAccess('accounts-payable/travel-agents') && (
+                      <NavLink
+                        to="/accounts-payable/travel-agents"
+                        onClick={() => setApOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Travel Agents
+                      </NavLink>
+                    )}
+                    {hasAccess('accounts-payable/suppliers') && (
+                      <NavLink
+                        to="/accounts-payable/suppliers"
+                        onClick={() => setApOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Suppliers
+                      </NavLink>
+                    )}
+                    {!hasAccess('accounts-payable')
+                      && !hasAccess('accounts-payable/travel-agents')
+                      && !hasAccess('accounts-payable/suppliers') && (
+                      <NavLink
+                        to={apDefaultPath}
+                        onClick={() => setApOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Accounts Payable
+                      </NavLink>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {hasAccess('maintenance') && (
