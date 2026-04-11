@@ -1,15 +1,30 @@
 // Vercel Serverless Function for resetting password with verified OTP
+import crypto from 'crypto';
 import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
+
+function safeEqualHex(expectedHex, actualHex) {
+  if (!expectedHex || !actualHex || expectedHex.length !== actualHex.length) {
+    return false;
+  }
+  const expected = Buffer.from(expectedHex, 'hex');
+  const actual = Buffer.from(actualHex, 'hex');
+  if (expected.length !== actual.length) return false;
+  return crypto.timingSafeEqual(expected, actual);
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { resetDocId, newPassword } = req.body;
+  const { resetDocId, newPassword, resetToken } = req.body;
 
-  if (!resetDocId || !newPassword) {
+  if (!resetDocId || !newPassword || !resetToken) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if (typeof resetToken !== 'string' || !/^[a-f0-9]{64}$/.test(resetToken)) {
+    return res.status(400).json({ error: 'Invalid reset token' });
   }
 
   // Validate password strength
@@ -59,6 +74,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Reset window expired. Please request a new OTP.' });
     }
 
+    const suppliedResetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const expectedResetTokenHash = String(resetData.resetTokenHash || '');
+    const tokenIsValid = safeEqualHex(expectedResetTokenHash, suppliedResetTokenHash);
+    const tokenNotExpired = Number.isFinite(resetData.resetTokenExpiresAt)
+      ? Date.now() <= resetData.resetTokenExpiresAt
+      : false;
+
+    if (!tokenIsValid || !tokenNotExpired) {
+      return res.status(401).json({ error: 'Reset token is invalid or expired' });
+    }
+
     const uid = resetData.uid;
 
     // Update password in Firebase Auth
@@ -74,7 +100,9 @@ export default async function handler(req, res) {
     // Mark reset as completed
     await db.collection('passwordResets').doc(resetDocId).update({
       deleted: true,
-      completedAt: Date.now()
+      completedAt: Date.now(),
+      resetTokenHash: null,
+      resetTokenExpiresAt: null,
     });
 
     // Log successful password reset

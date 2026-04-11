@@ -1,10 +1,26 @@
 // Vercel Serverless Function for requesting password reset via SMS OTP
+import crypto from 'crypto';
 import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 function maskPhoneLast3(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (digits.length < 3) return 'xxx';
   return `xxx${digits.slice(-3)}`;
+}
+
+function getOtpSecret() {
+  return process.env.PASSWORD_RESET_OTP_SECRET
+    || process.env.FIREBASE_PRIVATE_KEY
+    || process.env.TWILIO_AUTH_TOKEN
+    || '';
+}
+
+function hashOtp(resetDocId, otp) {
+  const secret = getOtpSecret();
+  if (!secret) {
+    throw new Error('Missing PASSWORD_RESET_OTP_SECRET (or fallback secret) for OTP hashing');
+  }
+  return crypto.createHmac('sha256', secret).update(`${resetDocId}:${otp}`).digest('hex');
 }
 
 export default async function handler(req, res) {
@@ -82,17 +98,18 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 6-digit OTP using cryptographically secure randomness
+    const otp = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
     const expiresAt = Date.now() + (10 * 60 * 1000); // 10 minutes
 
     // Store OTP in Firestore
     const resetDocId = `${user.uid}-${Date.now()}`;
+    const otpHash = hashOtp(resetDocId, otp);
     await db.collection('passwordResets').doc(resetDocId).set({
       uid: user.uid,
       username: cleanUsername,
       phoneNumber: phoneNumber,
-      otp: otp,
+      otpHash,
       verified: false,
       attempts: 0,
       createdAt: Date.now(),

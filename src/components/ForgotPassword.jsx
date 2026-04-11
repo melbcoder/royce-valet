@@ -12,6 +12,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [resetDocId, setResetDocId] = useState('')
+  const [resetToken, setResetToken] = useState('')
   const [toast, setToast] = useState(null)
 
   const showToast = (message, type = 'error') => {
@@ -53,6 +54,7 @@ export default function ForgotPassword() {
       }
 
       setResetDocId(data.resetDocId)
+      setResetToken('')
       setMaskedPhone(data.maskedPhone || '')
       setOtp('')
       setStep(2)
@@ -92,8 +94,15 @@ export default function ForgotPassword() {
         return
       }
 
+      if (!data.resetToken) {
+        setError('Verification failed. Please request a new OTP.')
+        setLoading(false)
+        return
+      }
+
       setNewPassword('')
       setConfirmPassword('')
+      setResetToken(data.resetToken)
       setStep(3)
       showToast('OTP verified. Please set your new password.', 'success')
     } catch (err) {
@@ -143,7 +152,7 @@ export default function ForgotPassword() {
       const response = await fetch('/api/reset-password-with-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resetDocId, newPassword })
+        body: JSON.stringify({ resetDocId, newPassword, resetToken })
       })
 
       const data = await response.json()
@@ -180,6 +189,7 @@ export default function ForgotPassword() {
     setUsername('')
     setMaskedPhone('')
     setResetDocId('')
+    setResetToken('')
     setError('')
   }
 
