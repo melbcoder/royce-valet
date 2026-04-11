@@ -210,8 +210,8 @@ async function parseCommissionInvoice(pdfBuffer) {
     const text = data.text || '';
     if (!text) return { parsed: false };
 
-    // Check if this looks like a commission invoice (standard "Tax Invoice Number PG.XXXX for Creditor" format)
-    const invoiceNumMatch = text.match(/Tax Invoice Number\s+(PG[.\d]+)\s+for Creditor/i);
+    // Check if this looks like a commission invoice (standard "Tax Invoice Number PG.XXXX / PI.XXXX for Creditor" format)
+    const invoiceNumMatch = text.match(/Tax Invoice Number\s+([A-Z]{1,4}[.\d]+)\s+for Creditor/i);
     if (!invoiceNumMatch) return { parsed: false };
 
     const invoiceNumber = invoiceNumMatch[1];
@@ -266,13 +266,17 @@ async function parseCommissionInvoice(pdfBuffer) {
 
       const blockText = block.join(' ');
 
-      // Guest name: HARVEY/ANNIE MRS or DEWITT/HOWARD MR
-      const clientMatch = blockText.match(/([A-Z]+\/[A-Z]+\s+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/i);
-      const guestName = clientMatch ? formatGuestName(clientMatch[1]) : '';
+      // Guest name: HARVEY/ANNIE MRS, GRAVES/DEBRA JANE DR, or multiple passengers per booking
+      const clientMatches = [...blockText.matchAll(/([A-Z]+\/(?:[A-Z]+\s+)+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/gi)];
+      const guestName = clientMatches.length > 0
+        ? [...new Set(clientMatches.map(m => formatGuestName(m[1])))].join(' & ')
+        : '';
 
-      // Booking number: use the Reference column (follows B.XXXXXXX in the block)
-      const refMatch = blockText.match(/B\.\d{7,}\s+(\d{5,})/);
-      const bookingNumber = refMatch ? refMatch[1] : '';
+      // Booking confirmation: accept only known robust formats.
+      // 1) 7 digits (e.g. 1234567)
+      // 2) 13-char format: 5 digits + 2 letters + 6 digits (e.g. 12345AB123456)
+      // Any other format is intentionally left blank for manual entry.
+      const bookingNumber = extractBookingConfirmation(blockText);
 
       // Dates (dd/mm/yy) — typically TransDate, BookDate, DepDate; departure is last
       const dateMatches = [...blockText.matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map(m => m[1]);
@@ -331,17 +335,53 @@ async function parseCommissionInvoice(pdfBuffer) {
   }
 }
 
-/** Convert "HARVEY/ANNIE MRS" → "Annie Harvey" */
+function normalizeBookingConfirmation(candidate) {
+  if (!candidate) return '';
+  return String(candidate).toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function isValidBookingConfirmation(value) {
+  if (!value) return false;
+  return /^\d{7}$/.test(value) || /^\d{5}[A-Z]{2}\d{6}$/.test(value);
+}
+
+function extractBookingConfirmation(blockText) {
+  if (!blockText) return '';
+
+  const normalizedText = String(blockText);
+
+  // First pass: prefer values that appear near booking/reference labels.
+  const contextualPattern = /(?:booking|confirmation|conf(?:irmation)?|reference|ref)[^A-Z0-9]{0,12}(\d{7}|\d{5}\s*[A-Z]{2}\s*\d{6})/ig;
+  for (const match of normalizedText.matchAll(contextualPattern)) {
+    const candidate = normalizeBookingConfirmation(match[1]);
+    if (isValidBookingConfirmation(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Second pass: search globally in the record block for the two supported formats.
+  const globalPattern = /(\b\d{7}\b|\b\d{5}\s*[A-Z]{2}\s*\d{6}\b)/ig;
+  for (const match of normalizedText.matchAll(globalPattern)) {
+    const candidate = normalizeBookingConfirmation(match[1]);
+    if (isValidBookingConfirmation(candidate)) {
+      return candidate;
+    }
+  }
+
+  return '';
+}
+
+/** Convert "HARVEY/ANNIE MRS" → "Annie Harvey", "GRAVES/DEBRA JANE DR" → "Debra Jane Graves" */
 function formatGuestName(raw) {
   if (!raw) return '';
-  // Remove title suffix
   const withoutTitle = raw.replace(/\s+(MR|MRS|MS|MISS|DR|PROF|MX)S?\s*$/i, '').trim();
   const parts = withoutTitle.split('/');
   if (parts.length === 2) {
     const surname = parts[0].trim();
     const first = parts[1].trim();
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-    return `${cap(first)} ${cap(surname)}`;
+    const capAll = s => s.split(' ').map(cap).join(' ');
+    return `${capAll(first)} ${cap(surname)}`;
   }
   return withoutTitle;
 }
@@ -358,6 +398,174 @@ function parseDateDdMmYy(str) {
     yy = parseInt(yy) > 50 ? '19' + yy : '20' + yy;
   }
   return `${yy}-${mm}-${dd}`;
+}
+
+/**
+ * Parse various date string formats → YYYY-MM-DD.
+ * Handles: ISO (2026-01-24), "Jan 26, 2026", "January 26 2026", dd/mm/yy.
+ */
+function parseFlexibleDate(str) {
+  if (!str) return '';
+  str = str.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const months = { jan:'01', feb:'02', mar:'03', apr:'04', may:'05', jun:'06',
+                   jul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
+  const longMatch = str.match(/(\w{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})/i);
+  if (longMatch) {
+    const m = months[longMatch[1].toLowerCase().slice(0, 3)];
+    if (m) return `${longMatch[3]}-${m}-${longMatch[2].padStart(2, '0')}`;
+  }
+  // Fall through to dd/mm/yy handler
+  return parseDateDdMmYy(str);
+}
+
+/**
+ * Extract a labelled field value from invoice text.
+ * First tries "Label: Value" on the same line; then tries the label alone on one
+ * line with the value on the next non-blank line.
+ */
+function extractLabeledTextValue(text, labelPattern) {
+  const sameLineRe = new RegExp(labelPattern + '\\s*:\\s*(.+?)(?:\\n|$)', 'i');
+  const sameLineMatch = text.match(sameLineRe);
+  if (sameLineMatch) {
+    const val = sameLineMatch[1].trim();
+    if (val) return val;
+  }
+  const lines = text.split('\n').map(l => l.trim());
+  const labelRe = new RegExp('^' + labelPattern + '\\s*:?\\s*$', 'i');
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (labelRe.test(lines[i])) {
+      for (let k = i + 1; k < lines.length && k <= i + 3; k++) {
+        if (lines[k]) return lines[k];
+      }
+    }
+  }
+  return '';
+}
+
+/**
+ * Parse invoices in the Fora Travel-style format (label/value pairs, single booking per invoice).
+ * Detects on: has "Confirmation Number:" label AND "Balance Due" total line.
+ */
+async function parseForaStyleInvoice(pdfBuffer) {
+  try {
+    const data = await pdfParse(pdfBuffer);
+    const text = data.text || '';
+    if (!text) return { parsed: false };
+
+    // Detection heuristics
+    if (!(/Confirmation\s+Number/i.test(text))) return { parsed: false };
+    if (!(/Balance\s+Due/i.test(text))) return { parsed: false };
+
+    // Invoice number (e.g. INV-930987)
+    let invoiceNumber = '';
+    const invNumMatch = text.match(/\b(INV-[\w\d-]+)\b/i);
+    if (invNumMatch) invoiceNumber = invNumMatch[1].toUpperCase();
+
+    // Invoice date — look for "Date:" followed by a recognisable date
+    let invoiceDate = '';
+    const dateLabelMatch = text.match(/\bDate:\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2})/i);
+    if (dateLabelMatch) invoiceDate = parseFlexibleDate(dateLabelMatch[1]);
+
+    // Supplier — company name before "Bill To:" block
+    let supplier = '';
+    const billToIdx = text.search(/Bill\s*To:/i);
+    const headerText = billToIdx > 20 ? text.slice(0, billToIdx) : text.slice(0, 500);
+    const companyMatch = headerText.match(/^([A-Za-z][A-Za-z\s,.'&]+(?:Travel|Inc|LLC|Ltd|Group|Agency|Tours)[^\n]*)/m);
+    if (companyMatch) supplier = companyMatch[1].trim();
+
+    // Booking confirmation
+    const bookingNumber = extractBookingConfirmation(text);
+
+    // Guest name — three strategies to handle different PDF column-extraction orders
+    let guestName = '';
+    // Strategy 1: labeled value on same line
+    const clientSameLine = text.match(/Client\s+Name\s*:\s*(.+?)(?:\n|$)/i);
+    if (clientSameLine && clientSameLine[1].trim()) {
+      guestName = clientSameLine[1].trim();
+    }
+    // Strategy 2: label alone on one line, value on next
+    if (!guestName) {
+      guestName = extractLabeledTextValue(text, 'Client\\s+Name');
+    }
+    // Strategy 3: when PDF columns render values before labels, the name appears
+    // immediately before the confirmation number in the extracted text
+    if (!guestName && bookingNumber) {
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const confIdx = lines.findIndex(l =>
+        normalizeBookingConfirmation(l) === bookingNumber || l.includes(bookingNumber)
+      );
+      if (confIdx > 0) {
+        for (let i = confIdx - 1; i >= 0 && i >= confIdx - 4; i--) {
+          const cand = lines[i];
+          // Accept lines that look like a name: no trailing colon, no leading digit, has letters
+          if (!/:\s*$/.test(cand) && !/^\d/.test(cand) && /[A-Za-z]/.test(cand) && cand.length > 2) {
+            guestName = cand;
+            break;
+          }
+        }
+      }
+    }
+
+    // Departure date (Check-Out)
+    let departureDate = '';
+    const checkOutSameLine = text.match(/Check-?Out\s*:\s*(\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})/i);
+    if (checkOutSameLine) {
+      departureDate = parseFlexibleDate(checkOutSameLine[1]);
+    }
+    if (!departureDate) {
+      // ISO dates in text — check-in comes first, check-out second
+      const isoDates = [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map(m => m[1]);
+      if (isoDates.length >= 2) departureDate = isoDates[1];
+      else if (isoDates.length === 1) departureDate = isoDates[0];
+    }
+
+    // Commission line: "10% $1,825.00 $182.50" → (rate, revenue, amount)
+    let reservationTotal = 0;
+    let totalCommission  = 0;
+    let commissionPercent = 0;
+    const commLineMatch = text.match(/(\d+(?:\.\d+)?)\s*%\s+\$\s*([\d,]+\.\d{2})\s+\$\s*([\d,]+\.\d{2})/);
+    if (commLineMatch) {
+      commissionPercent = parseFloat(commLineMatch[1]);
+      reservationTotal  = parseFloat(commLineMatch[2].replace(/,/g, ''));
+      totalCommission   = parseFloat(commLineMatch[3].replace(/,/g, ''));
+    }
+    // Fallback: Balance Due
+    if (totalCommission === 0) {
+      const balanceMatch = text.match(/Balance\s+Due\s+\$\s*([\d,]+\.\d{2})/i);
+      if (balanceMatch) totalCommission = parseFloat(balanceMatch[1].replace(/,/g, ''));
+    }
+
+    const lineItems = [];
+    if (guestName || bookingNumber || totalCommission > 0) {
+      lineItems.push({
+        guestName,
+        bookingNumber,
+        departureDate,
+        reservationTotal,
+        commissionPercent,
+        totalCommission,
+        status: 'pending',
+      });
+    }
+
+    if (lineItems.length === 0) return { parsed: false };
+
+    console.log(`Fora-style invoice parsed: ${invoiceNumber}, ${supplier}, ${lineItems.length} items`);
+
+    return {
+      parsed: true,
+      invoiceType: 'commission',
+      supplier,
+      invoiceNumber,
+      invoiceDate,
+      lineItems,
+      confirmedAmount: lineItems.reduce((sum, i) => sum + (i.totalCommission || 0), 0),
+    };
+  } catch (err) {
+    console.error('Fora-style invoice parse error:', err?.message);
+    return { parsed: false };
+  }
 }
 
 function parseMultipart(req) {
@@ -540,11 +748,14 @@ export default async function handler(req, res) {
       await file.save(pdf.buffer, { contentType: 'application/pdf', resumable: false });
     }
 
-    // Attempt to parse commission invoice data from the PDF
+    // Attempt to parse invoice data from the PDF — try formats in order
     let parsedInvoice = { parsed: false };
     if (pdf?.buffer) {
       try {
         parsedInvoice = await parseCommissionInvoice(pdf.buffer);
+        if (!parsedInvoice.parsed) {
+          parsedInvoice = await parseForaStyleInvoice(pdf.buffer);
+        }
       } catch (parseErr) {
         console.error('AP webhook: PDF parse attempt failed:', parseErr?.message);
       }
