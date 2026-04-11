@@ -372,6 +372,65 @@ function FilterDropdown({ label, options, selectedValues, onChange }) {
   );
 }
 
+/* ── Searchable combobox for travel agents / suppliers ── */
+function SearchableSelect({ value, onChange, options, placeholder, onSelectRecord, inputStyle }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutside = e => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  const filtered = options.filter(o =>
+    !value || (o.name || '').toLowerCase().includes(value.toLowerCase())
+  );
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative' }}>
+      <input
+        value={value}
+        onChange={e => { onChange(e.target.value); onSelectRecord(null); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        style={inputStyle}
+        autoComplete="off"
+      />
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0,
+          background: '#fff', border: '1px solid #ddd', borderRadius: 6,
+          boxShadow: '0 4px 16px rgba(0,0,0,.1)', zIndex: 100,
+          maxHeight: 200, overflowY: 'auto',
+        }}>
+          {filtered.map(opt => (
+            <div
+              key={opt.id}
+              style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f5f5f5'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}
+              onMouseDown={e => {
+                e.preventDefault();
+                onChange(opt.name);
+                onSelectRecord(opt);
+                setOpen(false);
+              }}
+            >
+              <span>{opt.name}</span>
+              {opt.standardCommission != null && opt.standardCommission !== '' && (
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>Std: {opt.standardCommission}%</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Invoice Modal ── */
 function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }) {
   const [invoiceType, setInvoiceType] = useState(invoice.invoiceType || 'supplier');
@@ -386,6 +445,21 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }
   const [pdfUrl, setPdfUrl] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState('');
+
+  const [travelAgents, setTravelAgents] = useState([]);
+  const [supplierList, setSupplierList] = useState([]);
+  const [selectedAgentRecord, setSelectedAgentRecord] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    getDocs(query(collection(db, 'travel_agents'), orderBy('name')))
+      .then(snap => { if (active) setTravelAgents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); })
+      .catch(() => {});
+    getDocs(query(collection(db, 'ap_suppliers'), orderBy('name')))
+      .then(snap => { if (active) setSupplierList(snap.docs.map(d => ({ id: d.id, ...d.data() }))); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const [supplierItems, setSupplierItems] = useState(
     invoice.invoiceType !== 'commission' && invoice.lineItems?.length
@@ -590,6 +664,7 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }
               style={{ padding: '6px 16px', fontSize: 13 }}
               onClick={() => {
                 setInvoiceType(t.value);
+                setSelectedAgentRecord(null);
                 if (t.value === 'commission' && !dept) setDept('Reservations');
               }}>
               {t.label}
@@ -600,11 +675,29 @@ function InvoiceModal({ invoice, onClose, onSave, onDelete, duplicateCount = 0 }
         {/* Invoice details */}
         <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Invoice Details</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
-          <div>
+          <div style={{ position: 'relative' }}>
             <label style={fieldLabel}>{invoiceType === 'commission' ? 'Travel Agent' : 'Supplier'}</label>
-            <input value={supplier} onChange={e => setSupplier(e.target.value)}
-              placeholder={invoiceType === 'commission' ? 'Travel agent name' : 'Company name'} style={inputStyle} />
+            <SearchableSelect
+              value={supplier}
+              onChange={setSupplier}
+              options={invoiceType === 'commission' ? travelAgents : supplierList}
+              placeholder={invoiceType === 'commission' ? 'Travel agent name' : 'Company name'}
+              onSelectRecord={rec => setSelectedAgentRecord(rec)}
+              inputStyle={inputStyle}
+            />
           </div>
+          {invoiceType === 'commission' &&
+            selectedAgentRecord?.standardCommission != null &&
+            selectedAgentRecord.standardCommission !== '' &&
+            commissionItems.some(item => {
+              const pct = parseFloat(item.commissionPercent);
+              const std = parseFloat(selectedAgentRecord.standardCommission);
+              return (item.guestName || '').trim() && !isNaN(pct) && !isNaN(std) && Math.abs(pct - std) > 0.01;
+            }) && (
+            <div style={{ gridColumn: '1 / -1', padding: '8px 12px', background: '#fff8e6', border: '1px solid #f0d58a', borderRadius: 6, color: '#b45309', fontSize: 13 }}>
+              Warning: one or more commission rates differ from {selectedAgentRecord.name}&apos;s standard rate of {selectedAgentRecord.standardCommission}%.
+            </div>
+          )}
           <div>
             <label style={fieldLabel}>Invoice Number</label>
             <input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="INV-001" style={inputStyle} />
