@@ -143,5 +143,14 @@ service cloud.firestore {
       allow create: if false; // only Firebase Admin (server) can create
       allow delete: if false;
     }
+    // Travel agent database - read and write by authenticated staff
+    match /travel_agents/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Supplier database - read and write by authenticated staff
+    match /ap_suppliers/{docId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

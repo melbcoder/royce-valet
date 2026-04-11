@@ -335,6 +335,16 @@ async function parseCommissionInvoice(pdfBuffer) {
   }
 }
 
+/** Extract a plain email address from a From header like "Name <addr@example.com>" */
+function extractEmailAddress(from) {
+  if (!from) return '';
+  const angleMatch = String(from).match(/<([^>]+)>/);
+  if (angleMatch) return angleMatch[1].trim().toLowerCase();
+  const emailMatch = String(from).match(/[\w.+\-]+@[\w.\-]+\.[a-z]{2,}/i);
+  if (emailMatch) return emailMatch[0].trim().toLowerCase();
+  return '';
+}
+
 function normalizeBookingConfirmation(candidate) {
   if (!candidate) return '';
   return String(candidate).toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -758,6 +768,51 @@ export default async function handler(req, res) {
         }
       } catch (parseErr) {
         console.error('AP webhook: PDF parse attempt failed:', parseErr?.message);
+      }
+    }
+
+    // Auto-register travel agent or supplier if they don't already exist
+    if (parsedInvoice.parsed && (parsedInvoice.supplier || '').trim()) {
+      try {
+        const agentName = parsedInvoice.supplier.trim();
+        const senderEmail = extractEmailAddress(fromEmail);
+        if (parsedInvoice.invoiceType === 'commission') {
+          const snap = await db.collection('travel_agents').get();
+          const exists = snap.docs.some(d => (d.data().name || '').toLowerCase() === agentName.toLowerCase());
+          if (!exists) {
+            await db.collection('travel_agents').add({
+              name: agentName,
+              email: senderEmail,
+              iataCode: '',
+              standardCommission: '',
+              bankName: '',
+              bankBSB: '',
+              bankAccountNumber: '',
+              bankSwift: '',
+              autoCreated: true,
+              createdAt: new Date().toISOString(),
+            });
+            console.log('AP webhook: auto-created travel agent:', agentName);
+          }
+        } else {
+          const snap = await db.collection('ap_suppliers').get();
+          const exists = snap.docs.some(d => (d.data().name || '').toLowerCase() === agentName.toLowerCase());
+          if (!exists) {
+            await db.collection('ap_suppliers').add({
+              name: agentName,
+              email: senderEmail,
+              bankName: '',
+              bankBSB: '',
+              bankAccountNumber: '',
+              bankSwift: '',
+              autoCreated: true,
+              createdAt: new Date().toISOString(),
+            });
+            console.log('AP webhook: auto-created supplier:', agentName);
+          }
+        }
+      } catch (autoCreateErr) {
+        console.error('AP webhook: auto-create agent/supplier failed:', autoCreateErr?.message);
       }
     }
 

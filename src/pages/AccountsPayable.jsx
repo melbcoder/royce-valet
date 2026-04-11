@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { auth, db } from '../firebase';
 import {
-  collection, onSnapshot, doc, updateDoc, query, orderBy
+  collection, onSnapshot, doc, updateDoc, query, orderBy, getDocs
 } from 'firebase/firestore';
 
 const DEPARTMENTS = ['Reservations', 'Front Office', 'Housekeeping', 'Maintenance', 'F&B', 'Management', 'Other'];

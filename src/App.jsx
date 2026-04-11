@@ -13,6 +13,8 @@ import MaintenanceJobs from './pages/MaintenanceJobs';
 import ContractorSignIn from './pages/ContractorSignIn';
 import MaintenanceDashboard from './pages/MaintenanceDashboard';
 import AccountsPayable from './pages/AccountsPayable';
+import TravelAgentDatabase from './pages/TravelAgentDatabase';
+import SupplierDatabase from './pages/SupplierDatabase';
 import QRLogin from './pages/QRLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
@@ -194,6 +196,22 @@ export default function App(){
               element={
                 <ProtectedRoute requiredPage="accounts-payable">
                   <AccountsPayable />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts-payable/travel-agents"
+              element={
+                <ProtectedRoute requiredPage="accounts-payable">
+                  <TravelAgentDatabase />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/accounts-payable/suppliers"
+              element={
+                <ProtectedRoute requiredPage="accounts-payable">
+                  <SupplierDatabase />
                 </ProtectedRoute>
               }
             />

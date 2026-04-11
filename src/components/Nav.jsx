@@ -27,6 +27,7 @@ export default function Nav() {
     '/settings'
   ].includes(location.pathname) || isAccountsPayablePage;
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [apOpen, setApOpen] = useState(false);
   const isMaintenancePage = location.pathname.startsWith('/maintenance');
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPages, setUserPages] = useState([]);
