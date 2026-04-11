@@ -3,16 +3,13 @@ import crypto from 'crypto';
 import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
 function getOtpSecret() {
-  return process.env.PASSWORD_RESET_OTP_SECRET
-    || process.env.FIREBASE_PRIVATE_KEY
-    || process.env.TWILIO_AUTH_TOKEN
-    || '';
+  return process.env.PASSWORD_RESET_OTP_SECRET || '';
 }
 
 function hashOtp(resetDocId, otp) {
   const secret = getOtpSecret();
   if (!secret) {
-    throw new Error('Missing PASSWORD_RESET_OTP_SECRET (or fallback secret) for OTP hashing');
+    throw new Error('Missing PASSWORD_RESET_OTP_SECRET for OTP hashing');
   }
   return crypto.createHmac('sha256', secret).update(`${resetDocId}:${otp}`).digest('hex');
 }
