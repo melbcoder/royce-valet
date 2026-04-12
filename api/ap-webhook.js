@@ -652,8 +652,13 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const secret = req.headers['x-sendgrid-secret'];
-  if (process.env.SENDGRID_WEBHOOK_SECRET && secret !== process.env.SENDGRID_WEBHOOK_SECRET) {
+  const secret = typeof req.query?.secret === 'string' ? req.query.secret : '';
+  const expectedSecret = process.env.SENDGRID_WEBHOOK_SECRET;
+  if (!expectedSecret) {
+    console.error('AP webhook: SENDGRID_WEBHOOK_SECRET env var is not configured');
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
+  if (!secret || secret !== expectedSecret) {
     console.log('AP webhook: auth failed');
     return res.status(401).json({ error: 'Unauthorized' });
   }

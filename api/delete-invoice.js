@@ -40,6 +40,13 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const userData = userDoc.data() || {};
+    const pages = Array.isArray(userData.pages) ? userData.pages : [];
+    const hasAccess = userData.role === 'admin' || pages.includes('accounts-payable');
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const invoiceRef = adminDb.collection('ap_invoices').doc(invoiceId);
     const invoiceSnap = await invoiceRef.get();
     if (!invoiceSnap.exists) {

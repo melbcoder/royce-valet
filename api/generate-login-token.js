@@ -29,6 +29,18 @@ export default async function handler(req, res) {
     }
     const userData = userDoc.data();
 
+    // Rate limit: max 5 QR tokens per UID per 60-second window
+    const sixtySecsAgo = Date.now() - 60 * 1000;
+    const allUserTokensSnap = await adminDb.collection('loginTokens')
+      .where('uid', '==', decoded.uid)
+      .get();
+    const recentCount = allUserTokensSnap.docs.filter(
+      (d) => (d.data().createdAt || 0) >= sixtySecsAgo
+    ).length;
+    if (recentCount >= 5) {
+      return res.status(429).json({ error: 'Too many requests. Please wait before generating another QR code.' });
+    }
+
     // Generate a cryptographically secure 32-byte random token (64 hex chars)
     const rawToken = crypto.randomBytes(32).toString('hex');
 

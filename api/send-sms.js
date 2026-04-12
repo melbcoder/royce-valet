@@ -34,7 +34,9 @@ export default async function handler(req, res) {
   }
 
   const to = typeof req.body?.to === 'string' ? req.body.to.trim() : '';
-  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  const rawMessage = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  // Strip null bytes and non-printable control characters; preserve \n for multi-line SMS
+  const message = rawMessage.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   if (!to || !message) {
     return res.status(400).json({ error: 'Missing required fields: to, message' });

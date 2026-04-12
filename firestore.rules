@@ -11,6 +11,14 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+
+    function hasPageAccess(page) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         ('pages' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.pages.hasAny([page])));
+    }
     
     // Users collection - document ID MUST be the Firebase Auth UID
     match /users/{uid} {
@@ -143,14 +151,16 @@ service cloud.firestore {
       allow create: if false; // only Firebase Admin (server) can create
       allow delete: if false;
     }
-    // Travel agent database - read and write by authenticated staff
+    // Travel agent database - read by authenticated staff, write requires page access
     match /travel_agents/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if hasPageAccess('accounts-payable/travel-agents');
     }
 
-    // Supplier database - read and write by authenticated staff
+    // Supplier database - read by authenticated staff, write requires page access
     match /ap_suppliers/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if hasPageAccess('accounts-payable/suppliers');
     }
   }
 }
