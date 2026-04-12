@@ -1,5 +1,54 @@
 import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
+const RATE_WINDOW_MS = 60 * 1000;
+const MAX_PER_UID_PER_WINDOW = 10;
+const MAX_PER_IP_PER_WINDOW = 20;
+const MAX_PER_DESTINATION_PER_WINDOW = 5;
+
+function getClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket?.remoteAddress || 'unknown';
+}
+
+function hashKey(value) {
+  return Buffer.from(String(value || '')).toString('base64url');
+}
+
+function windowBucket() {
+  return Math.floor(Date.now() / RATE_WINDOW_MS);
+}
+
+async function bumpRateCounter(db, scope, id, maxAllowed) {
+  const bucket = windowBucket();
+  const key = `${scope}:${hashKey(id)}:${bucket}`;
+  const ref = db.collection('smsRateLimits').doc(key);
+  const now = Date.now();
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const count = Number(data.count || 0);
+    if (count >= maxAllowed) {
+      throw Object.assign(new Error('SMS rate limit exceeded'), { code: 'RATE_LIMITED' });
+    }
+
+    tx.set(ref, {
+      scope,
+      idHash: hashKey(id),
+      count: count + 1,
+      createdAt: Number(data.createdAt || now),
+      updatedAt: now,
+      expiresAt: now + (5 * RATE_WINDOW_MS),
+    }, { merge: true });
+  });
+}
+
+async function enforceRateLimits(db, uid, ip, to) {
+  await bumpRateCounter(db, 'uid', uid, MAX_PER_UID_PER_WINDOW);
+  await bumpRateCounter(db, 'ip', ip, MAX_PER_IP_PER_WINDOW);
+  await bumpRateCounter(db, 'to', to, MAX_PER_DESTINATION_PER_WINDOW);
+}
+
 // Vercel Serverless Function for sending SMS via Twilio
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -44,6 +93,18 @@ export default async function handler(req, res) {
 
   if (!/^\+[1-9]\d{1,14}$/.test(to)) {
     return res.status(400).json({ error: 'Invalid phone number format' });
+  }
+
+  const db = getAdminFirestore();
+  const clientIp = getClientIp(req);
+
+  try {
+    await enforceRateLimits(db, decoded.uid, clientIp, to);
+  } catch (rateErr) {
+    if (rateErr?.code === 'RATE_LIMITED') {
+      return res.status(429).json({ error: 'Too many SMS requests. Please try again shortly.' });
+    }
+    throw rateErr;
   }
 
   if (message.length > 1600) {

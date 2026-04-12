@@ -2,6 +2,9 @@
 import crypto from 'crypto';
 import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
 
+const GENERIC_RESET_MESSAGE = 'If the account exists, an OTP has been sent to the registered phone number.';
+const IP_RATE_LIMIT_MAX_PER_HOUR = 25;
+
 function maskPhoneLast3(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (digits.length < 3) return 'xxx';
@@ -10,6 +13,43 @@ function maskPhoneLast3(phone) {
 
 function getOtpSecret() {
   return process.env.PASSWORD_RESET_OTP_SECRET || '';
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket?.remoteAddress || 'unknown';
+}
+
+function hashRateLimitKey(value) {
+  return crypto.createHash('sha256').update(String(value || '')).digest('hex');
+}
+
+function currentHourBucket() {
+  return Math.floor(Date.now() / (60 * 60 * 1000));
+}
+
+async function enforceIpRateLimit(db, ipAddress) {
+  const bucket = currentHourBucket();
+  const ipHash = hashRateLimitKey(ipAddress);
+  const key = `${ipHash}:${bucket}`;
+  const ref = db.collection('passwordResetRateLimits').doc(key);
+  const now = Date.now();
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? (snap.data() || {}) : {};
+    const count = Number(data.count || 0);
+    if (count >= IP_RATE_LIMIT_MAX_PER_HOUR) {
+      throw Object.assign(new Error('Rate limited'), { code: 'RATE_LIMITED' });
+    }
+
+    tx.set(ref, {
+      count: count + 1,
+      createdAt: Number(data.createdAt || now),
+      updatedAt: now,
+      expiresAt: now + (2 * 60 * 60 * 1000),
+    }, { merge: true });
+  });
 }
 
 function hashOtp(resetDocId, otp) {
@@ -35,6 +75,16 @@ export default async function handler(req, res) {
   try {
     const db = getAdminFirestore();
     const adminAuth = getAdminAuth();
+    const clientIp = getClientIp(req);
+
+    try {
+      await enforceIpRateLimit(db, clientIp);
+    } catch (rateErr) {
+      if (rateErr?.code === 'RATE_LIMITED') {
+        return res.status(429).json({ error: 'Too many reset requests. Please try again later.' });
+      }
+      throw rateErr;
+    }
 
     // Sanitize username
     const cleanUsername = String(username).toLowerCase().trim().slice(0, 50);
@@ -45,18 +95,14 @@ export default async function handler(req, res) {
     try {
       user = await adminAuth.getUserByEmail(email);
     } catch (error) {
-      return res.status(404).json({
-        error: 'No account found for that username.'
-      });
+      return res.status(200).json({ message: GENERIC_RESET_MESSAGE });
     }
 
     // Get user data from Firestore
     const userDoc = await db.collection('users').doc(user.uid).get();
     
     if (!userDoc.exists) {
-      return res.status(404).json({
-        error: 'No account profile found. Please contact an admin.'
-      });
+      return res.status(200).json({ message: GENERIC_RESET_MESSAGE });
     }
 
     const userData = userDoc.data();
@@ -65,9 +111,7 @@ export default async function handler(req, res) {
 
     if (!cleanPhone) {
       console.info('Password reset skipped: no phone on user profile', { uid: user.uid });
-      return res.status(400).json({
-        error: 'No phone number is saved for this account. Please contact an admin.'
-      });
+      return res.status(200).json({ message: GENERIC_RESET_MESSAGE });
     }
 
     // One-time backfill so all users end up with a canonical phoneNumber field.
@@ -161,18 +205,18 @@ export default async function handler(req, res) {
         timestamp: FieldValue.serverTimestamp(),
         username: cleanUsername,
         uid: user.uid,
-        ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+        ipAddress: clientIp
       });
 
       return res.status(200).json({ 
-        message: 'OTP sent to registered phone number',
+        message: GENERIC_RESET_MESSAGE,
         resetDocId: resetDocId,
         maskedPhone: maskPhoneLast3(cleanPhone)
       });
 
     } catch (smsError) {
       console.error('Error sending SMS:', smsError);
-      return res.status(500).json({ error: 'Failed to send OTP' });
+      return res.status(200).json({ message: GENERIC_RESET_MESSAGE });
     }
 
   } catch (error) {

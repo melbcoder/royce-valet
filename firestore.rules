@@ -5,19 +5,47 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
+
+    function userDocPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function hasUserDoc() {
+      return isAuthenticated() && exists(userDocPath());
+    }
+
+    function userData() {
+      return get(userDocPath()).data;
+    }
     
     function isAdmin() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return hasUserDoc() && userData().role == 'admin';
     }
 
     function hasPageAccess(page) {
+      return hasUserDoc() &&
+        (isAdmin() ||
+         ('pages' in userData() && userData().pages.hasAny([page])));
+    }
+
+    function hasAnyPageAccess(pageList) {
+      return hasUserDoc() &&
+        (isAdmin() ||
+         ('pages' in userData() && userData().pages.hasAny(pageList)));
+    }
+
+    function canSelfEditUserDoc(uid) {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         ('pages' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.pages.hasAny([page])));
+        request.auth.uid == uid &&
+        request.resource.data.uid == resource.data.uid &&
+        !request.resource.data.diff(resource.data).changedKeys().hasAny([
+          'role',
+          'pages',
+          'email',
+          'uid',
+          'isDefaultAdmin',
+          'createdAt'
+        ]);
     }
     
     // Users collection - document ID MUST be the Firebase Auth UID
@@ -28,19 +56,11 @@ service cloud.firestore {
       // Admins can read all users
       allow read: if isAdmin();
       
-      // Admins can create new users (for user management)
-      // OR users can create their own document during signup
-      allow create: if isAdmin() || 
-                      (request.auth != null && 
-                       request.auth.uid == uid &&
-                       request.resource.data.uid == uid);
+      // Only admins can create users
+      allow create: if isAdmin() && request.resource.data.uid == uid;
       
-      // Users can update their own data (including mustChangePassword)
-      // But they cannot change their role
-      allow update: if isAuthenticated() && 
-                      request.auth.uid == uid && 
-                      (!('role' in request.resource.data) ||
-                       request.resource.data.role == resource.data.role);
+      // Users can update a safe subset of their own fields
+      allow update: if canSelfEditUserDoc(uid);
       
       // Admins can update any user
       allow update: if isAdmin();
@@ -51,29 +71,34 @@ service cloud.firestore {
     
     // Vehicles - authenticated staff access only
     match /vehicles/{vehicleId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if hasAnyPageAccess(['dashboard', 'valet', 'valet-history']);
+      allow write: if hasPageAccess('valet');
     }
     
     // Valet history, luggage, amenities - authenticated only
     match /valetHistory/{historyId} {
-      allow read, write: if isAuthenticated();
+      allow read: if hasAnyPageAccess(['dashboard', 'valet', 'valet-history']);
+      allow write: if hasAnyPageAccess(['valet', 'valet-history']);
     }
     
     match /luggage/{luggageId} {
-      allow read, write: if isAuthenticated();
+      allow read: if hasAnyPageAccess(['dashboard', 'luggage', 'luggage-history']);
+      allow write: if hasPageAccess('luggage');
     }
     
     match /luggageHistory/{historyId} {
-      allow read, write: if isAuthenticated();
+      allow read: if hasAnyPageAccess(['dashboard', 'luggage', 'luggage-history']);
+      allow write: if hasAnyPageAccess(['luggage', 'luggage-history']);
     }
     
     match /amenities/{amenityId} {
-      allow read, write: if isAuthenticated();
+      allow read: if hasAnyPageAccess(['dashboard', 'amenities', 'amenities-history']);
+      allow write: if hasPageAccess('amenities');
     }
     
     match /amenitiesHistory/{historyId} {
-      allow read, write: if isAuthenticated();
+      allow read: if hasAnyPageAccess(['dashboard', 'amenities', 'amenities-history']);
+      allow write: if hasAnyPageAccess(['amenities', 'amenities-history']);
     }
     
     // Settings
@@ -83,11 +108,11 @@ service cloud.firestore {
     }
     
     match /luggageAudit/{auditId} {
-      // Authenticated users can read audit logs
-      allow read: if request.auth != null;
+      // Restrict read access to luggage staff and admins
+      allow read: if hasAnyPageAccess(['luggage', 'luggage-history']);
       
-      // Authenticated users can create audit logs (writes are done by the app)
-      allow create: if request.auth != null;
+      // Luggage staff and admins can create audit logs
+      allow create: if hasAnyPageAccess(['luggage', 'luggage-history']);
       
       // Prevent updates and deletes to maintain audit integrity
       allow update, delete: if false;
@@ -95,15 +120,15 @@ service cloud.firestore {
     
     // Vehicle Audit Collection
     match /vehicleAudit/{auditId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow read: if hasAnyPageAccess(['valet', 'valet-history']);
+      allow create: if hasAnyPageAccess(['valet', 'valet-history']);
       allow update, delete: if false;
     }
 
     // Amenities Audit Collection
     match /amenitiesAudit/{auditId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow read: if hasAnyPageAccess(['amenities', 'amenities-history']);
+      allow create: if hasAnyPageAccess(['amenities', 'amenities-history']);
       allow update, delete: if false;
     }
 
@@ -116,8 +141,8 @@ service cloud.firestore {
 
     // Audit Logs Collection
     match /auditLogs/{auditId} {
-      // Only authenticated users can read audit logs
-      allow read: if request.auth != null;
+      // Only admins can read security audit logs
+      allow read: if isAdmin();
       // Only backend (Firebase Admin) can write
       allow create: if false;
       // Prevent updates and deletes to maintain audit integrity
@@ -126,17 +151,17 @@ service cloud.firestore {
 
     // Contractors (currently signed in on site)
     match /contractors/{contractorId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if hasAnyPageAccess(['maintenance', 'maintenance/contractor-sign-in', 'maintenance/jobs']);
     }
 
     // Contractor sign-out history
     match /contractorHistory/{historyId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if hasAnyPageAccess(['maintenance', 'maintenance/contractor-sign-in', 'maintenance/jobs']);
     }
 
     // Maintenance jobs
     match /maintenanceJobs/{jobId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if hasAnyPageAccess(['maintenance', 'maintenance/jobs']);
     }
 
     // Login tokens — only writable by the server (Firebase Admin SDK bypasses these rules).
@@ -147,20 +172,20 @@ service cloud.firestore {
 
     // AP invoices: authenticated users can read/update, only server can create
     match /ap_invoices/{invoiceId} {
-      allow read, update: if request.auth != null;
+      allow read, update: if hasPageAccess('accounts-payable');
       allow create: if false; // only Firebase Admin (server) can create
       allow delete: if false;
     }
     // Travel agent database - read by authenticated staff, write requires page access
     match /travel_agents/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if hasPageAccess('accounts-payable/travel-agents');
+      allow read: if hasAnyPageAccess(['accounts-payable', 'accounts-payable/travel-agents']);
+      allow write: if hasAnyPageAccess(['accounts-payable', 'accounts-payable/travel-agents']);
     }
 
     // Supplier database - read by authenticated staff, write requires page access
     match /ap_suppliers/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if hasPageAccess('accounts-payable/suppliers');
+      allow read: if hasAnyPageAccess(['accounts-payable', 'accounts-payable/suppliers']);
+      allow write: if hasAnyPageAccess(['accounts-payable', 'accounts-payable/suppliers']);
     }
   }
 }

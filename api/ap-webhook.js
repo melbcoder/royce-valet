@@ -641,9 +641,37 @@ function parseMultipart(req) {
 
 export const config = { api: { bodyParser: false } };
 
+function extractWebhookSecret(req) {
+  // For SendGrid Inbound Parse, use a path secret via Vercel rewrite:
+  // /api/ap-webhook/<secret> -> /api/ap-webhook?routeSecret=<secret>
+  const routeSecret = typeof req.query?.routeSecret === 'string'
+    ? req.query.routeSecret.trim()
+    : '';
+  if (routeSecret) return routeSecret;
+
+  const headerSecret = typeof req.headers?.['x-sendgrid-webhook-secret'] === 'string'
+    ? req.headers['x-sendgrid-webhook-secret'].trim()
+    : '';
+  if (headerSecret) return headerSecret;
+
+  const altHeaderSecret = typeof req.headers?.['x-webhook-secret'] === 'string'
+    ? req.headers['x-webhook-secret'].trim()
+    : '';
+  if (altHeaderSecret) return altHeaderSecret;
+
+  const authHeader = typeof req.headers?.authorization === 'string'
+    ? req.headers.authorization.trim()
+    : '';
+  if (authHeader.toLowerCase().startsWith('bearer ')) {
+    return authHeader.slice(7).trim();
+  }
+
+  return '';
+}
+
 export default async function handler(req, res) {
-  // Log immediately so we can confirm the function is being hit
-  console.log('AP webhook hit:', req.method, '| content-type:', req.headers?.['content-type']?.slice(0, 100));
+  // Minimal request metadata only. Do not log payload contents.
+  console.log('AP webhook hit:', req.method);
 
   if (req.method === 'GET') {
     // Health check endpoint — useful for verifying the function is deployed
@@ -652,7 +680,7 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const secret = typeof req.query?.secret === 'string' ? req.query.secret : '';
+  const secret = extractWebhookSecret(req);
   const expectedSecret = process.env.SENDGRID_WEBHOOK_SECRET;
   if (!expectedSecret) {
     console.error('AP webhook: SENDGRID_WEBHOOK_SECRET env var is not configured');
@@ -692,16 +720,6 @@ export default async function handler(req, res) {
         notes: '',
         hasPdf: false,
         pdfSource: null,
-        _diag: {
-          error: 'multipart parse failed',
-          message: parseErr?.message,
-          contentType: req.headers?.['content-type']?.slice(0, 200) || null,
-          bodyType: typeof req.body,
-          bodyIsBuffer: Buffer.isBuffer(req.body),
-          bodyIsNull: req.body === null || req.body === undefined,
-          bodyLength: Buffer.isBuffer(req.body) ? req.body.length : (typeof req.body === 'string' ? req.body.length : null),
-          bodyKeys: (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) ? Object.keys(req.body).slice(0, 20) : null,
-        },
       });
       return res.status(200).json({ received: true, warning: 'Parse failed, saved placeholder' });
     }
@@ -710,27 +728,7 @@ export default async function handler(req, res) {
     const subject   = fields.subject || '';
     const toEmail   = fields.to || '';
 
-    // Diagnostics: log what SendGrid actually sent
-    const fieldKeys = Object.keys(fields);
     const hasRawMime = typeof fields.email === 'string' && fields.email.length > 0;
-    const attachmentFieldKeys = fieldKeys.filter(k => /^attachment\d+$/i.test(k));
-    const diag = {
-      fieldKeys: fieldKeys.slice(0, 30),
-      fileCount: files.length,
-      attachmentFieldKeys,
-      hasRawMimeEmail: hasRawMime,
-      rawMimeLength: hasRawMime ? fields.email.length : 0,
-      contentType: req.headers?.['content-type']?.slice(0, 120) || null,
-      bodyType: typeof req.body,
-      bodyIsBuffer: Buffer.isBuffer(req.body),
-      fileMeta: files.slice(0, 5).map(f => ({
-        name: f.name,
-        filename: f.info?.filename,
-        mimeType: f.info?.mimeType,
-        size: f.buffer?.length,
-      })),
-    };
-    console.log('AP webhook diag:', JSON.stringify(diag));
 
     // Strategy 1: Look for PDF in parsed attachment fields (SendGrid default/parsed mode)
     let pdf = files.find((f) => isPdfFileCandidate(f));
@@ -840,12 +838,11 @@ export default async function handler(req, res) {
       hasPdf: !!pdf,
       pdfSource,
       autoParsed: parsedInvoice.parsed,
-      _diag: diag,
     };
 
     const docRef = await db.collection('ap_invoices').add(docData);
 
-    console.log('AP invoice saved:', docRef.id, '| from:', fromEmail, '| pdf:', !!pdf, '| source:', pdfSource, '| autoParsed:', parsedInvoice.parsed);
+    console.log('AP invoice saved:', docRef.id, '| pdf:', !!pdf, '| source:', pdfSource, '| autoParsed:', parsedInvoice.parsed);
     return res.status(200).json({ received: true, invoiceId: docRef.id, hasPdf: !!pdf, pdfSource, autoParsed: parsedInvoice.parsed });
 
   } catch (err) {

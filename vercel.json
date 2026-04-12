@@ -18,6 +18,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/ap-webhook/:routeSecret",
+      "destination": "/api/ap-webhook?routeSecret=:routeSecret"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

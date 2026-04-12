@@ -48,7 +48,11 @@ export default function ForgotPassword() {
       }
 
       if (!data.resetDocId) {
-        setError(data.error || 'Failed to request OTP')
+        setResetDocId('')
+        setResetToken('')
+        setMaskedPhone(data.maskedPhone || '')
+        setOtp('')
+        showToast(data.message || 'If the account exists, an OTP has been sent.', 'success')
         setLoading(false)
         return
       }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authenticateUser, checkUsersExist, initializeDefaultAdmin } from '../services/valetFirestore';
+import { authenticateUser } from '../services/valetFirestore';
 
 // Security utilities
 const sanitizeInput = (input) => {
@@ -16,12 +16,10 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isFirstSetup, setIsFirstSetup] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutEndTime, setLockoutEndTime] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
-  const [debugOutput, setDebugOutput] = useState('');
   const navigate = useNavigate();
 
   // Check lockout status
@@ -51,15 +49,6 @@ export default function Login() {
     return () => clearInterval(interval);
   }, []);
 
-  // Check if this is first-time setup
-  useEffect(() => {
-    async function checkSetup() {
-      const usersExist = await checkUsersExist();
-      setIsFirstSetup(!usersExist);
-    }
-    checkSetup();
-  }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -84,7 +73,7 @@ export default function Login() {
       return;
     }
     
-    const minPasswordLength = isFirstSetup ? 12 : 6;
+    const minPasswordLength = 6;
     if (!cleanPassword || cleanPassword.length < minPasswordLength || cleanPassword.length > 100) {
       setError(`Password must be ${minPasswordLength}-100 characters long.`);
       setLoading(false);
@@ -100,25 +89,6 @@ export default function Login() {
     try {
       setDebugInfo('Checking if users exist...');
       
-      if (isFirstSetup) {
-        setDebugInfo('Creating initial admin account...');
-
-        try {
-          await initializeDefaultAdmin({
-            username: cleanUsername,
-            password: cleanPassword,
-          });
-        } catch (createError) {
-          if (createError.code !== 'auth/email-already-in-use') {
-            throw createError;
-          }
-        }
-
-        setDebugInfo('Admin account created. Waiting for Firestore sync...');
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setIsFirstSetup(false);
-      }
-
       setDebugInfo('Authenticating user...');
       
       const user = await authenticateUser(cleanUsername, cleanPassword);
@@ -203,57 +173,6 @@ export default function Login() {
     return Math.max(0, Math.ceil((lockoutEndTime - Date.now()) / 1000));
   };
 
-  const runDiagnostics = async () => {
-    setDebugOutput('Running diagnostics...\n');
-    
-    try {
-      const { auth } = await import('../firebase');
-      const { db } = await import('../firebase');
-      const { collection, getDocs } = await import('firebase/firestore');
-      
-      let output = 'Running diagnostics...\n\n';
-      
-      // Check auth state
-      output += '1. Firebase Auth State:\n';
-      if (auth.currentUser) {
-        output += `   ✅ Logged in as: ${auth.currentUser.email}\n`;
-        output += `   UID: ${auth.currentUser.uid}\n\n`;
-      } else {
-        output += '   ❌ No user logged in\n\n';
-      }
-      
-      // Check users in Firestore
-      output += '2. Firestore Users Collection:\n';
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      output += `   Total users: ${usersSnapshot.size}\n\n`;
-      
-      if (usersSnapshot.size > 0) {
-        output += '   User documents:\n';
-        usersSnapshot.forEach(doc => {
-          const data = doc.data();
-          output += `   - Document ID: ${doc.id}\n`;
-          output += `     Username: ${data.username}\n`;
-          output += `     Role: ${data.role}\n`;
-          output += `     UID field: ${data.uid}\n`;
-          output += `     Match: ${doc.id === data.uid ? '✅ YES' : '❌ NO'}\n\n`;
-        });
-      } else {
-        output += '   ❌ No users found in Firestore\n\n';
-      }
-      
-      // Check Firestore rules
-      output += '3. Next Steps:\n';
-      output += '   - Go to Firebase Console → Firestore → Rules\n';
-      output += '   - Make sure you published the latest rules\n';
-      output += '   - Document ID must match the UID field\n';
-      
-      setDebugOutput(output);
-      
-    } catch (error) {
-      setDebugOutput(`Error running diagnostics: ${error.message}\n${error.stack}`);
-    }
-  };
-
   return (
     <div style={{ 
       display: 'flex', 
@@ -265,24 +184,6 @@ export default function Login() {
       <section className="card pad" style={{ maxWidth: '600px', width: '100%' }}>
         <h1 style={{ textAlign: 'center', marginBottom: 24 }}>Staff Login</h1>
         
-        {isFirstSetup && (
-          <div style={{ 
-            background: '#e3f2fd', 
-            padding: '12px', 
-            borderRadius: '4px', 
-            marginBottom: '16px',
-            fontSize: '14px',
-            border: '1px solid #2196F3'
-          }}>
-            <strong>First-time setup:</strong><br />
-            The first successful login creates your initial admin account using the username and password entered below.
-            <br />
-            <small style={{ color: '#666' }}>
-              Use a strong password with at least 12 characters.
-            </small>
-          </div>
-        )}
-
         {/* Debug info */}
         {debugInfo && (
           <div style={{ 

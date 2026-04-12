@@ -2,19 +2,51 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Authenticated users can read and write vehicle photos
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function hasUserDoc() {
+      return isAuthenticated() &&
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return hasUserDoc() && userData().role == 'admin';
+    }
+
+    function hasAnyPageAccess(pageList) {
+      return hasUserDoc() &&
+        (isAdmin() ||
+         ('pages' in userData() && userData().pages.hasAny(pageList)));
+    }
+
+    function validImageWrite() {
+      return request.resource != null &&
+        request.resource.size <= 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // Vehicle photos: valet staff (or admin) only
     match /vehicles/{vehicleTag}/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read: if hasAnyPageAccess(['dashboard', 'valet', 'valet-history']);
+      allow write: if hasAnyPageAccess(['valet']) && validImageWrite();
     }
 
-    // Authenticated users can read and write contractor photos
+    // Contractor photos: maintenance staff (or admin) only
     match /contractors/{contractorId}/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read: if hasAnyPageAccess(['maintenance', 'maintenance/contractor-sign-in', 'maintenance/jobs']);
+      allow write: if hasAnyPageAccess(['maintenance', 'maintenance/contractor-sign-in', 'maintenance/jobs']) && validImageWrite();
     }
 
-    // Authenticated users can read and write maintenance job photos
+    // Maintenance job photos: maintenance staff (or admin) only
     match /maintenanceJobs/{jobId}/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read: if hasAnyPageAccess(['maintenance', 'maintenance/jobs']);
+      allow write: if hasAnyPageAccess(['maintenance', 'maintenance/jobs']) && validImageWrite();
     }
 
   }
