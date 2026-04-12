@@ -253,6 +253,9 @@ export default function Nav() {
                     ...navLinkStyle(isAccountsPayablePage),
                     border: 'none',
                     cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    background: 'transparent',
                   }}
                 >
                   Accounts Payable ▾
