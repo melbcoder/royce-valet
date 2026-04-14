@@ -14,7 +14,6 @@ import {
   arrayUnion,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { createUserWithEmailAndPassword } from "firebase/auth";
 import { getTodayInTimezone } from "../utils/timezoneUtils";
 
 import { db, auth } from "../firebase";
@@ -673,40 +672,42 @@ export async function authenticateUser(username, password) {
 }
 
 // Create new user with Firebase Auth
-export async function createUser({ username, password, role, phoneNumber, mustChangePassword = false }) {
-  const cleanUsername = username.toLowerCase().trim()
-  const email = `${cleanUsername}@royce-valet.internal`
+export async function createUser({ username, password, role, phoneNumber, pages = [], mustChangePassword = false }) {
+  const cleanUsername = String(username || '').toLowerCase().trim()
   const cleanPhone = String(phoneNumber || '').replace(/[\s\-\(\)]/g, '')
-  
-  let userCredential = null
-  
-  try {
-    // Create Firebase Auth user
-    userCredential = await createUserWithEmailAndPassword(auth, email, password)
-    
-    // Create user document in Firestore using UID as document ID
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
-      uid: userCredential.user.uid,
+
+  if (!auth.currentUser) {
+    throw new Error('You must be signed in to create users')
+  }
+
+  const idToken = await auth.currentUser.getIdToken()
+
+  const response = await fetch('/api/create-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
       username: cleanUsername,
-      email,
+      password,
       role,
       phoneNumber: cleanPhone,
+      pages: Array.isArray(pages) ? pages : [],
       mustChangePassword,
-      createdAt: serverTimestamp()
-    })
-    
-  } catch (err) {
-    // If Firestore write failed but Auth user was created, try to clean up
-    if (userCredential?.user) {
-      try {
-        await userCredential.user.delete()
-      } catch (cleanupErr) {
-        // Silent cleanup failure
-      }
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const err = new Error(data?.error || 'Failed to create user')
+    if (data?.code) {
+      err.code = data.code
     }
-    
     throw err
   }
+
+  return data
 }
 
 // Update user
