@@ -210,38 +210,12 @@ async function parseCommissionInvoice(pdfBuffer) {
     const text = data.text || '';
     if (!text) return { parsed: false };
 
-    // Check if this looks like a commission invoice (standard "Tax Invoice Number PG.XXXX / PI.XXXX for Creditor" format)
-    const invoiceNumMatch = text.match(/Tax Invoice Number\s+([A-Z]{1,4}[.\d]+)\s+for Creditor/i);
-    if (!invoiceNumMatch) return { parsed: false };
+    const looksLikeCommissionInvoice = /for\s+Creditor|Creditor\s+Nett|Balance\s+Due|Commission/i.test(text);
+    if (!looksLikeCommissionInvoice) return { parsed: false };
 
-    const invoiceNumber = invoiceNumMatch[1];
-
-    // Extract invoice date — look for a date pattern like "Wednesday 01 April 2026" or "dd/mm/yy"
-    // The date line is usually near the top of the document
-    let invoiceDate = '';
-    const longDateMatch = text.match(
-      /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i
-    );
-    if (longDateMatch) {
-      const months = { january:'01', february:'02', march:'03', april:'04', may:'05', june:'06',
-                        july:'07', august:'08', september:'09', october:'10', november:'11', december:'12' };
-      const d = longDateMatch[1].padStart(2, '0');
-      const m = months[longDateMatch[2].toLowerCase()];
-      const y = longDateMatch[3];
-      invoiceDate = `${y}-${m}-${d}`; // YYYY-MM-DD for <input type="date">
-    }
-
-    // Extract travel agent / account name from EFT section
-    let supplier = '';
-    const accountNameMatch = text.match(/Account\s*name:\s*(.+?)(?:\n|BSB|$)/i);
-    if (accountNameMatch) {
-      supplier = accountNameMatch[1].trim();
-    }
-    // Fallback: look for company name in the footer area or header
-    if (!supplier) {
-      const footerNameMatch = text.match(/^([A-Z][A-Za-z\s&]+(?:Pty|Ltd|Group|Management|Travel)[^\n]*)/m);
-      if (footerNameMatch) supplier = footerNameMatch[1].trim();
-    }
+    const invoiceNumber = extractInvoiceNumber(text);
+    const invoiceDate = extractInvoiceDate(text);
+    const supplier = extractSupplierName(text);
 
     // Parse the tabular data — pdf-parse extracts each field on its own line,
     // so we collect multi-line blocks between "HTL" markers.
@@ -266,11 +240,7 @@ async function parseCommissionInvoice(pdfBuffer) {
 
       const blockText = block.join(' ');
 
-      // Guest name: HARVEY/ANNIE MRS, GRAVES/DEBRA JANE DR, or multiple passengers per booking
-      const clientMatches = [...blockText.matchAll(/([A-Z]+\/(?:[A-Z]+\s+)+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/gi)];
-      const guestName = clientMatches.length > 0
-        ? [...new Set(clientMatches.map(m => formatGuestName(m[1])))].join(' & ')
-        : '';
+      const guestName = extractGuestName(blockText, '');
 
       // Booking confirmation: accept only known robust formats.
       // 1) 7 digits (e.g. 1234567)
@@ -316,6 +286,38 @@ async function parseCommissionInvoice(pdfBuffer) {
       }
     }
 
+    // Fallback for PDFs that don't contain HTL markers: build at least one row from global labels/content.
+    if (lineItems.length === 0) {
+      const bookingNumbers = extractBookingConfirmations(text);
+      const fallbackGuest = extractGuestName(text, bookingNumbers[0] || '');
+      const fallbackDeparture = extractDepartureDate(text);
+      const amountInfo = extractCommissionAmounts(text);
+
+      if (bookingNumbers.length > 0) {
+        for (const booking of bookingNumbers.slice(0, 20)) {
+          lineItems.push({
+            guestName: fallbackGuest,
+            bookingNumber: booking,
+            departureDate: fallbackDeparture,
+            reservationTotal: amountInfo.reservationTotal,
+            commissionPercent: amountInfo.commissionPercent,
+            totalCommission: amountInfo.totalCommission,
+            status: 'pending',
+          });
+        }
+      } else if (fallbackGuest || amountInfo.totalCommission > 0 || invoiceNumber) {
+        lineItems.push({
+          guestName: fallbackGuest,
+          bookingNumber: '',
+          departureDate: fallbackDeparture,
+          reservationTotal: amountInfo.reservationTotal,
+          commissionPercent: amountInfo.commissionPercent,
+          totalCommission: amountInfo.totalCommission,
+          status: 'pending',
+        });
+      }
+    }
+
     if (lineItems.length === 0) return { parsed: false };
 
     console.log(`Commission invoice parsed: ${invoiceNumber}, ${supplier}, ${lineItems.length} items`);
@@ -343,6 +345,157 @@ function extractEmailAddress(from) {
   const emailMatch = String(from).match(/[\w.+\-]+@[\w.\-]+\.[a-z]{2,}/i);
   if (emailMatch) return emailMatch[0].trim().toLowerCase();
   return '';
+}
+
+function extractInvoiceNumber(text) {
+  if (!text) return '';
+
+  const explicitLabelPatterns = [
+    /Tax\s+Invoice\s+Number\s+([A-Z0-9.\/-]{4,})\s+for\s+Creditor/i,
+    /Tax\s+Invoice\s+Number\s*:\s*([A-Z0-9.\/-]{4,})/i,
+    /Invoice\s*(?:Number|No\.?|#)\s*:?\s*([A-Z0-9.\/-]{4,})/i,
+    /\b(INV-[A-Z0-9-]{3,})\b/i,
+  ];
+
+  for (const pattern of explicitLabelPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim().toUpperCase();
+  }
+
+  return '';
+}
+
+function extractInvoiceDate(text) {
+  if (!text) return '';
+
+  const longDateMatch = text.match(
+    /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i
+  );
+  if (longDateMatch) {
+    const months = { january:'01', february:'02', march:'03', april:'04', may:'05', june:'06',
+      july:'07', august:'08', september:'09', october:'10', november:'11', december:'12' };
+    const d = longDateMatch[1].padStart(2, '0');
+    const m = months[longDateMatch[2].toLowerCase()];
+    const y = longDateMatch[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  const dateLabel = extractLabeledTextValue(text, '(?:Invoice\s+Date|Date)');
+  const parsedLabel = parseFlexibleDate(dateLabel);
+  if (parsedLabel) return parsedLabel;
+
+  const genericDate = text.match(/\b(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{2,4})\b/);
+  if (genericDate?.[1]) return parseFlexibleDate(genericDate[1]);
+
+  return '';
+}
+
+function extractSupplierName(text) {
+  if (!text) return '';
+
+  const accountNameMatch = text.match(/Account\s*name\s*:\s*(.+?)(?:\n|BSB|$)/i);
+  if (accountNameMatch?.[1]) return accountNameMatch[1].trim();
+
+  const supplierLabel = extractLabeledTextValue(text, '(?:Supplier|Vendor|Travel\s+Agent|Agency|Company)');
+  if (supplierLabel && !/:\s*$/.test(supplierLabel)) return supplierLabel;
+
+  const billToIdx = text.search(/Bill\s*To:/i);
+  const headerText = billToIdx > 20 ? text.slice(0, billToIdx) : text.slice(0, 700);
+  const companyMatch = headerText.match(/^([A-Za-z][A-Za-z\s,.'&]+(?:Travel|Inc|LLC|Ltd|Group|Agency|Tours|Hotel|Management)[^\n]*)/m);
+  if (companyMatch?.[1]) return companyMatch[1].trim();
+
+  const footerNameMatch = text.match(/^([A-Z][A-Za-z\s&]+(?:Pty|Ltd|Group|Management|Travel)[^\n]*)/m);
+  if (footerNameMatch?.[1]) return footerNameMatch[1].trim();
+
+  return '';
+}
+
+function looksLikeGuestName(candidate) {
+  const value = String(candidate || '').trim();
+  if (!value || value.length < 3 || value.length > 80) return false;
+  if (/[:@$%#]/.test(value)) return false;
+  if (/\b(invoice|number|date|balance|total|due|commission|booking|confirmation|reference|check-?in|check-?out|room|rate|tax)\b/i.test(value)) return false;
+  if (/\d/.test(value)) return false;
+
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 5) return false;
+  return words.every((w) => /^[A-Za-z'\-]+$/.test(w));
+}
+
+function extractGuestName(text, bookingHint = '') {
+  if (!text) return '';
+
+  const slashMatches = [...String(text).matchAll(/([A-Z]+\/(?:[A-Z]+\s+)+(?:MR|MRS|MS|MISS|DR|PROF|MX)S?)\b/gi)];
+  if (slashMatches.length > 0) {
+    return [...new Set(slashMatches.map((m) => formatGuestName(m[1])))]
+      .filter(Boolean)
+      .join(' & ');
+  }
+
+  const labelBased = [
+    extractLabeledTextValue(text, 'Client\s+Name'),
+    extractLabeledTextValue(text, 'Guest\s+Name'),
+    extractLabeledTextValue(text, 'Passenger\s+Name'),
+    extractLabeledTextValue(text, 'Traveller\s+Name'),
+    extractLabeledTextValue(text, 'Traveler\s+Name'),
+  ].find((v) => looksLikeGuestName(v));
+  if (labelBased) return labelBased;
+
+  const lines = String(text).split('\n').map((l) => l.trim()).filter(Boolean);
+  if (bookingHint) {
+    const idx = lines.findIndex((line) => normalizeBookingConfirmation(line).includes(bookingHint));
+    if (idx >= 0) {
+      for (let i = Math.max(0, idx - 4); i <= Math.min(lines.length - 1, idx + 2); i++) {
+        if (i === idx) continue;
+        if (looksLikeGuestName(lines[i])) return lines[i];
+      }
+    }
+  }
+
+  const firstLikely = lines.find((line) => looksLikeGuestName(line));
+  return firstLikely || '';
+}
+
+function extractDepartureDate(text) {
+  if (!text) return '';
+  const labelDate = extractLabeledTextValue(text, '(?:Departure\s+Date|Check-?Out)');
+  const parsed = parseFlexibleDate(labelDate);
+  if (parsed) return parsed;
+
+  const isoDates = [...String(text).matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map((m) => m[1]);
+  if (isoDates.length >= 2) return isoDates[1];
+  if (isoDates.length === 1) return isoDates[0];
+
+  const slashDates = [...String(text).matchAll(/\b(\d{2}\/\d{2}\/\d{2,4})\b/g)].map((m) => m[1]);
+  if (slashDates.length > 0) return parseDateDdMmYy(slashDates[slashDates.length - 1]);
+
+  return '';
+}
+
+function extractCommissionAmounts(text) {
+  let reservationTotal = 0;
+  let totalCommission = 0;
+  let commissionPercent = 0;
+
+  const commLineMatch = String(text).match(/(\d+(?:\.\d+)?)\s*%\s+\$\s*([\d,]+\.\d{2})\s+\$\s*([\d,]+\.\d{2})/);
+  if (commLineMatch) {
+    commissionPercent = parseFloat(commLineMatch[1]) || 0;
+    reservationTotal = parseFloat(commLineMatch[2].replace(/,/g, '')) || 0;
+    totalCommission = parseFloat(commLineMatch[3].replace(/,/g, '')) || 0;
+    return { reservationTotal, totalCommission, commissionPercent };
+  }
+
+  const paidOrRevenue = String(text).match(/(?:Paid|Revenue|Reservation\s+Total)\s*[:$]?\s*\$?\s*([\d,]+\.\d{2})/i);
+  if (paidOrRevenue?.[1]) reservationTotal = parseFloat(paidOrRevenue[1].replace(/,/g, '')) || 0;
+
+  const dueOrBalance = String(text).match(/(?:Balance\s+Due|Amount\s+Due|Commission\s+Due|Total\s+Commission)\s*[:$]?\s*\$?\s*([\d,]+\.\d{2})/i);
+  if (dueOrBalance?.[1]) totalCommission = parseFloat(dueOrBalance[1].replace(/,/g, '')) || 0;
+
+  if (reservationTotal > 0 && totalCommission > 0) {
+    commissionPercent = parseFloat(((totalCommission / reservationTotal) * 100).toFixed(2));
+  }
+
+  return { reservationTotal, totalCommission, commissionPercent };
 }
 
 function normalizeBookingConfirmation(candidate) {
@@ -379,6 +532,29 @@ function extractBookingConfirmation(blockText) {
   }
 
   return '';
+}
+
+function extractBookingConfirmations(text) {
+  if (!text) return [];
+  const results = [];
+
+  const contextualPattern = /(?:booking|confirmation|conf(?:irmation)?|reference|ref)[^A-Z0-9]{0,12}(\d{7}|\d{5}\s*[A-Z]{2}\s*\d{6})/ig;
+  for (const match of String(text).matchAll(contextualPattern)) {
+    const candidate = normalizeBookingConfirmation(match[1]);
+    if (isValidBookingConfirmation(candidate) && !results.includes(candidate)) {
+      results.push(candidate);
+    }
+  }
+
+  const globalPattern = /(\b\d{7}\b|\b\d{5}\s*[A-Z]{2}\s*\d{6}\b)/ig;
+  for (const match of String(text).matchAll(globalPattern)) {
+    const candidate = normalizeBookingConfirmation(match[1]);
+    if (isValidBookingConfirmation(candidate) && !results.includes(candidate)) {
+      results.push(candidate);
+    }
+  }
+
+  return results;
 }
 
 /** Convert "HARVEY/ANNIE MRS" → "Annie Harvey", "GRAVES/DEBRA JANE DR" → "Debra Jane Graves" */
@@ -464,87 +640,21 @@ async function parseForaStyleInvoice(pdfBuffer) {
     if (!text) return { parsed: false };
 
     // Detection heuristics
-    if (!(/Confirmation\s+Number/i.test(text))) return { parsed: false };
-    if (!(/Balance\s+Due/i.test(text))) return { parsed: false };
+    if (!(/Confirmation\s+Number|Booking\s+Number|Client\s+Name|Guest\s+Name/i.test(text))) return { parsed: false };
+    if (!(/Balance\s+Due|Amount\s+Due|Total\s+Commission|\d+(?:\.\d+)?\s*%\s+\$[\d,]+\.\d{2}/i.test(text))) return { parsed: false };
 
-    // Invoice number (e.g. INV-930987)
-    let invoiceNumber = '';
-    const invNumMatch = text.match(/\b(INV-[\w\d-]+)\b/i);
-    if (invNumMatch) invoiceNumber = invNumMatch[1].toUpperCase();
-
-    // Invoice date — look for "Date:" followed by a recognisable date
-    let invoiceDate = '';
-    const dateLabelMatch = text.match(/\bDate:\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2})/i);
-    if (dateLabelMatch) invoiceDate = parseFlexibleDate(dateLabelMatch[1]);
-
-    // Supplier — company name before "Bill To:" block
-    let supplier = '';
-    const billToIdx = text.search(/Bill\s*To:/i);
-    const headerText = billToIdx > 20 ? text.slice(0, billToIdx) : text.slice(0, 500);
-    const companyMatch = headerText.match(/^([A-Za-z][A-Za-z\s,.'&]+(?:Travel|Inc|LLC|Ltd|Group|Agency|Tours)[^\n]*)/m);
-    if (companyMatch) supplier = companyMatch[1].trim();
+    const invoiceNumber = extractInvoiceNumber(text);
+    const invoiceDate = extractInvoiceDate(text);
+    const supplier = extractSupplierName(text);
 
     // Booking confirmation
     const bookingNumber = extractBookingConfirmation(text);
 
-    // Guest name — three strategies to handle different PDF column-extraction orders
-    let guestName = '';
-    // Strategy 1: labeled value on same line
-    const clientSameLine = text.match(/Client\s+Name\s*:\s*(.+?)(?:\n|$)/i);
-    if (clientSameLine && clientSameLine[1].trim()) {
-      guestName = clientSameLine[1].trim();
-    }
-    // Strategy 2: label alone on one line, value on next
-    if (!guestName) {
-      guestName = extractLabeledTextValue(text, 'Client\\s+Name');
-    }
-    // Strategy 3: when PDF columns render values before labels, the name appears
-    // immediately before the confirmation number in the extracted text
-    if (!guestName && bookingNumber) {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const confIdx = lines.findIndex(l =>
-        normalizeBookingConfirmation(l) === bookingNumber || l.includes(bookingNumber)
-      );
-      if (confIdx > 0) {
-        for (let i = confIdx - 1; i >= 0 && i >= confIdx - 4; i--) {
-          const cand = lines[i];
-          // Accept lines that look like a name: no trailing colon, no leading digit, has letters
-          if (!/:\s*$/.test(cand) && !/^\d/.test(cand) && /[A-Za-z]/.test(cand) && cand.length > 2) {
-            guestName = cand;
-            break;
-          }
-        }
-      }
-    }
+    const guestName = extractGuestName(text, bookingNumber);
 
-    // Departure date (Check-Out)
-    let departureDate = '';
-    const checkOutSameLine = text.match(/Check-?Out\s*:\s*(\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})/i);
-    if (checkOutSameLine) {
-      departureDate = parseFlexibleDate(checkOutSameLine[1]);
-    }
-    if (!departureDate) {
-      // ISO dates in text — check-in comes first, check-out second
-      const isoDates = [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map(m => m[1]);
-      if (isoDates.length >= 2) departureDate = isoDates[1];
-      else if (isoDates.length === 1) departureDate = isoDates[0];
-    }
+    const departureDate = extractDepartureDate(text);
 
-    // Commission line: "10% $1,825.00 $182.50" → (rate, revenue, amount)
-    let reservationTotal = 0;
-    let totalCommission  = 0;
-    let commissionPercent = 0;
-    const commLineMatch = text.match(/(\d+(?:\.\d+)?)\s*%\s+\$\s*([\d,]+\.\d{2})\s+\$\s*([\d,]+\.\d{2})/);
-    if (commLineMatch) {
-      commissionPercent = parseFloat(commLineMatch[1]);
-      reservationTotal  = parseFloat(commLineMatch[2].replace(/,/g, ''));
-      totalCommission   = parseFloat(commLineMatch[3].replace(/,/g, ''));
-    }
-    // Fallback: Balance Due
-    if (totalCommission === 0) {
-      const balanceMatch = text.match(/Balance\s+Due\s+\$\s*([\d,]+\.\d{2})/i);
-      if (balanceMatch) totalCommission = parseFloat(balanceMatch[1].replace(/,/g, ''));
-    }
+    const { reservationTotal, totalCommission, commissionPercent } = extractCommissionAmounts(text);
 
     const lineItems = [];
     if (guestName || bookingNumber || totalCommission > 0) {
