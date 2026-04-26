@@ -927,6 +927,7 @@ export async function createAmenity(data) {
     guestName: data.guestName,
     roomNumber: data.roomNumber,
     roomStatus: data.roomStatus || "",
+    pax: data.pax || "",
     deliveryDate: deliveryDate, // YYYY-MM-DD format
     status: "outstanding", // outstanding, delivered
     notes: data.notes || "",
@@ -943,6 +944,7 @@ export async function createAmenity(data) {
     description: item.description,
     guestName: item.guestName,
     roomNumber: item.roomNumber,
+    pax: item.pax,
     deliveryDate: item.deliveryDate
   });
   
