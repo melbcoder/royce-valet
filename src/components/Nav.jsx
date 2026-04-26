@@ -12,7 +12,16 @@ export default function Nav() {
   const location = useLocation();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [frontOfficeOpen, setFrontOfficeOpen] = useState(false);
   const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
+  const isFrontOfficePage = [
+    '/valet',
+    '/valet-history',
+    '/luggage',
+    '/luggage-history',
+    '/amenities',
+    '/amenities-history',
+  ].includes(location.pathname);
   const isStaffPage = [
     '/dashboard',
     '/valet',
@@ -37,6 +46,7 @@ export default function Nav() {
     hasAccess('accounts-payable')
     || hasAccess('accounts-payable/travel-agents')
     || hasAccess('accounts-payable/suppliers');
+  const canAccessFrontOffice = hasAccess('valet') || hasAccess('luggage') || hasAccess('amenities');
   const apDefaultPath = hasAccess('accounts-payable')
     ? '/accounts-payable'
     : hasAccess('accounts-payable/travel-agents')
@@ -224,20 +234,83 @@ export default function Nav() {
 
         <div className={`nav-content ${mobileMenuOpen ? 'open' : ''}`}>
           <div className="nav-primary-links">
-            {hasAccess('valet') && (
-              <NavLink to="/valet" style={({ isActive }) => navLinkStyle(isActive)}>
-                Valet
-              </NavLink>
-            )}
-            {hasAccess('luggage') && (
-              <NavLink to="/luggage" style={({ isActive }) => navLinkStyle(isActive)}>
-                Luggage
-              </NavLink>
-            )}
-            {hasAccess('amenities') && (
-              <NavLink to="/amenities" style={({ isActive }) => navLinkStyle(isActive)}>
-                Amenities
-              </NavLink>
+            {canAccessFrontOffice && (
+              <div
+                onMouseEnter={() => setFrontOfficeOpen(true)}
+                onMouseLeave={() => setFrontOfficeOpen(false)}
+                style={{ position: 'relative', display: 'inline-block' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setFrontOfficeOpen(v => !v)}
+                  style={{
+                    ...navLinkStyle(isFrontOfficePage),
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    background: 'transparent',
+                  }}
+                >
+                  Front Office ▾
+                </button>
+                {frontOfficeOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#fff',
+                      border: '1px solid #ddd',
+                      borderRadius: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                      padding: 6,
+                      zIndex: 50,
+                      minWidth: 180,
+                    }}
+                  >
+                    {hasAccess('valet') && (
+                      <NavLink
+                        to="/valet"
+                        onClick={() => setFrontOfficeOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Valet
+                      </NavLink>
+                    )}
+                    {hasAccess('luggage') && (
+                      <NavLink
+                        to="/luggage"
+                        onClick={() => setFrontOfficeOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Luggage
+                      </NavLink>
+                    )}
+                    {hasAccess('amenities') && (
+                      <NavLink
+                        to="/amenities"
+                        onClick={() => setFrontOfficeOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Amenities
+                      </NavLink>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
             {canAccessAccountsPayable && (
