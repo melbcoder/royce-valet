@@ -33,6 +33,7 @@ export default function Nav() {
     '/maintenance',
     '/maintenance/jobs',
     '/maintenance/contractor-sign-in',
+    '/reports',
     '/settings'
   ].includes(location.pathname) || isAccountsPayablePage;
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
@@ -458,6 +459,15 @@ export default function Nav() {
                   </div>
                 )}
               </div>
+            )}
+
+            {hasAccess('reports') && (
+              <NavLink
+                to="/reports"
+                style={({ isActive }) => navLinkStyle(isActive)}
+              >
+                Reports
+              </NavLink>
             )}
           </div>
 
