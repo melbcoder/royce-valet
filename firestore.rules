@@ -187,5 +187,12 @@ service cloud.firestore {
       allow read: if hasAnyPageAccess(['accounts-payable', 'accounts-payable/suppliers']);
       allow write: if hasAnyPageAccess(['accounts-payable', 'accounts-payable/suppliers']);
     }
+
+    // Low rate reports - created server-side, reviewed by reports users/admins
+    match /reports_low_rate/{reportId} {
+      allow read: if hasPageAccess('reports');
+      allow update: if hasPageAccess('reports');
+      allow create, delete: if false;
+    }
   }
 }

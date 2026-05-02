@@ -1,0 +1,374 @@
+﻿{
+    "accepted_payments":  [
+                              "AX",
+                              "MC",
+                              "VI"
+                          ],
+    "adapter_route_type":  "synxis",
+    "address":  "379 St Kilda Road, Melbourne, 3004, Victoria, Australia",
+    "adults_max_occupancy":  null,
+    "affirm_api_key":  null,
+    "affirm_excluded_rates":  [
+                                  "SELFBOOK3",
+                                  "SELFBOOK3A",
+                                  "SELFBOOK7",
+                                  "SELFBOOK7A",
+                                  "SELFBOOK14",
+                                  "SELFBOOK14A",
+                                  "SELFBOOK30",
+                                  "SELFBOOK30A",
+                                  "SELFBOOK60",
+                                  "SELFBOOK60A",
+                                  "SELFBOOK90",
+                                  "SELFBOOK90A"
+                              ],
+    "allow_inject_rewards_content":  false,
+    "allow_selecting_soldout":  false,
+    "amenities":  [
+
+                  ],
+    "availability_text":  null,
+    "best_rate_guaranteed":  false,
+    "booking_template_domain":  null,
+    "booking_terms":  {
+                          "en":  "https://roycehotel.com.au/faqs/"
+                      },
+    "cal_info_text":  null,
+    "calendar_display_option":  "monthly",
+    "calendar_range_in_months":  18,
+    "chain_code":  "29445",
+    "check_in":  "3 pm",
+    "check_in_time":  {
+                          "en":  "3 pm"
+                      },
+    "check_out":  "11 am",
+    "check_out_time":  {
+                           "en":  "11 am"
+                       },
+    "checkout_require_phone":  false,
+    "child_age_required":  true,
+    "child_max_age":  12,
+    "child_max_occupancy":  null,
+    "child_min_age":  0,
+    "color":  null,
+    "colors":  {
+
+               },
+    "currencies":  [
+                       {
+                           "code":  "AUD",
+                           "icon":  null,
+                           "symbol":  "A$",
+                           "text":  "Australian Dollar"
+                       }
+                   ],
+    "currency_code":  "AUD",
+    "date_format":  "us",
+    "ddn_banner_device":  "all",
+    "ddn_box_device":  "all",
+    "default_adult_occupancy":  1,
+    "default_language":  "en",
+    "description":  "The Royce is located on Melbourne’s grand boulevard that connects the city’s finest luxury shopping on Collins Street, to world-class galleries and gardens and further to the beautiful bayside beaches.\r\n\r\nIntuitive service, lavish detail and flamboyant flourishes distinguish The Royce. The building’s luxurious origins are on full display, from the grand staircase to the statement chandelier in the Ballroom. This awe-inspiring glamour is echoed in the splashes of marble, chrome, and classical black and white in the suites where no expense has been spared.\r\n\r\nThe Bar serves iconic cocktails by a cosy open fireplace. The wine and gossip flow in the radiant Bistro and Conservatory. \r\n\r\nThe Royce ballroom is a return to the great era of celebrity-scale weddings, where guests stay over and kick on into the night.\r\n\r\nHollywood-style opulence meets contemporary convenience in the rooms, with electronic window furnishings, individual climate control, complimentary Wi-Fi and movies, Dyson Supersonic hairdryers, Koko Black chocolates and Molton Brown toiletries.",
+    "destination_id":  null,
+    "disable_phone_login":  false,
+    "disable_post_booking_requests":  false,
+    "discount_comparison_display":  false,
+    "domain":  "roycehotel.com.au",
+    "email":  "info@roycehotel.com.au",
+    "enable_Apple_Pay":  true,
+    "enable_Apple_Pay_Non_Ref_Rates_Only":  false,
+    "enable_Google_Pay":  true,
+    "enable_addons":  true,
+    "enable_alerts":  false,
+    "enable_custom_reservation_hold":  false,
+    "enable_ddn_rate_without_login":  false,
+    "enable_digital_wallet_comment":  false,
+    "enable_direct_distribution_network":  false,
+    "enable_flex_cancellation":  false,
+    "enable_flight_info_details":  false,
+    "enable_geo_fenced_rates":  false,
+    "enable_layers":  false,
+    "enable_marriot_membership_field":  false,
+    "enable_most_popular3":  true,
+    "enable_multi_destination_view":  false,
+    "enable_multi_property_view":  false,
+    "enable_multiple_rooms":  false,
+    "enable_new_affirm_flow":  false,
+    "enable_pay_at_hotel":  true,
+    "enable_pay_now":  true,
+    "enable_paypal":  false,
+    "enable_paypal_partner":  true,
+    "enable_peace_of_mind_protection":  false,
+    "enable_perplexity_partner":  true,
+    "enable_priority_upgrade":  false,
+    "enable_triptease_script":  true,
+    "enable_v3_new_ui_version":  true,
+    "enhancements":  [
+
+                     ],
+    "fonts":  [
+                  {
+                      "id":  "65aebc885981ea002a670c97",
+                      "level":  "1",
+                      "name":  "Beatrice Regular",
+                      "url":  "https://six-middelware-backend.s3.amazonaws.com/fonts/Beatrice-Regular_54b85c55ccc2f8d5.otf?X-Amz-Expires=604800\u0026X-Amz-Date=20260502T105920Z\u0026X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=AKIAT6HEH6HDDRZOXK5L%2F20260502%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=28a3ae7c1330c8397676bf25f36a0a25b5fc725828cbfb069a309b9152871a5e"
+                  },
+                  {
+                      "id":  "65aebd1f1dad8b002b0c857f",
+                      "level":  "2",
+                      "name":  "Beatrice Light",
+                      "url":  "https://six-middelware-backend.s3.amazonaws.com/fonts/Beatrice_Light_9501416cef7a0609.ttf?X-Amz-Expires=604800\u0026X-Amz-Date=20260502T105920Z\u0026X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=AKIAT6HEH6HDDRZOXK5L%2F20260502%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=b7ca4e64ed15a1817164e6b3528bc5235283660a83f9a3109141be57ac2be2cf"
+                  }
+              ],
+    "grouped_hotels":  [
+
+                       ],
+    "has_ada_rooms":  false,
+    "hide_age_details":  false,
+    "hide_calendar_rates":  false,
+    "hotel_addons":  [
+
+                     ],
+    "hotel_group_name":  null,
+    "hotel_opt_in_text":  "The Royce",
+    "id":  "38362",
+    "initial_stay_duration":  null,
+    "is_default_date_logic_enabled":  true,
+    "languages":  [
+                      {
+                          "code":  "en",
+                          "text":  "English"
+                      }
+                  ],
+    "layers_design_tokens":  {
+
+                             },
+    "link_ohip_to_synxis_reservations":  false,
+    "location":  "3KM FROM MELB CBD ADJ TO BOTANICAL GARDENS AND RIVER\r\nON ST KILDA ROAD BOULEVARD W EASY TRANSPORT AND CAR ACCESS",
+    "logo":  "https://six-middelware-backend.s3.amazonaws.com/hotel_logos/4155cdf3aa6022f0?X-Amz-Expires=604800\u0026X-Amz-Date=20260502T105920Z\u0026X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=AKIAT6HEH6HDDRZOXK5L%2F20260502%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=fd6557e84747a50b60263b30a4ed00f1785412e52a9798531800db1f2cc742d0",
+    "loyalty_program":  null,
+    "mandatory_addons":  [
+
+                         ],
+    "mobile_display_only":  false,
+    "multiple_rooms_room_limit":  9,
+    "name":  "The Royce",
+    "opt_out_user_verification":  false,
+    "pay_at_hotel_text":  null,
+    "pay_now_text":  null,
+    "payment_service_provider":  "none",
+    "paypal_partner_banner_description":  null,
+    "paypal_partner_banner_title":  null,
+    "paypal_partner_rate_description":  null,
+    "paypal_partner_rate_savings_description":  null,
+    "paypal_partner_secondary_banner_title":  null,
+    "perplexity_partner_rate_description":  null,
+    "phone":  "61 3 8614 1414",
+    "preferences":  [
+                        "Higher floor",
+                        "Lower floor",
+                        "Courtyard view",
+                        "Street view",
+                        "Twin beds",
+                        "Baby cot",
+                        "Garden view",
+                        "Mini bar",
+                        "Non-smoking",
+                        "Pet friendly"
+                    ],
+    "privacy_terms":  {
+
+                      },
+    "properties":  [
+
+                   ],
+    "redirect_to_synxis":  false,
+    "refundable_rates_filter":  "unchecked",
+    "required_addons":  false,
+    "room_categories":  [
+
+                        ],
+    "room_summary":  [
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "King",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/443/975/theroyce_hotel0701_V01.02_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "King"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "King Balcony",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/444/334/theroyce_hotel0722_V01.01_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "King Balcony"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "Deluxe",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/444/366/theroyce_hotel0798_V01.02_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "Deluxe"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "Terrace",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/444/374/theroyce_hotel0786_V01.02_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "Terrace"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "Boulevard",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/444/358/theroyce_hotel0771_V01.02_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "Boulevard Suite"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "Loft",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/444/422/theroyce_hotel0857_V01.01_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "Loft Suite"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "Royce",
+                             "image":  "https://d321ocj5nbe62c.cloudfront.net/imageRepo/7/0/153/444/232/theroyce_hotel0491_V01.02_S.jpg",
+                             "max_occupancy":  2,
+                             "name":  "Royce Suite"
+                         },
+                         {
+                             "ada":  false,
+                             "bed_quantity":  1,
+                             "bed_types":  [
+                                               {
+                                                   "code":  3,
+                                                   "name":  "King",
+                                                   "detail":  "King Bed",
+                                                   "quantity":  1,
+                                                   "primary":  true
+                                               }
+                                           ],
+                             "id":  "Accessible Room",
+                             "image":  "https://controlcenter-p1.synxis.com/hotel/38362/images/room/king_accessible_room_pic_1.jpg",
+                             "max_occupancy":  2,
+                             "name":  "King-Accessible"
+                         }
+                     ],
+    "selfbook_reservation_confirmation_hotel_bcc_email":  null,
+    "send_abandon_cart":  false,
+    "show_affirm_rate_messaging":  true,
+    "show_booking_steps_parameters":  false,
+    "show_email_opt_in":  false,
+    "show_greeting_message":  true,
+    "show_guest_name_fields":  false,
+    "show_prices_including_fees":  false,
+    "show_prices_including_taxes":  true,
+    "show_room_availability":  true,
+    "show_rooms_short_desc":  true,
+    "show_selected_dates_header":  false,
+    "show_summary_screen_addons":  false,
+    "show_vendor_messages":  false,
+    "skip_prepayment_authorization":  true,
+    "station_hotel_logo":  {
+                               "url":  "https://six-middelware-backend.s3.amazonaws.com/station_hotel_logos/9892b562a6d013d2?X-Amz-Expires=604800\u0026X-Amz-Date=20260502T105920Z\u0026X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=AKIAT6HEH6HDDRZOXK5L%2F20260502%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=bd43e4c1b4cf7379a3f682f1877d7936ee0d9618bd4aa48362bf7334178e74ba"
+                           },
+    "station_hotel_public_id":  "QVHEBOXXNTYL0LTGMQQIOZQWLRHGJGGV",
+    "station_hotel_stripe_account":  null,
+    "station_hotel_stripe_key":  null,
+    "station_payments":  "off",
+    "station_payments_type":  "off",
+    "support_children":  true,
+    "support_infants":  false,
+    "supported_codes":  [
+                            "promo_code",
+                            "group_code"
+                        ],
+    "supported_currencies":  [
+
+                             ],
+    "synxis_config":  null,
+    "synxis_theme":  null,
+    "time_zone":  "Australia/Melbourne",
+    "tint_color":  null,
+    "title_sizes":  null,
+    "tokenization_key":  null,
+    "use_Apple_Pay_pending":  false,
+    "use_loqate":  false,
+    "use_manual_address_fields":  true,
+    "use_new_groups_flow":  false,
+    "use_station_payment":  false,
+    "use_stripe_tokenization":  false,
+    "use_updated_property_cards":  false
+}

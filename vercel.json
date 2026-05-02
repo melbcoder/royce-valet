@@ -3,6 +3,10 @@
     "api/ap-webhook.js": {
       "maxDuration": 10,
       "memory": 1024
+    },
+    "api/reports-webhook.js": {
+      "maxDuration": 10,
+      "memory": 1024
     }
   },
   "headers": [
@@ -20,6 +24,10 @@
     {
       "source": "/api/ap-webhook/:routeSecret",
       "destination": "/api/ap-webhook?routeSecret=:routeSecret"
+    },
+    {
+      "source": "/api/reports-webhook/:routeSecret",
+      "destination": "/api/reports-webhook?routeSecret=:routeSecret"
     },
     {
       "source": "/(.*)",
