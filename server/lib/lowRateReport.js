@@ -158,6 +158,12 @@ function isRateCheckEligibleStatus(statusCode) {
 async function fetchRoyceCalendarRates({ startDate, endDate, currency = 'AUD' }) {
   if (!startDate || !endDate) return new Map();
 
+  // Cap to 90 days from today so the calendar call stays bounded
+  const calendarCutoff = addDays(new Date().toISOString().slice(0, 10), 90);
+  const effectiveEnd = endDate > calendarCutoff ? calendarCutoff : endDate;
+  if (startDate > effectiveEnd) return new Map();
+  endDate = effectiveEnd;
+
   const apiUrl = String(process.env.ROYCE_SELFBOOK_API_URL || 'https://api.selfbook.com/api/v3').trim().replace(/\/+$/, '');
   const hotelId = String(process.env.ROYCE_SELFBOOK_HOTEL_ID || '38362').trim();
   const apiKey = String(process.env.ROYCE_SELFBOOK_API_KEY || 'khrWkjyXfxv8wtK-mxfqx9l_9XAaJ91x7PU').trim();
@@ -199,6 +205,7 @@ async function fetchRoyceCalendarRates({ startDate, endDate, currency = 'AUD' })
           Referer: 'https://roycehotel.com.au/',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(4000),
       });
 
       if (resp.ok) {
@@ -291,6 +298,7 @@ async function fetchRoyceRoomRatesForDate({ date, currency = 'AUD' }) {
         Referer: 'https://roycehotel.com.au/',
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(4000),
     });
 
     if (!resp.ok) return out;
@@ -325,14 +333,18 @@ async function fetchRoyceRoomRatesByDate({ dates = [], currency = 'AUD' }) {
   const out = new Map();
   if (uniqueDates.length === 0) return out;
 
+  // Limit to dates within 90 days from today — far-future reservations get no-reference
+  const cutoff = addDays(new Date().toISOString().slice(0, 10), 90);
+  const datesToFetch = uniqueDates.filter((d) => d <= cutoff);
+
   let cursor = 0;
-  const workerCount = Math.min(5, uniqueDates.length);
+  const workerCount = Math.min(2, datesToFetch.length);
 
   async function worker() {
-    while (cursor < uniqueDates.length) {
+    while (cursor < datesToFetch.length) {
       const idx = cursor;
       cursor += 1;
-      const date = uniqueDates[idx];
+      const date = datesToFetch[idx];
       const roomMap = await fetchRoyceRoomRatesForDate({ date, currency });
       if (roomMap.size > 0) {
         out.set(date, roomMap);
