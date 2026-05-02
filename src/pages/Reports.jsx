@@ -167,7 +167,7 @@ export default function Reports() {
       <div style={{ marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa' }}>
         <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18 }}>Daily Low Rate Report</h3>
         <p style={{ marginTop: 0, marginBottom: 8, color: 'var(--muted)' }}>
-          Upload the previous day reservation CSV. The system checks booked rates against reference rates (from CSV inline fields or an optional external lookup endpoint), then flags potential low-rate issues.
+          Upload the previous day reservation CSV. The system checks booked rates against BAR rates (from CSV inline fields or an optional external lookup endpoint), then flags potential low-rate issues.
         </p>
         <p style={{ marginTop: 0, marginBottom: 0, color: 'var(--muted)', fontSize: 13 }}>
           Automation target email: <strong>reports@mail.concierge.xin</strong>
@@ -278,7 +278,7 @@ export default function Reports() {
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Room</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Stay Date</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Booked</th>
-                      <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Reference</th>
+                      <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>BAR</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Variance</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Status</th>
                     </tr>
