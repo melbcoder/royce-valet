@@ -767,9 +767,42 @@ function parseMultipart(req) {
     const contentType = req.headers?.['content-type'] || '';
 
     if (!contentType.toLowerCase().includes('multipart/form-data')) {
-      const body = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
-        ? req.body : {};
-      return resolve({ fields: body, files: extractFilesFromParsedBody(body) });
+      const parsedBody = typeof req.body === 'object' && req.body !== null && !Buffer.isBuffer(req.body)
+        ? req.body
+        : null;
+      if (parsedBody) {
+        return resolve({ fields: parsedBody, files: extractFilesFromParsedBody(parsedBody) });
+      }
+
+      let rawBuffer;
+      try {
+        rawBuffer = await readRawBody(req);
+      } catch (err) {
+        return reject(err);
+      }
+
+      const rawText = rawBuffer.toString('utf8').trim();
+      if (!rawText) {
+        return resolve({ fields: {}, files: [] });
+      }
+
+      if (contentType.toLowerCase().includes('application/json')) {
+        try {
+          const body = JSON.parse(rawText);
+          const fields = typeof body === 'object' && body !== null ? body : {};
+          return resolve({ fields, files: extractFilesFromParsedBody(fields) });
+        } catch {
+          return resolve({ fields: {}, files: [] });
+        }
+      }
+
+      if (contentType.toLowerCase().includes('application/x-www-form-urlencoded')) {
+        const params = new URLSearchParams(rawText);
+        const fields = Object.fromEntries(params.entries());
+        return resolve({ fields, files: extractFilesFromParsedBody(fields) });
+      }
+
+      return resolve({ fields: {}, files: [] });
     }
 
     // Vercel may have pre-parsed multipart into an object
