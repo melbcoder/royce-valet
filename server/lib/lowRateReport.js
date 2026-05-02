@@ -478,7 +478,7 @@ export async function ingestLowRateCsvPayload({
   const tolerancePct = Number(process.env.LOW_RATE_ALERT_PCT || 5);
 
   const normalized = normalizeRows(rows);
-  const reportRows = normalized.filter((row) => (!row.bookedDate || row.bookedDate === reportDate) && row.isRateCheckEligible);
+  const reportRows = normalized.filter((row) => row.isRateCheckEligible);
   const filteredOutCount = normalized.length - reportRows.length;
 
   const startDate = minDate(reportRows.map((r) => r.checkInDate));
