@@ -42,7 +42,7 @@ export default function Nav() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPages, setUserPages] = useState([]);
 
-  const hasAccess = (pageId) => isAdmin || userPages.includes(pageId);
+  const hasAccess = (pageId) => userPages.includes(pageId);
   const canAccessAccountsPayable =
     hasAccess('accounts-payable')
     || hasAccess('accounts-payable/travel-agents')
