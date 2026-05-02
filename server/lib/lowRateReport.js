@@ -1,5 +1,3 @@
-import { getAdminAuth, getAdminFirestore } from '../server/lib/firebaseAdmin.js';
-
 const ROYCE_STATUS_MAP = {
   A: 'arrived',
   C: 'confirmed',
@@ -409,43 +407,6 @@ async function lookupReferenceRate(normalizedReservation, context = {}) {
   };
 }
 
-async function authenticate(req) {
-  const db = getAdminFirestore();
-  const authHeader = String(req.headers.authorization || '');
-
-  if (authHeader.startsWith('Bearer ')) {
-    const token = authHeader.slice(7);
-    const decoded = await getAdminAuth().verifyIdToken(token);
-    const userDoc = await db.collection('users').doc(decoded.uid).get();
-    if (!userDoc.exists) throw Object.assign(new Error('Forbidden'), { status: 403 });
-
-    const userData = userDoc.data() || {};
-    const pages = Array.isArray(userData.pages) ? userData.pages : [];
-    const canUseReports = userData.role === 'admin' || pages.includes('reports');
-    if (!canUseReports) throw Object.assign(new Error('Forbidden'), { status: 403 });
-
-    return {
-      mode: 'user',
-      uid: decoded.uid,
-      username: String(userData.username || ''),
-      role: String(userData.role || ''),
-    };
-  }
-
-  const secret = String(req.headers['x-report-ingest-secret'] || '');
-  const expected = String(process.env.REPORT_INGEST_SECRET || '');
-  if (expected && secret && secret === expected) {
-    return {
-      mode: 'automation',
-      uid: '',
-      username: 'automation',
-      role: 'system',
-    };
-  }
-
-  throw Object.assign(new Error('Unauthorized'), { status: 401 });
-}
-
 function normalizeRows(rows) {
   return rows.map((row, idx) => {
     const statusCode = normalizeStatusCode(firstValue(row, ['b_c', 'bc', 'reservation_status', 'status']));
@@ -488,7 +449,7 @@ export async function ingestLowRateCsvPayload({
   sourceLabel,
   actor,
   sourceEmail = 'reports@mail.concierge.xin',
-  db = getAdminFirestore(),
+  db,
 }) {
   const csvText = typeof csv === 'string' ? csv : '';
   if (!csvText.trim()) {
@@ -547,8 +508,8 @@ export async function ingestLowRateCsvPayload({
     if (status === 'no-reference') missingReferenceCount += 1;
 
     results.push({
-        statusCode: row.statusCode,
-        statusLabel: row.statusLabel,
+      statusCode: row.statusCode,
+      statusLabel: row.statusLabel,
       reservationId: row.reservationId,
       guestName: row.guestName,
       roomType: row.roomType,
@@ -604,32 +565,4 @@ export async function ingestLowRateCsvPayload({
       missingReferenceCount,
     },
   };
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const actor = await authenticate(req);
-    const result = await ingestLowRateCsvPayload({
-      csv: typeof req.body?.csv === 'string' ? req.body.csv : '',
-      reportDateInput: req.body?.reportDate,
-      sourceLabel: req.body?.source,
-      actor,
-    });
-
-    return res.status(200).json({
-      ok: true,
-      reportId: result.reportId,
-      summary: result.summary,
-    });
-  } catch (error) {
-    const status = Number(error?.status) || 500;
-    if (status >= 500) {
-      console.error('low-rate-report-ingest error:', error);
-    }
-    return res.status(status).json({ error: error?.message || 'Internal server error' });
-  }
 }

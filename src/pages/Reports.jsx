@@ -72,13 +72,14 @@ export default function Reports() {
       const csv = await selectedFile.text();
       const idToken = await currentUser.getIdToken();
 
-      const response = await fetch('/api/low-rate-report-ingest', {
+      const response = await fetch('/api/ap-webhook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({
+          action: 'low-rate-ingest',
           csv,
           source: 'manual-upload',
         }),
@@ -130,10 +131,10 @@ export default function Reports() {
           Automation target email: <strong>reports@mail.concierge.xin</strong>
         </p>
         <p style={{ marginTop: 8, marginBottom: 0, color: 'var(--muted)', fontSize: 13 }}>
-          SendGrid inbound automation is supported via <strong>/api/reports-webhook/&lt;SENDGRID_WEBHOOK_SECRET&gt;</strong>, using the same route-secret pattern as Accounts Payable.
+          SendGrid inbound automation is supported via <strong>/api/ap-webhook/&lt;SENDGRID_WEBHOOK_SECRET&gt;</strong>, using the same route-secret pattern as Accounts Payable.
         </p>
         <p style={{ marginTop: 8, marginBottom: 0, color: 'var(--muted)', fontSize: 13 }}>
-          Manual automation remains available by posting JSON to <strong>/api/low-rate-report-ingest</strong> with <strong>{'{ csv: "..." }'}</strong> and header <strong>x-report-ingest-secret</strong>.
+          Manual upload uses <strong>/api/ap-webhook</strong> with bearer auth and action <strong>low-rate-ingest</strong>.
         </p>
       </div>
 

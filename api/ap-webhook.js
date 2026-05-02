@@ -1,9 +1,11 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 import { Readable } from 'node:stream';
 import pdfParse from 'pdf-parse';
+import { ingestLowRateCsvPayload } from '../server/lib/lowRateReport.js';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -137,6 +139,78 @@ function isPdfFileCandidate(file) {
     && buf.length >= 5
     && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2d;
   return mimeType.includes('pdf') || filename.endsWith('.pdf') || hasPdfSignature;
+}
+
+function isCsvFileCandidate(file) {
+  if (!file) return false;
+  const mimeType = String(file.info?.mimeType || file.info?.mimetype || '').toLowerCase();
+  const filename = String(file.info?.filename || file.name || '').toLowerCase();
+  return filename.endsWith('.csv') || mimeType.includes('text/csv') || mimeType.includes('application/csv');
+}
+
+function extractCsvsFromRawMime(rawMime) {
+  const files = [];
+  if (!rawMime || typeof rawMime !== 'string') return files;
+
+  const boundaryMatch = rawMime.match(/Content-Type:\s*multipart\/mixed;\s*boundary="?([^\s"]+)"?/i);
+  if (!boundaryMatch) return files;
+
+  const boundary = boundaryMatch[1];
+  const parts = rawMime.split('--' + boundary);
+
+  for (const part of parts) {
+    const ctMatch = part.match(/Content-Type:\s*([^\r\n]+)/i);
+    const contentType = String(ctMatch?.[1] || '').toLowerCase();
+    const dispMatch = part.match(/Content-Disposition:\s*attachment;\s*filename="?([^"\r\n]+)"?/i);
+    const filename = dispMatch ? dispMatch[1].trim() : 'report.csv';
+
+    const isCsv = filename.toLowerCase().endsWith('.csv') || contentType.includes('text/csv') || contentType.includes('application/csv');
+    if (!isCsv) continue;
+
+    const encodingMatch = part.match(/Content-Transfer-Encoding:\s*(\S+)/i);
+    const encoding = encodingMatch ? encodingMatch[1].toLowerCase() : '7bit';
+    const bodyStart = part.match(/\r?\n\r?\n/);
+    if (!bodyStart) continue;
+
+    const bodyText = part.slice(bodyStart.index + bodyStart[0].length).trim();
+    if (!bodyText) continue;
+
+    let buffer;
+    if (encoding === 'base64') {
+      const cleaned = bodyText.replace(/[\r\n\s]/g, '');
+      buffer = Buffer.from(cleaned, 'base64');
+    } else {
+      buffer = Buffer.from(bodyText, 'binary');
+    }
+
+    if (buffer.length > 0) {
+      files.push({
+        name: filename,
+        buffer,
+        info: { filename, mimeType: 'text/csv' },
+      });
+    }
+  }
+
+  return files;
+}
+
+function parseReportDateFromText(input) {
+  const text = String(input || '');
+  if (!text) return '';
+
+  let m = text.match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/);
+  if (m) {
+    const dd = m[1].padStart(2, '0');
+    const mm = m[2].padStart(2, '0');
+    const yyyy = m[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  m = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+  return '';
 }
 
 /**
@@ -790,19 +864,60 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const secret = extractWebhookSecret(req);
-  const expectedSecret = process.env.SENDGRID_WEBHOOK_SECRET;
-  if (!expectedSecret) {
-    console.error('AP webhook: SENDGRID_WEBHOOK_SECRET env var is not configured');
-    return res.status(500).json({ error: 'Server configuration error' });
-  }
-  if (!secret || secret !== expectedSecret) {
-    console.log('AP webhook: auth failed');
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
   try {
     const { db, getBucket } = getFirebaseAdminServices();
+
+    const authHeader = String(req.headers.authorization || '');
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+      const parsed = await parseMultipart(req);
+      const fields = parsed.fields || {};
+      const action = String(fields.action || '').trim().toLowerCase();
+      if (action !== 'low-rate-ingest') {
+        return res.status(400).json({ error: 'Unsupported action for bearer-auth request' });
+      }
+
+      const token = authHeader.slice(7).trim();
+      const adminAuth = getAuth(getApps()[0]);
+      const decoded = await adminAuth.verifyIdToken(token);
+      const userDoc = await db.collection('users').doc(decoded.uid).get();
+      if (!userDoc.exists) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const userData = userDoc.data() || {};
+      const pages = Array.isArray(userData.pages) ? userData.pages : [];
+      const canUseReports = userData.role === 'admin' || pages.includes('reports');
+      if (!canUseReports) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const result = await ingestLowRateCsvPayload({
+        csv: String(fields.csv || ''),
+        reportDateInput: fields.reportDate,
+        sourceLabel: fields.source || 'manual-upload',
+        actor: {
+          mode: 'user',
+          uid: decoded.uid,
+          username: String(userData.username || ''),
+          role: String(userData.role || ''),
+        },
+        sourceEmail: 'reports@mail.concierge.xin',
+        db,
+      });
+
+      return res.status(200).json({ ok: true, reportId: result.reportId, summary: result.summary });
+    }
+
+    const secret = extractWebhookSecret(req);
+    const expectedSecret = process.env.SENDGRID_WEBHOOK_SECRET;
+    if (!expectedSecret) {
+      console.error('AP webhook: SENDGRID_WEBHOOK_SECRET env var is not configured');
+      return res.status(500).json({ error: 'Server configuration error' });
+    }
+    if (!secret || secret !== expectedSecret) {
+      console.log('AP webhook: auth failed');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     let fields, files;
     try {
@@ -837,8 +952,65 @@ export default async function handler(req, res) {
     const fromEmail = fields.from || 'unknown';
     const subject   = fields.subject || '';
     const toEmail   = fields.to || '';
+    const lowerToEmail = String(toEmail || '').toLowerCase();
+    const lowerSubject = String(subject || '').toLowerCase();
 
     const hasRawMime = typeof fields.email === 'string' && fields.email.length > 0;
+
+    let csvFile = files.find((f) => isCsvFileCandidate(f));
+    if (!csvFile && hasRawMime) {
+      const mimeCsvs = extractCsvsFromRawMime(fields.email);
+      if (mimeCsvs.length > 0) {
+        csvFile = mimeCsvs[0];
+      }
+    }
+
+    const isReportsMailbox = lowerToEmail.includes('reports@mail.concierge.xin');
+    const looksLikeReportMail = lowerSubject.includes('daily reservation activity') || lowerSubject.includes('low rate');
+
+    if (csvFile || isReportsMailbox || looksLikeReportMail) {
+      if (!csvFile) {
+        await db.collection('reports_low_rate_webhook_log').add({
+          receivedAt: new Date().toISOString(),
+          fromEmail,
+          toEmail,
+          subject,
+          status: 'no-csv-found',
+        });
+        return res.status(200).json({ received: true, warning: 'No CSV attachment found' });
+      }
+
+      const csvText = csvFile.buffer.toString('utf8');
+      const reportDateFromName = parseReportDateFromText(csvFile.info?.filename || csvFile.name || '');
+      const reportDateFromSubject = parseReportDateFromText(subject);
+      const reportDate = reportDateFromName || reportDateFromSubject;
+
+      const result = await ingestLowRateCsvPayload({
+        csv: csvText,
+        reportDateInput: reportDate,
+        sourceLabel: `sendgrid:${subject.slice(0, 80) || 'inbound-email'}`,
+        actor: {
+          mode: 'automation',
+          uid: '',
+          username: 'sendgrid-webhook',
+          role: 'system',
+        },
+        sourceEmail: 'reports@mail.concierge.xin',
+        db,
+      });
+
+      await db.collection('reports_low_rate_webhook_log').add({
+        receivedAt: new Date().toISOString(),
+        fromEmail,
+        toEmail,
+        subject,
+        status: 'ingested',
+        reportId: result.reportId,
+        summary: result.summary,
+      });
+
+      return res.status(200).json({ received: true, reportId: result.reportId, summary: result.summary });
+    }
 
     // Strategy 1: Look for PDF in parsed attachment fields (SendGrid default/parsed mode)
     let pdf = files.find((f) => isPdfFileCandidate(f));
