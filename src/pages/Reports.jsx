@@ -1,5 +1,6 @@
+import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { getCurrentUser } from '../services/valetFirestore';
 import { subscribeLowRateReports, updateLowRateReportReview } from '../services/reportsService';
 
@@ -20,7 +21,8 @@ function fmtPct(value) {
 export default function Reports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [importing, setImporting] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedReportId, setSelectedReportId] = useState('');
@@ -42,7 +44,7 @@ export default function Reports() {
         }
       },
       (err) => {
-        setError(`Failed to load reports: ${err?.message || err?.code || 'Unknown error'}`);
+        setLoadError(`Failed to load reports: ${err?.message || err?.code || 'Unknown error'}`);
         setLoading(false);
       },
     );
@@ -62,11 +64,11 @@ export default function Reports() {
   }, [selectedReport]);
 
   async function handleImportCsv() {
-    setError('');
+    setActionError('');
     setImportSuccess('');
 
     if (!selectedFile) {
-      setError('Please choose a CSV file first.');
+      setActionError('Please choose a CSV file first.');
       return;
     }
 
@@ -74,7 +76,7 @@ export default function Reports() {
       setImporting(true);
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        setError('Not authenticated. Please log in again.');
+        setActionError('Not authenticated. Please log in again.');
         return;
       }
 
@@ -111,10 +113,29 @@ export default function Reports() {
         throw new Error(`Import failed (${response.status})`);
       }
 
-      setImportSuccess('CSV imported and low-rate checks completed.');
+      const reportId = typeof data.reportId === 'string' ? data.reportId.trim() : '';
+      if (reportId) {
+        try {
+          const reportSnap = await getDoc(doc(db, 'reports_low_rate', reportId));
+          if (reportSnap.exists()) {
+            setSelectedReportId(reportId);
+            setLoadError('');
+            setImportSuccess(`CSV imported and low-rate checks completed. Report: ${reportId}`);
+          } else {
+            setImportSuccess(`CSV imported and low-rate checks completed. Report: ${reportId}`);
+            setLoadError('Import succeeded, but this app session cannot read that report. Check Firebase project/env alignment.');
+          }
+        } catch (err) {
+          const detail = err?.message || err?.code || 'Unknown error';
+          setImportSuccess(`CSV imported and low-rate checks completed. Report: ${reportId}`);
+          setLoadError(`Import succeeded, but report read failed: ${detail}`);
+        }
+      } else {
+        setImportSuccess('CSV imported and low-rate checks completed.');
+      }
       setSelectedFile(null);
     } catch (err) {
-      setError(err.message || 'Failed to import CSV');
+      setActionError(err.message || 'Failed to import CSV');
     } finally {
       setImporting(false);
     }
@@ -125,7 +146,7 @@ export default function Reports() {
 
     try {
       setReviewSaving(true);
-      setError('');
+      setActionError('');
       const currentUser = getCurrentUser();
       await updateLowRateReportReview(selectedReport.id, {
         reviewChecked,
@@ -133,7 +154,7 @@ export default function Reports() {
         reviewCheckedBy: currentUser?.username || 'Unknown',
       });
     } catch (err) {
-      setError(err.message || 'Failed to save review');
+      setActionError(err.message || 'Failed to save review');
     } finally {
       setReviewSaving(false);
     }
@@ -171,7 +192,8 @@ export default function Reports() {
       </div>
 
       {importSuccess && <div style={{ color: '#2f7d32', marginBottom: 12 }}>{importSuccess}</div>}
-      {error && <div style={{ color: '#b00020', marginBottom: 12 }}>{error}</div>}
+      {actionError && <div style={{ color: '#b00020', marginBottom: 12 }}>{actionError}</div>}
+      {loadError && <div style={{ color: '#b00020', marginBottom: 12 }}>{loadError}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
