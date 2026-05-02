@@ -445,12 +445,12 @@ export default function Settings({open = false, onClose, asPage = false}){
         const updates = {
           username: formData.username.toLowerCase().trim(),
           phoneNumber: formattedPhone,
+          pages: formData.pages.filter((id) => validPageIdSet.has(id)),
         }
 
-        // Prevent admins from accidentally removing their own role/access.
+        // Prevent users from changing their own role.
         if (!isEditingSelf) {
           updates.role = formData.role
-          updates.pages = formData.pages.filter((id) => validPageIdSet.has(id))
         }
 
         await updateUser(editingUser.id, updates)
@@ -1454,7 +1454,7 @@ export default function Settings({open = false, onClose, asPage = false}){
                   Page Access Permissions:
                 </label>
                 <div style={{display: 'flex', gap: 8}}>
-                  <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(true)}>
+                    <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(true)}>
                     Select All
                   </button>
                   <button type="button" className="btn secondary" style={{padding:'4px 8px', fontSize: 12}} onClick={() => setAllPages(false)}>
@@ -1478,8 +1478,7 @@ export default function Settings({open = false, onClose, asPage = false}){
                             ref={(el) => { sectionCheckboxRefs.current[section.id] = el }}
                             checked={allSelected}
                             aria-checked={selectedCount > 0 && selectedCount < sectionPageIds.length ? 'mixed' : allSelected}
-                            onChange={() => !isEditingSelf && toggleSectionAccess(section)}
-                            disabled={isEditingSelf}
+                            onChange={() => toggleSectionAccess(section)}
                             style={checkboxStyle}
                           />
                           <span style={{fontSize: 13, fontWeight: 600}}>
@@ -1510,8 +1509,7 @@ export default function Settings({open = false, onClose, asPage = false}){
                               <input
                                 type="checkbox"
                                 checked={formData.pages.includes(page.id)}
-                                onChange={() => !isEditingSelf && togglePageAccess(page.id)}
-                                disabled={isEditingSelf}
+                                onChange={() => togglePageAccess(page.id)}
                                 style={checkboxStyle}
                               />
                               <span style={{fontSize: 13}}>{page.label}</span>
@@ -1529,7 +1527,7 @@ export default function Settings({open = false, onClose, asPage = false}){
               </small>
               {isEditingSelf && (
                 <small style={{color: '#666', fontSize: 11, display: 'block', marginTop: 4}}>
-                  Your own page permissions cannot be changed from this screen.
+                  You can update your own page permissions here, but not your role.
                 </small>
               )}
             </div>

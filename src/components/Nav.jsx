@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const TOKEN_TTL = 60; // seconds the QR code stays valid
 
@@ -166,6 +166,7 @@ export default function Nav() {
 
   useEffect(() => {
     let active = true;
+    let unsubscribeUserDoc = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!active) return;
@@ -174,26 +175,40 @@ export default function Nav() {
       if (!user) {
         setIsAdmin(false);
         setUserPages([]);
+        if (unsubscribeUserDoc) {
+          unsubscribeUserDoc();
+          unsubscribeUserDoc = null;
+        }
         return;
       }
 
-      try {
-        const userSnap = await getDoc(doc(db, 'users', user.uid));
-        const userData = userSnap.exists() ? userSnap.data() : {};
-        if (!active) return;
-        setIsAdmin(userData?.role === 'admin');
-        setUserPages(Array.isArray(userData?.pages) ? userData.pages : []);
-      } catch (error) {
-        console.error('Failed to load user navigation permissions:', error);
-        if (!active) return;
-        setIsAdmin(false);
-        setUserPages([]);
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
       }
+
+      unsubscribeUserDoc = onSnapshot(
+        doc(db, 'users', user.uid),
+        (userSnap) => {
+          if (!active) return;
+          const userData = userSnap.exists() ? userSnap.data() : {};
+          setIsAdmin(userData?.role === 'admin');
+          setUserPages(Array.isArray(userData?.pages) ? userData.pages : []);
+        },
+        (error) => {
+          console.error('Failed to load user navigation permissions:', error);
+          if (!active) return;
+          setIsAdmin(false);
+          setUserPages([]);
+        }
+      );
     });
 
     return () => {
       active = false;
       unsubscribe();
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+      }
     };
   }, []);
 
