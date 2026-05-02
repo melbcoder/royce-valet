@@ -17,6 +17,17 @@ function fmtPct(value) {
   return `${Number(value).toFixed(2)}%`;
 }
 
+function getApiUrl(path) {
+  const configuredUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+
+  try {
+    const origin = new URL(configuredUrl).origin;
+    return new URL(path, origin).toString();
+  } catch {
+    return path;
+  }
+}
+
 export default function Reports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +83,7 @@ export default function Reports() {
       const csv = await selectedFile.text();
       const idToken = await currentUser.getIdToken();
 
-      const response = await fetch('/api/ap-webhook', {
+      const response = await fetch(getApiUrl('/api/ap-webhook'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,9 +96,21 @@ export default function Reports() {
         }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+      const data = contentType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : {};
       if (!response.ok) {
-        throw new Error(data.error || 'Import failed');
+        const detail = typeof data.detail === 'string' && data.detail.trim() ? `: ${data.detail.trim()}` : '';
+        if (data.error) {
+          throw new Error(`${data.error}${detail}`);
+        }
+
+        if (response.status === 404 && import.meta.env.DEV) {
+          throw new Error('Import endpoint not reachable in local Vite dev. Set VITE_APP_URL to your deployed app URL or run the app behind Vercel.');
+        }
+
+        throw new Error(`Import failed (${response.status})`);
       }
 
       setImportSuccess('CSV imported and low-rate checks completed.');
