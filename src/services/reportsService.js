@@ -12,12 +12,19 @@ import { db } from '../firebase';
 
 const reportsRef = collection(db, 'reports_low_rate');
 
-export function subscribeLowRateReports(callback) {
+export function subscribeLowRateReports(callback, onError) {
   const q = query(reportsRef, orderBy('createdAtMs', 'desc'), limit(40));
-  return onSnapshot(q, (snap) => {
-    const reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    callback(reports);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback(reports);
+    },
+    (err) => {
+      console.error('reports_low_rate subscription error:', err?.code, err?.message);
+      if (onError) onError(err);
+    },
+  );
 }
 
 export async function updateLowRateReportReview(reportId, updates = {}) {

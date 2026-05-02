@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { auth } from '../firebase';
 import { getCurrentUser } from '../services/valetFirestore';
 import { subscribeLowRateReports, updateLowRateReportReview } from '../services/reportsService';
@@ -29,17 +29,26 @@ export default function Reports() {
   const [reviewNotes, setReviewNotes] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
 
+  const selectedReportIdRef = useRef(selectedReportId);
+  selectedReportIdRef.current = selectedReportId;
+
   useEffect(() => {
-    const unsubscribe = subscribeLowRateReports((items) => {
-      setReports(items);
-      setLoading(false);
-      if (!selectedReportId && items.length > 0) {
-        setSelectedReportId(items[0].id);
-      }
-    });
+    const unsubscribe = subscribeLowRateReports(
+      (items) => {
+        setReports(items);
+        setLoading(false);
+        if (!selectedReportIdRef.current && items.length > 0) {
+          setSelectedReportId(items[0].id);
+        }
+      },
+      (err) => {
+        setError(`Failed to load reports: ${err?.message || err?.code || 'Unknown error'}`);
+        setLoading(false);
+      },
+    );
 
     return () => unsubscribe();
-  }, [selectedReportId]);
+  }, []); // stable — subscription never needs to restart
 
   const selectedReport = useMemo(
     () => reports.find((r) => r.id === selectedReportId) || null,
