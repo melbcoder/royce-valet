@@ -17,17 +17,6 @@ function fmtPct(value) {
   return `${Number(value).toFixed(2)}%`;
 }
 
-function getApiUrl(path) {
-  const configuredUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-
-  try {
-    const origin = new URL(configuredUrl).origin;
-    return new URL(path, origin).toString();
-  } catch {
-    return path;
-  }
-}
-
 export default function Reports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +72,7 @@ export default function Reports() {
       const csv = await selectedFile.text();
       const idToken = await currentUser.getIdToken();
 
-      const response = await fetch(getApiUrl('/api/ap-webhook'), {
+      const response = await fetch('/api/ap-webhook', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
