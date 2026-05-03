@@ -1112,7 +1112,7 @@ export default function Reports() {
                         No Shows: {report.noShows || 0}
                       </span>
                       <span style={{ background: '#eef3ff', color: '#1d4ed8', border: '1px solid #c7d7ff', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
-                        Lead time {'<'} 2d: {report.shortLeadTimeCount || 0}
+                        Outside Policy: {report.shortLeadTimeCount || 0}
                       </span>
                     </div>
                   </button>
@@ -1141,7 +1141,7 @@ export default function Reports() {
                     checked={applyLeadTimeFilter}
                     onChange={(e) => setApplyLeadTimeFilter(e.target.checked)}
                   />
-                  <span>Filter Based on Lead Time</span>
+                  <span style={{ whiteSpace: 'nowrap' }}>Filter Based on Lead Time</span>
                 </label>
                 <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
                   Showing {filteredCancellationReservations.length} of {(selectedCancellationReport.reservations || []).length} rows
