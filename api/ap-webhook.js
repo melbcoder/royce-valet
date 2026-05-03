@@ -215,6 +215,67 @@ function parseReportDateFromText(input) {
   return '';
 }
 
+function normalizeHeaderToken(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function getLikelyCsvHeaderTokens(csvText) {
+  const text = String(csvText || '').replace(/^\uFEFF/, '');
+  const firstLine = text.split(/\r?\n/).find((line) => String(line || '').trim().length > 0) || '';
+  if (!firstLine) return [];
+
+  return firstLine
+    .split(',')
+    .map((cell) => normalizeHeaderToken(cell.replace(/^"|"$/g, '')))
+    .filter(Boolean);
+}
+
+function inferReportTypeFromCsv({ csvBuffer, filename = '', subject = '' } = {}) {
+  const lowerFilename = String(filename || '').toLowerCase();
+  const lowerSubject = String(subject || '').toLowerCase();
+
+  if (lowerFilename.includes('cancellation') || lowerFilename.includes('no show') || lowerFilename.includes('no-show')) {
+    return 'cancellations';
+  }
+  if (lowerFilename.includes('open folio') || lowerFilename.includes('open_folio') || lowerFilename.includes('open-folio')) {
+    return 'open-folios';
+  }
+  if (lowerSubject.includes('cancellation') || lowerSubject.includes('no show') || lowerSubject.includes('no-show')) {
+    return 'cancellations';
+  }
+  if (lowerSubject.includes('open folio') || lowerSubject.includes('open folios') || lowerSubject.includes('outstanding balance')) {
+    return 'open-folios';
+  }
+
+  const csvText = Buffer.isBuffer(csvBuffer) ? csvBuffer.toString('utf8') : String(csvBuffer || '');
+  const headers = new Set(getLikelyCsvHeaderTokens(csvText));
+
+  const isCancellationCsv =
+    headers.has('c_ns')
+    || headers.has('date_can_no_showed')
+    || (headers.has('lead_time') && headers.has('cancellation_reason'));
+
+  if (isCancellationCsv) return 'cancellations';
+
+  const isOpenFoliosCsv =
+    headers.has('balance')
+    && (headers.has('depart_date_medium') || headers.has('depart_date') || headers.has('check_out') || headers.has('departure_date'));
+
+  if (isOpenFoliosCsv) return 'open-folios';
+
+  const isLowRateCsv =
+    headers.has('res_no')
+    && (headers.has('arrive_date') || headers.has('arrive') || headers.has('arrival'))
+    && (headers.has('room_no_rate') || headers.has('room_no') || headers.has('room_number'));
+
+  if (isLowRateCsv) return 'low-rate';
+
+  return 'unknown';
+}
+
 /**
  * Extract PDF attachments from a raw MIME email string.
  * SendGrid sends this in the `email` field when "POST the raw, full MIME message" is enabled.
@@ -1009,7 +1070,15 @@ export default async function handler(req, res) {
     const looksLikeReportMail = lowerSubject.includes('daily reservation activity') || lowerSubject.includes('low rate');
     const looksLikeOpenFoliosMail = lowerSubject.includes('open folio') || lowerSubject.includes('open folios');
     const looksLikeCancellationMail = lowerSubject.includes('cancellation') || lowerSubject.includes('no show') || lowerSubject.includes('no-show');
-    if (csvFile && looksLikeCancellationMail) {
+    const inferredReportType = csvFile
+      ? inferReportTypeFromCsv({
+          csvBuffer: csvFile.buffer,
+          filename: csvFile.info?.filename || csvFile.name || '',
+          subject,
+        })
+      : 'unknown';
+
+    if (csvFile && (inferredReportType === 'cancellations' || looksLikeCancellationMail)) {
       const csvText = csvFile.buffer.toString('utf8');
       const reportDateFromName = parseReportDateFromText(csvFile.info?.filename || csvFile.name || '');
       const reportDateFromSubject = parseReportDateFromText(subject);
@@ -1043,7 +1112,7 @@ export default async function handler(req, res) {
     }
 
 
-    if (csvFile && (looksLikeOpenFoliosMail || lowerSubject.includes('outstanding balance'))) {
+    if (csvFile && (inferredReportType === 'open-folios' || looksLikeOpenFoliosMail || lowerSubject.includes('outstanding balance'))) {
       const csvText = csvFile.buffer.toString('utf8');
       const reportDateFromName = parseReportDateFromText(csvFile.info?.filename || csvFile.name || '');
       const reportDateFromSubject = parseReportDateFromText(subject);
@@ -1112,7 +1181,8 @@ export default async function handler(req, res) {
         fromEmail,
         toEmail,
         subject,
-        status: 'ingested',
+        status: inferredReportType === 'unknown' ? 'ingested-fallback' : 'ingested',
+        inferredReportType,
         reportId: result.reportId,
         summary: result.summary,
       });
