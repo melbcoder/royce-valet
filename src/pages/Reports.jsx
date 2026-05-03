@@ -687,7 +687,7 @@ export default function Reports() {
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
-            Recent Low Rate Reports
+            Recent Reports
           </div>
 
           {loading ? (
@@ -895,7 +895,7 @@ export default function Reports() {
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
-            Recent Open Folios Reports
+            Recent Reports
           </div>
 
           {openFoliosLoading ? (
@@ -1085,7 +1085,7 @@ export default function Reports() {
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
-            Recent Cancellations / No Shows Reports
+            Recent Reports
           </div>
 
           {cancellationLoading ? (
