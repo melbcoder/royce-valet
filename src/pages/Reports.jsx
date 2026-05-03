@@ -82,6 +82,47 @@ function getApprovalSummary({ reservations = [], lineItemReviews = {}, varianceT
   };
 }
 
+function getOpenFoliosVerificationSummary({ reservations = [], lineItemReviews = {} } = {}) {
+  if (!Array.isArray(reservations) || reservations.length === 0) {
+    return {
+      verifiedCount: 0,
+      totalCount: 0,
+      color: '#2e7d32',
+      label: 'No lines to verify',
+    };
+  }
+
+  const verifiedCount = reservations.reduce((count, item, idx) => {
+    const key = getOpenFoliosLineItemKey(item, idx);
+    return count + (lineItemReviews[key]?.verified ? 1 : 0);
+  }, 0);
+
+  if (verifiedCount === 0) {
+    return {
+      verifiedCount,
+      totalCount: reservations.length,
+      color: '#c62828',
+      label: 'No verified lines',
+    };
+  }
+
+  if (verifiedCount === reservations.length) {
+    return {
+      verifiedCount,
+      totalCount: reservations.length,
+      color: '#2e7d32',
+      label: 'All lines verified',
+    };
+  }
+
+  return {
+    verifiedCount,
+    totalCount: reservations.length,
+    color: '#f9a825',
+    label: 'Some lines verified',
+  };
+}
+
 function fmtCurrency(value, currency = 'AUD') {
   if (value == null || Number.isNaN(Number(value))) return '-';
   return new Intl.NumberFormat('en-AU', {
