@@ -33,7 +33,7 @@ function getApprovalSummary({ reservations = [], lineItemReviews = {}, varianceT
       totalCount: 0,
       status: 'all-approved',
       color: '#2e7d32',
-      label: 'No lines require approval',
+      label: 'No lines require verification',
     };
   }
 
@@ -48,7 +48,7 @@ function getApprovalSummary({ reservations = [], lineItemReviews = {}, varianceT
       totalCount: actionableRows.length,
       status: 'none-approved',
       color: '#c62828',
-      label: 'No approved lines',
+      label: 'No verified lines',
     };
   }
 
@@ -58,7 +58,7 @@ function getApprovalSummary({ reservations = [], lineItemReviews = {}, varianceT
       totalCount: actionableRows.length,
       status: 'all-approved',
       color: '#2e7d32',
-      label: 'All lines approved',
+      label: 'All lines verified',
     };
   }
 
@@ -67,7 +67,7 @@ function getApprovalSummary({ reservations = [], lineItemReviews = {}, varianceT
     totalCount: actionableRows.length,
     status: 'partial-approved',
     color: '#f9a825',
-    label: 'Some lines approved',
+    label: 'Some lines verified',
   };
 }
 
@@ -258,6 +258,7 @@ export default function Reports() {
         reviewNotes,
         reviewCheckedBy: currentUser?.username || 'Unknown',
         lineItemReviews: serializedLineItemReviews,
+        tolerancePct: varianceThreshold,
       });
     } catch (err) {
       setActionError(err.message || 'Failed to save review');
@@ -359,7 +360,7 @@ export default function Reports() {
                       Low: {lowOutsideThreshold} | No Ref: {report.missingReferenceCount || 0}
                       {unapprovedCount > 0 && (
                         <span style={{ color: '#c62828', marginLeft: 6, fontWeight: 600 }}>
-                          · {unapprovedCount} unapproved
+                          · {unapprovedCount} unverified
                         </span>
                       )}
                     </div>
@@ -392,7 +393,7 @@ export default function Reports() {
                 />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                   <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                    Approval: {selectedApprovalSummary.approvedCount}/{selectedApprovalSummary.totalCount} lines approved
+                    Verification: {selectedApprovalSummary.approvedCount}/{selectedApprovalSummary.totalCount} lines verified
                   </div>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <span>Acceptable variance %</span>
@@ -411,7 +412,7 @@ export default function Reports() {
                   </div>
                 </div>
                 <button type="button" className="btn secondary" onClick={handleSaveReview} disabled={reviewSaving}>
-                  {reviewSaving ? 'Saving...' : 'Save Review & Line Notes'}
+                  {reviewSaving ? 'Saving...' : 'Save Review & Verification Notes'}
                 </button>
               </div>
 
@@ -426,7 +427,7 @@ export default function Reports() {
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Booked</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>BAR</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Variance</th>
-                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Approval Notes</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Verification Notes</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -458,13 +459,13 @@ export default function Reports() {
                                 checked={!!lineReview.approved}
                                 onChange={(e) => updateLineItemReview(item, idx, 'approved', e.target.checked)}
                               />
-                              <span>Approved</span>
+                              <span>Verified</span>
                             </label>
                             <textarea
                               value={String(lineReview.notes || '')}
                               onChange={(e) => updateLineItemReview(item, idx, 'notes', e.target.value)}
                               rows={2}
-                              placeholder="Add line item note"
+                              placeholder="Add verification note"
                               style={{ width: '100%', resize: 'vertical' }}
                             />
                           </td>

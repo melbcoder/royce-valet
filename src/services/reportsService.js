@@ -51,11 +51,19 @@ export async function updateLowRateReportReview(reportId, updates = {}) {
   const safeReportId = String(reportId || '').trim();
   if (!safeReportId) throw new Error('Missing report id');
 
-  await updateDoc(doc(reportsRef, safeReportId), {
+  const tolerancePct = updates.tolerancePct != null && Number.isFinite(Number(updates.tolerancePct))
+    ? Number(updates.tolerancePct)
+    : null;
+
+  const payload = {
     reviewChecked: !!updates.reviewChecked,
     reviewNotes: String(updates.reviewNotes || '').trim().slice(0, 2000),
     reviewCheckedBy: String(updates.reviewCheckedBy || '').trim().slice(0, 100),
     lineItemReviews: sanitizeLineItemReviews(updates.lineItemReviews),
     reviewCheckedAt: serverTimestamp(),
-  });
+  };
+
+  if (tolerancePct !== null) payload.tolerancePct = tolerancePct;
+
+  await updateDoc(doc(reportsRef, safeReportId), payload);
 }
