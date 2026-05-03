@@ -412,7 +412,7 @@ export default function Reports() {
                   </div>
                 </div>
                 <button type="button" className="btn secondary" onClick={handleSaveReview} disabled={reviewSaving}>
-                  {reviewSaving ? 'Saving...' : 'Save Review & Verification Notes'}
+                  {reviewSaving ? 'Saving...' : 'Save'}
                 </button>
               </div>
 
