@@ -219,6 +219,9 @@ export async function ingestCancellationCsvPayload({
     noShows,
     shortLeadTimeCount,
     reservations,
+    reviewCheckedBy: '',
+    reviewCheckedAt: null,
+    lineItemReviews: {},
   });
 
   return {

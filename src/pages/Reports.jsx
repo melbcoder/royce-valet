@@ -6,6 +6,7 @@ import {
   subscribeCancellationReports,
   subscribeLowRateReports,
   subscribeOpenFoliosReports,
+  updateCancellationReportReview,
   updateLowRateReportReview,
   updateOpenFoliosReportReview,
 } from '../services/reportsService';
@@ -18,6 +19,12 @@ function getLineItemKey(item, idx) {
 
 function getOpenFoliosLineItemKey(item, idx) {
   return [item?.reservationId || 'reservation', item?.checkOutDate || 'date', item?.rowNumber || idx]
+    .map((value) => String(value || '').trim())
+    .join('__');
+}
+
+function getCancellationLineItemKey(item, idx) {
+  return [item?.reservationId || 'reservation', item?.eventDate || 'date', item?.rowNumber || idx]
     .map((value) => String(value || '').trim())
     .join('__');
 }
@@ -179,6 +186,8 @@ export default function Reports() {
   const [cancellationImportSuccess, setCancellationImportSuccess] = useState('');
   const [selectedCancellationReportId, setSelectedCancellationReportId] = useState('');
   const [applyLeadTimeFilter, setApplyLeadTimeFilter] = useState(true);
+  const [cancellationReviewSaving, setCancellationReviewSaving] = useState(false);
+  const [cancellationLineItemReviews, setCancellationLineItemReviews] = useState({});
 
   const selectedReportIdRef = useRef(selectedReportId);
   selectedReportIdRef.current = selectedReportId;
@@ -273,6 +282,15 @@ export default function Reports() {
     );
   }, [selectedOpenFoliosReport]);
 
+  useEffect(() => {
+    if (!selectedCancellationReport) return;
+    setCancellationLineItemReviews(
+      selectedCancellationReport.lineItemReviews && typeof selectedCancellationReport.lineItemReviews === 'object'
+        ? selectedCancellationReport.lineItemReviews
+        : {}
+    );
+  }, [selectedCancellationReport]);
+
   const varianceThreshold = useMemo(() => parseVarianceFilter(varianceFilterInput), [varianceFilterInput]);
 
   const filteredReservations = useMemo(
@@ -320,6 +338,17 @@ export default function Reports() {
   function updateOpenFoliosLineItemReview(item, idx, field, value) {
     const key = getOpenFoliosLineItemKey(item, idx);
     setOpenFoliosLineItemReviews((current) => ({
+      ...current,
+      [key]: {
+        ...(current[key] || {}),
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateCancellationLineItemReview(item, idx, field, value) {
+    const key = getCancellationLineItemKey(item, idx);
+    setCancellationLineItemReviews((current) => ({
       ...current,
       [key]: {
         ...(current[key] || {}),
@@ -604,6 +633,32 @@ export default function Reports() {
       setCancellationActionError(err.message || 'Failed to import cancellations/no-shows CSV');
     } finally {
       setCancellationImporting(false);
+    }
+  }
+
+  async function handleSaveCancellationReview() {
+    if (!selectedCancellationReport) return;
+
+    try {
+      setCancellationReviewSaving(true);
+      setCancellationActionError('');
+      const currentUser = getCurrentUser();
+      const serializedLineItemReviews = Object.fromEntries(
+        Object.entries(cancellationLineItemReviews).map(([key, review]) => [key, {
+          notes: String(review?.notes || ''),
+          updatedBy: currentUser?.username || 'Unknown',
+          updatedAtMs: Date.now(),
+        }])
+      );
+
+      await updateCancellationReportReview(selectedCancellationReport.id, {
+        reviewCheckedBy: currentUser?.username || 'Unknown',
+        lineItemReviews: serializedLineItemReviews,
+      });
+    } catch (err) {
+      setCancellationActionError(err.message || 'Failed to save cancellations review');
+    } finally {
+      setCancellationReviewSaving(false);
     }
   }
 
@@ -1049,8 +1104,16 @@ export default function Reports() {
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ fontWeight: 600 }}>{report.reportDate || '-'}</div>
                     </div>
-                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-                      Cancellations: {report.cancellations || 0} | No Shows: {report.noShows || 0} | Lead time {'<'} 2d: {report.shortLeadTimeCount || 0}
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ background: '#fdecea', color: '#b42318', border: '1px solid #f3c5c1', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        Cancellations: {report.cancellations || 0}
+                      </span>
+                      <span style={{ background: '#fff4e5', color: '#9a5f00', border: '1px solid #f4d8a8', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        No Shows: {report.noShows || 0}
+                      </span>
+                      <span style={{ background: '#eef3ff', color: '#1d4ed8', border: '1px solid #c7d7ff', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        Lead time {'<'} 2d: {report.shortLeadTimeCount || 0}
+                      </span>
                     </div>
                   </button>
                 );
@@ -1083,6 +1146,9 @@ export default function Reports() {
                 <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
                   Showing {filteredCancellationReservations.length} of {(selectedCancellationReport.reservations || []).length} rows
                 </div>
+                <button type="button" className="btn secondary" onClick={handleSaveCancellationReview} disabled={cancellationReviewSaving} style={{ marginTop: 8 }}>
+                  {cancellationReviewSaving ? 'Saving...' : 'Save'}
+                </button>
               </div>
 
               <div style={{ overflow: 'auto', flex: 1 }}>
@@ -1092,34 +1158,48 @@ export default function Reports() {
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reservation</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Guest</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Type</th>
-                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Room</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Arrive</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Depart</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Lead Time (Days)</th>
-                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reason</th>
-                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>By</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Verification Notes</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredCancellationReservations.map((item, idx) => {
                       const isNoShow = item.type === 'no-show';
+                      const reviewKey = getCancellationLineItemKey(item, idx);
+                      const lineReview = cancellationLineItemReviews[reviewKey] || {};
                       return (
                         <tr key={`${item.reservationId || idx}-${idx}`} style={{ background: isNoShow ? '#fff4e5' : '#fff' }}>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.reservationId || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.guestName || '-'}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{isNoShow ? 'No Show' : 'Cancellation'}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.roomNumber || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>
+                            <span
+                              style={isNoShow
+                                ? { background: '#fff4e5', color: '#9a5f00', border: '1px solid #f4d8a8', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }
+                                : { background: '#fdecea', color: '#b42318', border: '1px solid #f3c5c1', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}
+                            >
+                              {isNoShow ? 'No Show' : 'Cancellation'}
+                            </span>
+                          </td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.arriveDate || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.departDate || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>{item.leadTimeDays ?? '-'}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.cancellationReason || '-'}</td>
-                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.cancelledBy || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', minWidth: 280 }}>
+                            <textarea
+                              value={String(lineReview.notes || '')}
+                              onChange={(e) => updateCancellationLineItemReview(item, idx, 'notes', e.target.value)}
+                              rows={2}
+                              placeholder="Add verification note"
+                              style={{ width: '100%', resize: 'vertical' }}
+                            />
+                          </td>
                         </tr>
                       );
                     })}
                     {filteredCancellationReservations.length === 0 && (
                       <tr>
-                        <td colSpan={9} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
+                        <td colSpan={7} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
                           No rows match the current lead-time filter.
                         </td>
                       </tr>

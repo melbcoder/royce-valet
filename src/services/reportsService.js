@@ -92,6 +92,25 @@ function sanitizeOpenFoliosLineItemReviews(value) {
   return Object.fromEntries(entries);
 }
 
+function sanitizeCancellationLineItemReviews(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+
+  const entries = Object.entries(value)
+    .map(([key, review]) => {
+      const safeKey = String(key || '').trim().slice(0, 200);
+      if (!safeKey || !review || typeof review !== 'object' || Array.isArray(review)) return null;
+
+      return [safeKey, {
+        notes: String(review.notes || '').trim().slice(0, 1000),
+        updatedBy: String(review.updatedBy || '').trim().slice(0, 100),
+        updatedAtMs: Number.isFinite(Number(review.updatedAtMs)) ? Number(review.updatedAtMs) : Date.now(),
+      }];
+    })
+    .filter(Boolean);
+
+  return Object.fromEntries(entries);
+}
+
 export function subscribeOpenFoliosReports(callback, onError) {
   const q = query(openFoliosReportsRef, orderBy('createdAtMs', 'desc'), limit(40));
   return onSnapshot(
@@ -131,5 +150,16 @@ export async function updateOpenFoliosReportReview(reportId, updates = {}) {
     reviewCheckedBy: String(updates.reviewCheckedBy || '').trim().slice(0, 100),
     reviewCheckedAt: serverTimestamp(),
     lineItemReviews: sanitizeOpenFoliosLineItemReviews(updates.lineItemReviews),
+  });
+}
+
+export async function updateCancellationReportReview(reportId, updates = {}) {
+  const safeReportId = String(reportId || '').trim();
+  if (!safeReportId) throw new Error('Missing report id');
+
+  await updateDoc(doc(cancellationReportsRef, safeReportId), {
+    reviewCheckedBy: String(updates.reviewCheckedBy || '').trim().slice(0, 100),
+    reviewCheckedAt: serverTimestamp(),
+    lineItemReviews: sanitizeCancellationLineItemReviews(updates.lineItemReviews),
   });
 }

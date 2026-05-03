@@ -201,5 +201,12 @@ service cloud.firestore {
       allow update: if hasPageAccess('reports');
       allow create, delete: if false;
     }
+
+    // Cancellations/no-shows reports - created server-side, viewed by reports users/admins
+    match /reports_cancellations/{reportId} {
+      allow read: if hasPageAccess('reports');
+      allow update: if hasPageAccess('reports');
+      allow create, delete: if false;
+    }
   }
 }
