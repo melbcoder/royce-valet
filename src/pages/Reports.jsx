@@ -488,11 +488,8 @@ export default function Reports() {
     <section className="card pad">
       <h2 style={{ marginTop: 0, marginBottom: 12 }}>Reports</h2>
 
-      <div style={{ marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa' }}>
-        <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18 }}>Daily Low Rate Report</h3>
-      </div>
-
-      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+      <div style={{ marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0, fontSize: 18 }}>Daily Low Rate Report</h3>
         <button className="btn primary" type="button" onClick={() => fileInputRef.current?.click()} disabled={importing}>
           {importing ? 'Importing...' : 'Upload CSV'}
         </button>
@@ -694,11 +691,8 @@ export default function Reports() {
         </div>
       </div>
 
-      <div style={{ marginTop: 28, marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa' }}>
-        <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18 }}>Daily Open Folios Report</h3>
-      </div>
-
-      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+      <div style={{ marginTop: 28, marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0, fontSize: 18 }}>Daily Open Folios Report</h3>
         <button className="btn primary" type="button" onClick={() => openFoliosFileInputRef.current?.click()} disabled={openFoliosImporting}>
           {openFoliosImporting ? 'Importing...' : 'Upload CSV'}
         </button>
