@@ -23,23 +23,21 @@ function shouldShowReservation(item, varianceThreshold) {
   return Math.abs(Number(item.variancePct)) >= varianceThreshold;
 }
 
-function getApprovalSummary(report) {
-  const reservations = Array.isArray(report?.reservations) ? report.reservations : [];
-  const lineItemReviews = report?.lineItemReviews && typeof report.lineItemReviews === 'object'
-    ? report.lineItemReviews
-    : {};
+function getApprovalSummary({ reservations = [], lineItemReviews = {}, varianceThreshold = null } = {}) {
+  // Only rows outside the acceptable variance need to be approved.
+  const actionableRows = reservations.filter((item) => shouldShowReservation(item, varianceThreshold));
 
-  if (reservations.length === 0) {
+  if (actionableRows.length === 0) {
     return {
       approvedCount: 0,
       totalCount: 0,
-      status: 'none-approved',
-      color: '#c62828',
-      label: 'No approved lines',
+      status: 'all-approved',
+      color: '#2e7d32',
+      label: 'No lines require approval',
     };
   }
 
-  const approvedCount = reservations.reduce((count, item, idx) => {
+  const approvedCount = actionableRows.reduce((count, item, idx) => {
     const key = getLineItemKey(item, idx);
     return count + (lineItemReviews[key]?.approved ? 1 : 0);
   }, 0);
@@ -47,17 +45,17 @@ function getApprovalSummary(report) {
   if (approvedCount === 0) {
     return {
       approvedCount,
-      totalCount: reservations.length,
+      totalCount: actionableRows.length,
       status: 'none-approved',
       color: '#c62828',
       label: 'No approved lines',
     };
   }
 
-  if (approvedCount === reservations.length) {
+  if (approvedCount === actionableRows.length) {
     return {
       approvedCount,
-      totalCount: reservations.length,
+      totalCount: actionableRows.length,
       status: 'all-approved',
       color: '#2e7d32',
       label: 'All lines approved',
@@ -66,7 +64,7 @@ function getApprovalSummary(report) {
 
   return {
     approvedCount,
-    totalCount: reservations.length,
+    totalCount: actionableRows.length,
     status: 'partial-approved',
     color: '#f9a825',
     label: 'Some lines approved',
@@ -145,8 +143,9 @@ export default function Reports() {
     () => getApprovalSummary({
       reservations: selectedReport?.reservations || [],
       lineItemReviews,
+      varianceThreshold,
     }),
-    [selectedReport, lineItemReviews]
+    [selectedReport, lineItemReviews, varianceThreshold]
   );
 
   function updateLineItemReview(item, idx, field, value) {
@@ -316,7 +315,16 @@ export default function Reports() {
             <div style={{ maxHeight: 500, overflowY: 'auto' }}>
               {reports.map((report) => {
                 const active = report.id === selectedReportId;
-                const approvalSummary = getApprovalSummary(report);
+                const reportThreshold = parseVarianceFilter(String(report.tolerancePct ?? ''));
+                const approvalSummary = getApprovalSummary({
+                  reservations: report.reservations || [],
+                  lineItemReviews: report.lineItemReviews || {},
+                  varianceThreshold: reportThreshold,
+                });
+                const unapprovedCount = approvalSummary.totalCount - approvalSummary.approvedCount;
+                const lowOutsideThreshold = (report.reservations || []).filter(
+                  (item) => item.status === 'low' && shouldShowReservation(item, reportThreshold)
+                ).length;
                 return (
                   <button
                     key={report.id}
@@ -348,7 +356,12 @@ export default function Reports() {
                       />
                     </div>
                     <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-                      Checked: {report.totalChecked || 0} | Low: {report.lowCount || 0} | No Ref: {report.missingReferenceCount || 0}
+                      Low: {lowOutsideThreshold} | No Ref: {report.missingReferenceCount || 0}
+                      {unapprovedCount > 0 && (
+                        <span style={{ color: '#c62828', marginLeft: 6, fontWeight: 600 }}>
+                          · {unapprovedCount} unapproved
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
