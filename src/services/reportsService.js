@@ -12,6 +12,7 @@ import { db } from '../firebase';
 
 const lowRateReportsRef = collection(db, 'reports_low_rate');
 const openFoliosReportsRef = collection(db, 'reports_open_folios');
+const cancellationReportsRef = collection(db, 'reports_cancellations');
 
 function sanitizeLineItemReviews(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -101,6 +102,21 @@ export function subscribeOpenFoliosReports(callback, onError) {
     },
     (err) => {
       console.error('reports_open_folios subscription error:', err?.code, err?.message);
+      if (onError) onError(err);
+    },
+  );
+}
+
+export function subscribeCancellationReports(callback, onError) {
+  const q = query(cancellationReportsRef, orderBy('createdAtMs', 'desc'), limit(40));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const reports = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback(reports);
+    },
+    (err) => {
+      console.error('reports_cancellations subscription error:', err?.code, err?.message);
       if (onError) onError(err);
     },
   );

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { auth, db } from '../firebase';
 import { getCurrentUser } from '../services/valetFirestore';
 import {
+  subscribeCancellationReports,
   subscribeLowRateReports,
   subscribeOpenFoliosReports,
   updateLowRateReportReview,
@@ -137,6 +138,12 @@ function fmtPct(value) {
   return `${Number(value).toFixed(2)}%`;
 }
 
+function parseLeadTime(value) {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export default function Reports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +152,7 @@ export default function Reports() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef(null);
   const openFoliosFileInputRef = useRef(null);
+  const cancellationFileInputRef = useRef(null);
   const [selectedReportId, setSelectedReportId] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -163,10 +171,21 @@ export default function Reports() {
   const [openFoliosLineItemReviews, setOpenFoliosLineItemReviews] = useState({});
   const [openFoliosImportSuccess, setOpenFoliosImportSuccess] = useState('');
 
+  const [cancellationReports, setCancellationReports] = useState([]);
+  const [cancellationLoading, setCancellationLoading] = useState(true);
+  const [cancellationLoadError, setCancellationLoadError] = useState('');
+  const [cancellationActionError, setCancellationActionError] = useState('');
+  const [cancellationImporting, setCancellationImporting] = useState(false);
+  const [cancellationImportSuccess, setCancellationImportSuccess] = useState('');
+  const [selectedCancellationReportId, setSelectedCancellationReportId] = useState('');
+  const [applyLeadTimeFilter, setApplyLeadTimeFilter] = useState(true);
+
   const selectedReportIdRef = useRef(selectedReportId);
   selectedReportIdRef.current = selectedReportId;
   const openFoliosSelectedReportIdRef = useRef(openFoliosSelectedReportId);
   openFoliosSelectedReportIdRef.current = openFoliosSelectedReportId;
+  const selectedCancellationReportIdRef = useRef(selectedCancellationReportId);
+  selectedCancellationReportIdRef.current = selectedCancellationReportId;
 
   useEffect(() => {
     const unsubscribe = subscribeLowRateReports(
@@ -204,6 +223,24 @@ export default function Reports() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeCancellationReports(
+      (items) => {
+        setCancellationReports(items);
+        setCancellationLoading(false);
+        if (!selectedCancellationReportIdRef.current && items.length > 0) {
+          setSelectedCancellationReportId(items[0].id);
+        }
+      },
+      (err) => {
+        setCancellationLoadError(`Failed to load cancellation reports: ${err?.message || err?.code || 'Unknown error'}`);
+        setCancellationLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const selectedReport = useMemo(
     () => reports.find((r) => r.id === selectedReportId) || null,
     [reports, selectedReportId]
@@ -212,6 +249,11 @@ export default function Reports() {
   const selectedOpenFoliosReport = useMemo(
     () => openFoliosReports.find((r) => r.id === openFoliosSelectedReportId) || null,
     [openFoliosReports, openFoliosSelectedReportId]
+  );
+
+  const selectedCancellationReport = useMemo(
+    () => cancellationReports.find((r) => r.id === selectedCancellationReportId) || null,
+    [cancellationReports, selectedCancellationReportId]
   );
 
   useEffect(() => {
@@ -254,6 +296,15 @@ export default function Reports() {
     }),
     [selectedOpenFoliosReport, openFoliosLineItemReviews]
   );
+
+  const filteredCancellationReservations = useMemo(() => {
+    const rows = selectedCancellationReport?.reservations || [];
+    if (!applyLeadTimeFilter) return rows;
+    return rows.filter((item) => {
+      const leadTime = parseLeadTime(item.leadTimeDays);
+      return leadTime != null && leadTime < 2;
+    });
+  }, [selectedCancellationReport, applyLeadTimeFilter]);
 
   function updateLineItemReview(item, idx, field, value) {
     const key = getLineItemKey(item, idx);
@@ -481,6 +532,78 @@ export default function Reports() {
       setOpenFoliosActionError(err.message || 'Failed to save Open Folios review');
     } finally {
       setOpenFoliosReviewSaving(false);
+    }
+  }
+
+  async function handleImportCancellationCsv(e) {
+    const file = e.target.files?.[0];
+    if (cancellationFileInputRef.current) cancellationFileInputRef.current.value = '';
+    setCancellationActionError('');
+    setCancellationImportSuccess('');
+
+    if (!file) return;
+
+    try {
+      setCancellationImporting(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setCancellationActionError('Not authenticated. Please log in again.');
+        return;
+      }
+
+      const csv = await file.text();
+      const idToken = await currentUser.getIdToken();
+
+      const response = await fetch('/api/ap-webhook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          action: 'cancellations-ingest',
+          csv,
+          source: 'manual-upload-cancellations',
+        }),
+      });
+
+      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+      const data = contentType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : {};
+
+      if (!response.ok) {
+        const detail = typeof data.detail === 'string' && data.detail.trim() ? `: ${data.detail.trim()}` : '';
+        if (data.error) {
+          throw new Error(`${data.error}${detail}`);
+        }
+        throw new Error(`Cancellation import failed (${response.status})`);
+      }
+
+      const reportId = typeof data.reportId === 'string' ? data.reportId.trim() : '';
+      if (reportId) {
+        try {
+          const reportSnap = await getDoc(doc(db, 'reports_cancellations', reportId));
+          if (reportSnap.exists()) {
+            setSelectedCancellationReportId(reportId);
+            setCancellationLoadError('');
+            setCancellationImportSuccess(`Cancellations/no-shows CSV imported. Report: ${reportId}`);
+          } else {
+            setCancellationImportSuccess(`Cancellations/no-shows CSV imported. Report: ${reportId}`);
+            setCancellationLoadError('Import succeeded, but this app session cannot read that report. Check Firebase project/env alignment.');
+          }
+        } catch (err) {
+          const detail = err?.message || err?.code || 'Unknown error';
+          setCancellationImportSuccess(`Cancellations/no-shows CSV imported. Report: ${reportId}`);
+          setCancellationLoadError(`Import succeeded, but report read failed: ${detail}`);
+        }
+      } else {
+        setCancellationImportSuccess('Cancellations/no-shows CSV imported.');
+      }
+    } catch (err) {
+      setCancellationActionError(err.message || 'Failed to import cancellations/no-shows CSV');
+    } finally {
+      setCancellationImporting(false);
     }
   }
 
@@ -865,6 +988,139 @@ export default function Reports() {
                       <tr>
                         <td colSpan={7} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
                           No checked-out reservations with outstanding balance were found for this date.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 28, marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0, fontSize: 18 }}>Daily Cancellations / No Shows Report</h3>
+        <button className="btn primary" type="button" onClick={() => cancellationFileInputRef.current?.click()} disabled={cancellationImporting}>
+          {cancellationImporting ? 'Importing...' : 'Upload CSV'}
+        </button>
+        <input
+          ref={cancellationFileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleImportCancellationCsv}
+          style={{ display: 'none' }}
+        />
+      </div>
+
+      {cancellationImportSuccess && <div style={{ color: '#2f7d32', marginBottom: 12 }}>{cancellationImportSuccess}</div>}
+      {cancellationActionError && <div style={{ color: '#b00020', marginBottom: 12 }}>{cancellationActionError}</div>}
+      {cancellationLoadError && <div style={{ color: '#b00020', marginBottom: 12 }}>{cancellationLoadError}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
+            Recent Cancellations / No Shows Reports
+          </div>
+
+          {cancellationLoading ? (
+            <div style={{ padding: 12, color: '#666' }}>Loading reports...</div>
+          ) : cancellationReports.length === 0 ? (
+            <div style={{ padding: 12, color: '#666' }}>No cancellations/no-shows reports yet.</div>
+          ) : (
+            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+              {cancellationReports.map((report) => {
+                const active = report.id === selectedCancellationReportId;
+                return (
+                  <button
+                    key={report.id}
+                    type="button"
+                    onClick={() => setSelectedCancellationReportId(report.id)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      border: 'none',
+                      borderBottom: '1px solid #eee',
+                      background: active ? '#eef3ff' : '#fff',
+                      padding: 10,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ fontWeight: 600 }}>{report.reportDate || '-'}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                      Cancellations: {report.cancellations || 0} | No Shows: {report.noShows || 0} | Lead time {'<'} 2d: {report.shortLeadTimeCount || 0}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
+          {!selectedCancellationReport ? (
+            <div style={{ padding: 12, color: '#666' }}>Select a cancellations/no-shows report to review.</div>
+          ) : (
+            <>
+              <div style={{ padding: 12, borderBottom: '1px solid #ddd', background: '#f4f6fb' }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Report Date: {selectedCancellationReport.reportDate || '-'}</div>
+                <div style={{ fontSize: 13, color: '#555' }}>
+                  Source: {selectedCancellationReport.sourceLabel || '-'} | Imported rows: {selectedCancellationReport.totalRows || 0} | Parsed rows: {selectedCancellationReport.totalParsedRows || 0}
+                </div>
+              </div>
+
+              <div style={{ padding: 12, borderBottom: '1px solid #eee' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={applyLeadTimeFilter}
+                    onChange={(e) => setApplyLeadTimeFilter(e.target.checked)}
+                  />
+                  <span>Only show lead time less than 2 days</span>
+                </label>
+                <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
+                  Showing {filteredCancellationReservations.length} of {(selectedCancellationReport.reservations || []).length} rows
+                </div>
+              </div>
+
+              <div style={{ overflow: 'auto', flex: 1 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#fafafa' }}>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reservation</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Guest</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Type</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Room</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Arrive</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Depart</th>
+                      <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Lead Time (Days)</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reason</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCancellationReservations.map((item, idx) => {
+                      const isNoShow = item.type === 'no-show';
+                      return (
+                        <tr key={`${item.reservationId || idx}-${idx}`} style={{ background: isNoShow ? '#fff4e5' : '#fff' }}>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.reservationId || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.guestName || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{isNoShow ? 'No Show' : 'Cancellation'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.roomNumber || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.arriveDate || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.departDate || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>{item.leadTimeDays ?? '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.cancellationReason || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.cancelledBy || '-'}</td>
+                        </tr>
+                      );
+                    })}
+                    {filteredCancellationReservations.length === 0 && (
+                      <tr>
+                        <td colSpan={9} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
+                          No rows match the current lead-time filter.
                         </td>
                       </tr>
                     )}
