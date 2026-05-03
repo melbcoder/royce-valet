@@ -143,7 +143,8 @@ export default function Reports() {
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [importing, setImporting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
+  const openFoliosFileInputRef = useRef(null);
   const [selectedReportId, setSelectedReportId] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -156,7 +157,6 @@ export default function Reports() {
   const [openFoliosLoadError, setOpenFoliosLoadError] = useState('');
   const [openFoliosActionError, setOpenFoliosActionError] = useState('');
   const [openFoliosImporting, setOpenFoliosImporting] = useState(false);
-  const [openFoliosSelectedFile, setOpenFoliosSelectedFile] = useState(null);
   const [openFoliosSelectedReportId, setOpenFoliosSelectedReportId] = useState('');
   const [openFoliosReviewSaving, setOpenFoliosReviewSaving] = useState(false);
   const [openFoliosReviewNotes, setOpenFoliosReviewNotes] = useState('');
@@ -277,14 +277,13 @@ export default function Reports() {
     }));
   }
 
-  async function handleImportCsv() {
+  async function handleImportCsv(e) {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setActionError('');
     setImportSuccess('');
 
-    if (!selectedFile) {
-      setActionError('Please choose a CSV file first.');
-      return;
-    }
+    if (!file) return;
 
     try {
       setImporting(true);
@@ -294,7 +293,7 @@ export default function Reports() {
         return;
       }
 
-      const csv = await selectedFile.text();
+      const csv = await file.text();
       const idToken = await currentUser.getIdToken();
 
       const response = await fetch('/api/ap-webhook', {
@@ -347,7 +346,6 @@ export default function Reports() {
       } else {
         setImportSuccess('CSV imported and low-rate checks completed.');
       }
-      setSelectedFile(null);
     } catch (err) {
       setActionError(err.message || 'Failed to import CSV');
     } finally {
@@ -385,14 +383,13 @@ export default function Reports() {
     }
   }
 
-  async function handleImportOpenFoliosCsv() {
+  async function handleImportOpenFoliosCsv(e) {
+    const file = e.target.files?.[0];
+    if (openFoliosFileInputRef.current) openFoliosFileInputRef.current.value = '';
     setOpenFoliosActionError('');
     setOpenFoliosImportSuccess('');
 
-    if (!openFoliosSelectedFile) {
-      setOpenFoliosActionError('Please choose an Open Folios CSV file first.');
-      return;
-    }
+    if (!file) return;
 
     try {
       setOpenFoliosImporting(true);
@@ -402,7 +399,7 @@ export default function Reports() {
         return;
       }
 
-      const csv = await openFoliosSelectedFile.text();
+      const csv = await file.text();
       const idToken = await currentUser.getIdToken();
 
       const response = await fetch('/api/ap-webhook', {
@@ -451,7 +448,6 @@ export default function Reports() {
       } else {
         setOpenFoliosImportSuccess('Open folios CSV imported.');
       }
-      setOpenFoliosSelectedFile(null);
     } catch (err) {
       setOpenFoliosActionError(err.message || 'Failed to import Open Folios CSV');
     } finally {
@@ -497,14 +493,16 @@ export default function Reports() {
       </div>
 
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <button className="btn primary" type="button" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+          {importing ? 'Importing...' : 'Upload CSV'}
+        </button>
         <input
+          ref={fileInputRef}
           type="file"
           accept=".csv,text/csv"
-          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+          onChange={handleImportCsv}
+          style={{ display: 'none' }}
         />
-        <button className="btn primary" type="button" onClick={handleImportCsv} disabled={importing}>
-          {importing ? 'Importing...' : 'Import CSV & Run Checks'}
-        </button>
       </div>
 
       {importSuccess && <div style={{ color: '#2f7d32', marginBottom: 12 }}>{importSuccess}</div>}
@@ -701,14 +699,16 @@ export default function Reports() {
       </div>
 
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <button className="btn primary" type="button" onClick={() => openFoliosFileInputRef.current?.click()} disabled={openFoliosImporting}>
+          {openFoliosImporting ? 'Importing...' : 'Upload CSV'}
+        </button>
         <input
+          ref={openFoliosFileInputRef}
           type="file"
           accept=".csv,text/csv"
-          onChange={(e) => setOpenFoliosSelectedFile(e.target.files?.[0] || null)}
+          onChange={handleImportOpenFoliosCsv}
+          style={{ display: 'none' }}
         />
-        <button className="btn primary" type="button" onClick={handleImportOpenFoliosCsv} disabled={openFoliosImporting}>
-          {openFoliosImporting ? 'Importing...' : 'Import Open Folios CSV'}
-        </button>
       </div>
 
       {openFoliosImportSuccess && <div style={{ color: '#2f7d32', marginBottom: 12 }}>{openFoliosImportSuccess}</div>}
