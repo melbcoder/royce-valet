@@ -101,6 +101,7 @@ function sanitizeCancellationLineItemReviews(value) {
       if (!safeKey || !review || typeof review !== 'object' || Array.isArray(review)) return null;
 
       return [safeKey, {
+        verified: !!review.verified,
         notes: String(review.notes || '').trim().slice(0, 1000),
         updatedBy: String(review.updatedBy || '').trim().slice(0, 100),
         updatedAtMs: Number.isFinite(Number(review.updatedAtMs)) ? Number(review.updatedAtMs) : Date.now(),

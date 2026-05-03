@@ -131,6 +131,54 @@ function getOpenFoliosVerificationSummary({ reservations = [], lineItemReviews =
   };
 }
 
+function isCancellationVerificationRequired(item) {
+  const leadTime = parseLeadTime(item?.leadTimeDays);
+  return leadTime != null && leadTime < 2;
+}
+
+function getCancellationVerificationSummary({ reservations = [], lineItemReviews = {} } = {}) {
+  const actionableRows = reservations.filter((item) => isCancellationVerificationRequired(item));
+
+  if (actionableRows.length === 0) {
+    return {
+      verifiedCount: 0,
+      totalCount: 0,
+      color: '#2e7d32',
+      label: 'No lines require verification',
+    };
+  }
+
+  const verifiedCount = actionableRows.reduce((count, item, idx) => {
+    const key = getCancellationLineItemKey(item, idx);
+    return count + (lineItemReviews[key]?.verified ? 1 : 0);
+  }, 0);
+
+  if (verifiedCount === 0) {
+    return {
+      verifiedCount,
+      totalCount: actionableRows.length,
+      color: '#c62828',
+      label: 'No verified lines',
+    };
+  }
+
+  if (verifiedCount === actionableRows.length) {
+    return {
+      verifiedCount,
+      totalCount: actionableRows.length,
+      color: '#2e7d32',
+      label: 'All lines verified',
+    };
+  }
+
+  return {
+    verifiedCount,
+    totalCount: actionableRows.length,
+    color: '#f9a825',
+    label: 'Some lines verified',
+  };
+}
+
 function fmtCurrency(value, currency = 'AUD') {
   if (value == null || Number.isNaN(Number(value))) return '-';
   return new Intl.NumberFormat('en-AU', {
@@ -323,6 +371,14 @@ export default function Reports() {
       return leadTime != null && leadTime < 2;
     });
   }, [selectedCancellationReport, applyLeadTimeFilter]);
+
+  const selectedCancellationSummary = useMemo(
+    () => getCancellationVerificationSummary({
+      reservations: selectedCancellationReport?.reservations || [],
+      lineItemReviews: cancellationLineItemReviews,
+    }),
+    [selectedCancellationReport, cancellationLineItemReviews]
+  );
 
   function updateLineItemReview(item, idx, field, value) {
     const key = getLineItemKey(item, idx);
@@ -645,6 +701,7 @@ export default function Reports() {
       const currentUser = getCurrentUser();
       const serializedLineItemReviews = Object.fromEntries(
         Object.entries(cancellationLineItemReviews).map(([key, review]) => [key, {
+          verified: !!review?.verified,
           notes: String(review?.notes || ''),
           updatedBy: currentUser?.username || 'Unknown',
           updatedAtMs: Date.now(),
@@ -712,7 +769,7 @@ export default function Reports() {
                   <button
                     key={report.id}
                     type="button"
-                    onClick={() => setSelectedReportId(report.id)}
+                    onClick={() => setSelectedReportId((current) => (current === report.id ? '' : report.id))}
                     style={{
                       width: '100%',
                       textAlign: 'left',
@@ -916,7 +973,7 @@ export default function Reports() {
                   <button
                     key={report.id}
                     type="button"
-                    onClick={() => setOpenFoliosSelectedReportId(report.id)}
+                    onClick={() => setOpenFoliosSelectedReportId((current) => (current === report.id ? '' : report.id))}
                     style={{
                       width: '100%',
                       textAlign: 'left',
@@ -1096,11 +1153,15 @@ export default function Reports() {
             <div style={{ maxHeight: 500, overflowY: 'auto' }}>
               {cancellationReports.map((report) => {
                 const active = report.id === selectedCancellationReportId;
+                const verificationSummary = getCancellationVerificationSummary({
+                  reservations: report.reservations || [],
+                  lineItemReviews: report.lineItemReviews || {},
+                });
                 return (
                   <button
                     key={report.id}
                     type="button"
-                    onClick={() => setSelectedCancellationReportId(report.id)}
+                    onClick={() => setSelectedCancellationReportId((current) => (current === report.id ? '' : report.id))}
                     style={{
                       width: '100%',
                       textAlign: 'left',
@@ -1113,6 +1174,18 @@ export default function Reports() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ fontWeight: 600 }}>{report.reportDate || '-'}</div>
+                      <span
+                        aria-label={verificationSummary.label}
+                        title={`${verificationSummary.label} (${verificationSummary.verifiedCount}/${verificationSummary.totalCount})`}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          minWidth: 10,
+                          borderRadius: '50%',
+                          background: verificationSummary.color,
+                          display: 'inline-block',
+                        }}
+                      />
                     </div>
                     <div style={{ fontSize: 12, color: '#555', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       <span style={{ background: '#fdecea', color: '#b42318', border: '1px solid #f3c5c1', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
@@ -1156,6 +1229,9 @@ export default function Reports() {
                 <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
                   Showing {filteredCancellationReservations.length} of {(selectedCancellationReport.reservations || []).length} rows
                 </div>
+                <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
+                  Verification: {selectedCancellationSummary.verifiedCount}/{selectedCancellationSummary.totalCount} lines verified
+                </div>
                 <button type="button" className="btn secondary" onClick={handleSaveCancellationReview} disabled={cancellationReviewSaving} style={{ marginTop: 8 }}>
                   {cancellationReviewSaving ? 'Saving...' : 'Save'}
                 </button>
@@ -1177,6 +1253,7 @@ export default function Reports() {
                   <tbody>
                     {filteredCancellationReservations.map((item, idx) => {
                       const isNoShow = item.type === 'no-show';
+                      const requiresVerification = isCancellationVerificationRequired(item);
                       const reviewKey = getCancellationLineItemKey(item, idx);
                       const lineReview = cancellationLineItemReviews[reviewKey] || {};
                       return (
@@ -1196,11 +1273,21 @@ export default function Reports() {
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.departDate || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>{item.leadTimeDays ?? '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', minWidth: 280 }}>
+                            {requiresVerification && (
+                              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!lineReview.verified}
+                                  onChange={(e) => updateCancellationLineItemReview(item, idx, 'verified', e.target.checked)}
+                                />
+                                <span>Verified</span>
+                              </label>
+                            )}
                             <textarea
                               value={String(lineReview.notes || '')}
                               onChange={(e) => updateCancellationLineItemReview(item, idx, 'notes', e.target.value)}
                               rows={2}
-                              placeholder="Add verification note"
+                              placeholder={requiresVerification ? 'Add verification note' : 'Optional note'}
                               style={{ width: '100%', resize: 'vertical' }}
                             />
                           </td>
