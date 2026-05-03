@@ -494,18 +494,6 @@ export default function Reports() {
 
       <div style={{ marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa' }}>
         <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18 }}>Daily Low Rate Report</h3>
-        <p style={{ marginTop: 0, marginBottom: 8, color: 'var(--muted)' }}>
-          Upload the previous day reservation CSV. The system checks booked rates against BAR rates (from CSV inline fields or an optional external lookup endpoint), then flags potential low-rate issues.
-        </p>
-        <p style={{ marginTop: 0, marginBottom: 0, color: 'var(--muted)', fontSize: 13 }}>
-          Automation target email: <strong>reports@mail.concierge.xin</strong>
-        </p>
-        <p style={{ marginTop: 8, marginBottom: 0, color: 'var(--muted)', fontSize: 13 }}>
-          SendGrid inbound automation is supported via <strong>/api/ap-webhook/&lt;SENDGRID_WEBHOOK_SECRET&gt;</strong>, using the same route-secret pattern as Accounts Payable.
-        </p>
-        <p style={{ marginTop: 8, marginBottom: 0, color: 'var(--muted)', fontSize: 13 }}>
-          Manual upload uses <strong>/api/ap-webhook</strong> with bearer auth and action <strong>low-rate-ingest</strong>.
-        </p>
       </div>
 
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -524,7 +512,7 @@ export default function Reports() {
       {loadError && <div style={{ color: '#b00020', marginBottom: 12 }}>{loadError}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
             Recent Low Rate Reports
           </div>
@@ -637,7 +625,7 @@ export default function Reports() {
                 </button>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ overflow: 'auto', flex: 1 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#fafafa' }}>
@@ -710,9 +698,6 @@ export default function Reports() {
 
       <div style={{ marginTop: 28, marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa' }}>
         <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18 }}>Daily Open Folios Report</h3>
-        <p style={{ marginTop: 0, marginBottom: 8, color: 'var(--muted)' }}>
-          Upload the open folios CSV. The system captures reservations that checked out today and still have an outstanding balance.
-        </p>
       </div>
 
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -731,7 +716,7 @@ export default function Reports() {
       {openFoliosLoadError && <div style={{ color: '#b00020', marginBottom: 12 }}>{openFoliosLoadError}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
             Recent Open Folios Reports
           </div>
@@ -825,7 +810,7 @@ export default function Reports() {
                 </button>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ overflow: 'auto', flex: 1 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#fafafa' }}>
