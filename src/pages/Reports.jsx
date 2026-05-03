@@ -1141,7 +1141,7 @@ export default function Reports() {
                     checked={applyLeadTimeFilter}
                     onChange={(e) => setApplyLeadTimeFilter(e.target.checked)}
                   />
-                  <span>Only show lead time less than 2 days</span>
+                  <span>Filter Based on Lead Time</span>
                 </label>
                 <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
                   Showing {filteredCancellationReservations.length} of {(selectedCancellationReport.reservations || []).length} rows
