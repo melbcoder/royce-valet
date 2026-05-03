@@ -4,6 +4,25 @@ import { auth, db } from '../firebase';
 import { getCurrentUser } from '../services/valetFirestore';
 import { subscribeLowRateReports, updateLowRateReportReview } from '../services/reportsService';
 
+function getLineItemKey(item, idx) {
+  return [item?.reservationId || 'reservation', item?.checkInDate || 'date', item?.rowNumber || idx]
+    .map((value) => String(value || '').trim())
+    .join('__');
+}
+
+function parseVarianceFilter(value) {
+  const normalized = String(value || '').replace(/[^\d.-]/g, '');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? Math.abs(parsed) : null;
+}
+
+function shouldShowReservation(item, varianceThreshold) {
+  if (varianceThreshold == null) return true;
+  if (item?.variancePct == null) return true;
+  return Math.abs(Number(item.variancePct)) >= varianceThreshold;
+}
+
 function fmtCurrency(value, currency = 'AUD') {
   if (value == null || Number.isNaN(Number(value))) return '-';
   return new Intl.NumberFormat('en-AU', {
@@ -29,6 +48,8 @@ export default function Reports() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewChecked, setReviewChecked] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
+  const [lineItemReviews, setLineItemReviews] = useState({});
+  const [varianceFilterInput, setVarianceFilterInput] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
 
   const selectedReportIdRef = useRef(selectedReportId);
@@ -61,7 +82,27 @@ export default function Reports() {
     if (!selectedReport) return;
     setReviewChecked(!!selectedReport.reviewChecked);
     setReviewNotes(String(selectedReport.reviewNotes || ''));
+    setLineItemReviews(selectedReport.lineItemReviews && typeof selectedReport.lineItemReviews === 'object' ? selectedReport.lineItemReviews : {});
+    setVarianceFilterInput(selectedReport.tolerancePct != null ? String(selectedReport.tolerancePct) : '');
   }, [selectedReport]);
+
+  const varianceThreshold = useMemo(() => parseVarianceFilter(varianceFilterInput), [varianceFilterInput]);
+
+  const filteredReservations = useMemo(
+    () => (selectedReport?.reservations || []).filter((item) => shouldShowReservation(item, varianceThreshold)),
+    [selectedReport, varianceThreshold]
+  );
+
+  function updateLineItemReview(item, idx, field, value) {
+    const key = getLineItemKey(item, idx);
+    setLineItemReviews((current) => ({
+      ...current,
+      [key]: {
+        ...(current[key] || {}),
+        [field]: value,
+      },
+    }));
+  }
 
   async function handleImportCsv() {
     setActionError('');
@@ -152,6 +193,14 @@ export default function Reports() {
         reviewChecked,
         reviewNotes,
         reviewCheckedBy: currentUser?.username || 'Unknown',
+        lineItemReviews: Object.fromEntries(
+          Object.entries(lineItemReviews).map(([key, review]) => [key, {
+            approved: !!review?.approved,
+            notes: String(review?.notes || ''),
+            updatedBy: currentUser?.username || 'Unknown',
+            updatedAtMs: Date.now(),
+          }])
+        ),
       });
     } catch (err) {
       setActionError(err.message || 'Failed to save review');
@@ -263,8 +312,25 @@ export default function Reports() {
                   placeholder="Review notes"
                   style={{ width: '100%', marginBottom: 8 }}
                 />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span>Acceptable variance %</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={varianceFilterInput}
+                      onChange={(e) => setVarianceFilterInput(e.target.value)}
+                      placeholder="10"
+                      style={{ width: 96 }}
+                    />
+                  </label>
+                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    Showing {filteredReservations.length} of {(selectedReport.reservations || []).length} reservations
+                  </div>
+                </div>
                 <button type="button" className="btn secondary" onClick={handleSaveReview} disabled={reviewSaving}>
-                  {reviewSaving ? 'Saving...' : 'Save Review'}
+                  {reviewSaving ? 'Saving...' : 'Save Review & Line Notes'}
                 </button>
               </div>
 
@@ -281,12 +347,15 @@ export default function Reports() {
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>BAR</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Variance</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Status</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Approval Notes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(selectedReport.reservations || []).map((item, idx) => {
+                    {filteredReservations.map((item, idx) => {
                       const isLow = item.status === 'low';
                       const isNoRef = item.status === 'no-reference';
+                      const reviewKey = getLineItemKey(item, idx);
+                      const lineReview = lineItemReviews[reviewKey] || {};
 
                       return (
                         <tr key={`${item.reservationId || idx}-${idx}`} style={{ background: isLow ? '#fff1f1' : isNoRef ? '#fffbea' : '#fff' }}>
@@ -309,9 +378,33 @@ export default function Reports() {
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', fontWeight: 600 }}>
                             {item.status || '-'}
                           </td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', minWidth: 240 }}>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                              <input
+                                type="checkbox"
+                                checked={!!lineReview.approved}
+                                onChange={(e) => updateLineItemReview(item, idx, 'approved', e.target.checked)}
+                              />
+                              <span>Approved</span>
+                            </label>
+                            <textarea
+                              value={String(lineReview.notes || '')}
+                              onChange={(e) => updateLineItemReview(item, idx, 'notes', e.target.value)}
+                              rows={2}
+                              placeholder="Add line item note"
+                              style={{ width: '100%', resize: 'vertical' }}
+                            />
+                          </td>
                         </tr>
                       );
                     })}
+                    {filteredReservations.length === 0 && (
+                      <tr>
+                        <td colSpan={10} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
+                          No reservations fall outside the selected variance threshold.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -12,6 +12,26 @@ import { db } from '../firebase';
 
 const reportsRef = collection(db, 'reports_low_rate');
 
+function sanitizeLineItemReviews(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+
+  const entries = Object.entries(value)
+    .map(([key, review]) => {
+      const safeKey = String(key || '').trim().slice(0, 200);
+      if (!safeKey || !review || typeof review !== 'object' || Array.isArray(review)) return null;
+
+      return [safeKey, {
+        approved: !!review.approved,
+        notes: String(review.notes || '').trim().slice(0, 1000),
+        updatedBy: String(review.updatedBy || '').trim().slice(0, 100),
+        updatedAtMs: Number.isFinite(Number(review.updatedAtMs)) ? Number(review.updatedAtMs) : Date.now(),
+      }];
+    })
+    .filter(Boolean);
+
+  return Object.fromEntries(entries);
+}
+
 export function subscribeLowRateReports(callback, onError) {
   const q = query(reportsRef, orderBy('createdAtMs', 'desc'), limit(40));
   return onSnapshot(
@@ -35,6 +55,7 @@ export async function updateLowRateReportReview(reportId, updates = {}) {
     reviewChecked: !!updates.reviewChecked,
     reviewNotes: String(updates.reviewNotes || '').trim().slice(0, 2000),
     reviewCheckedBy: String(updates.reviewCheckedBy || '').trim().slice(0, 100),
+    lineItemReviews: sanitizeLineItemReviews(updates.lineItemReviews),
     reviewCheckedAt: serverTimestamp(),
   });
 }
