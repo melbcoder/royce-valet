@@ -738,11 +738,16 @@ export default function Reports() {
                         }}
                       />
                     </div>
-                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-                      Low: {lowOutsideThreshold} | No Ref: {report.missingReferenceCount || 0}
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ background: '#fdecea', color: '#b42318', border: '1px solid #f3c5c1', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        Low: {lowOutsideThreshold}
+                      </span>
+                      <span style={{ background: '#fff4e5', color: '#9a5f00', border: '1px solid #f4d8a8', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        No Ref: {report.missingReferenceCount || 0}
+                      </span>
                       {unapprovedCount > 0 && (
-                        <span style={{ color: '#c62828', marginLeft: 6, fontWeight: 600 }}>
-                          · {unapprovedCount} unverified
+                        <span style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                          Unverified: {unapprovedCount}
                         </span>
                       )}
                     </div>
@@ -937,11 +942,16 @@ export default function Reports() {
                         }}
                       />
                     </div>
-                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
-                      Outstanding: {report.outstandingCount || 0} | Total: {fmtCurrency(report.totalOutstandingBalance || 0, 'AUD')}
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ background: '#eaf6ed', color: '#166534', border: '1px solid #b7dfc2', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        Outstanding: {report.outstandingCount || 0}
+                      </span>
+                      <span style={{ background: '#eef3ff', color: '#1d4ed8', border: '1px solid #c7d7ff', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                        Total: {fmtCurrency(report.totalOutstandingBalance || 0, 'AUD')}
+                      </span>
                       {unverifiedCount > 0 && (
-                        <span style={{ color: '#c62828', marginLeft: 6, fontWeight: 600 }}>
-                          · {unverifiedCount} unverified
+                        <span style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 999, padding: '2px 8px', fontWeight: 600 }}>
+                          Unverified: {unverifiedCount}
                         </span>
                       )}
                     </div>
