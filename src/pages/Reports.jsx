@@ -23,6 +23,56 @@ function shouldShowReservation(item, varianceThreshold) {
   return Math.abs(Number(item.variancePct)) >= varianceThreshold;
 }
 
+function getApprovalSummary(report) {
+  const reservations = Array.isArray(report?.reservations) ? report.reservations : [];
+  const lineItemReviews = report?.lineItemReviews && typeof report.lineItemReviews === 'object'
+    ? report.lineItemReviews
+    : {};
+
+  if (reservations.length === 0) {
+    return {
+      approvedCount: 0,
+      totalCount: 0,
+      status: 'none-approved',
+      color: '#c62828',
+      label: 'No approved lines',
+    };
+  }
+
+  const approvedCount = reservations.reduce((count, item, idx) => {
+    const key = getLineItemKey(item, idx);
+    return count + (lineItemReviews[key]?.approved ? 1 : 0);
+  }, 0);
+
+  if (approvedCount === 0) {
+    return {
+      approvedCount,
+      totalCount: reservations.length,
+      status: 'none-approved',
+      color: '#c62828',
+      label: 'No approved lines',
+    };
+  }
+
+  if (approvedCount === reservations.length) {
+    return {
+      approvedCount,
+      totalCount: reservations.length,
+      status: 'all-approved',
+      color: '#2e7d32',
+      label: 'All lines approved',
+    };
+  }
+
+  return {
+    approvedCount,
+    totalCount: reservations.length,
+    status: 'partial-approved',
+    color: '#f9a825',
+    label: 'Some lines approved',
+  };
+}
+
 function fmtCurrency(value, currency = 'AUD') {
   if (value == null || Number.isNaN(Number(value))) return '-';
   return new Intl.NumberFormat('en-AU', {
@@ -46,7 +96,6 @@ export default function Reports() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedReportId, setSelectedReportId] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
-  const [reviewChecked, setReviewChecked] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
   const [lineItemReviews, setLineItemReviews] = useState({});
   const [varianceFilterInput, setVarianceFilterInput] = useState('');
@@ -80,7 +129,6 @@ export default function Reports() {
 
   useEffect(() => {
     if (!selectedReport) return;
-    setReviewChecked(!!selectedReport.reviewChecked);
     setReviewNotes(String(selectedReport.reviewNotes || ''));
     setLineItemReviews(selectedReport.lineItemReviews && typeof selectedReport.lineItemReviews === 'object' ? selectedReport.lineItemReviews : {});
     setVarianceFilterInput(selectedReport.tolerancePct != null ? String(selectedReport.tolerancePct) : '');
@@ -91,6 +139,14 @@ export default function Reports() {
   const filteredReservations = useMemo(
     () => (selectedReport?.reservations || []).filter((item) => shouldShowReservation(item, varianceThreshold)),
     [selectedReport, varianceThreshold]
+  );
+
+  const selectedApprovalSummary = useMemo(
+    () => getApprovalSummary({
+      reservations: selectedReport?.reservations || [],
+      lineItemReviews,
+    }),
+    [selectedReport, lineItemReviews]
   );
 
   function updateLineItemReview(item, idx, field, value) {
@@ -189,18 +245,20 @@ export default function Reports() {
       setReviewSaving(true);
       setActionError('');
       const currentUser = getCurrentUser();
+      const serializedLineItemReviews = Object.fromEntries(
+        Object.entries(lineItemReviews).map(([key, review]) => [key, {
+          approved: !!review?.approved,
+          notes: String(review?.notes || ''),
+          updatedBy: currentUser?.username || 'Unknown',
+          updatedAtMs: Date.now(),
+        }])
+      );
+
       await updateLowRateReportReview(selectedReport.id, {
-        reviewChecked,
+        reviewChecked: selectedApprovalSummary.totalCount > 0 && selectedApprovalSummary.approvedCount === selectedApprovalSummary.totalCount,
         reviewNotes,
         reviewCheckedBy: currentUser?.username || 'Unknown',
-        lineItemReviews: Object.fromEntries(
-          Object.entries(lineItemReviews).map(([key, review]) => [key, {
-            approved: !!review?.approved,
-            notes: String(review?.notes || ''),
-            updatedBy: currentUser?.username || 'Unknown',
-            updatedAtMs: Date.now(),
-          }])
-        ),
+        lineItemReviews: serializedLineItemReviews,
       });
     } catch (err) {
       setActionError(err.message || 'Failed to save review');
@@ -258,6 +316,7 @@ export default function Reports() {
             <div style={{ maxHeight: 500, overflowY: 'auto' }}>
               {reports.map((report) => {
                 const active = report.id === selectedReportId;
+                const approvalSummary = getApprovalSummary(report);
                 return (
                   <button
                     key={report.id}
@@ -273,7 +332,21 @@ export default function Reports() {
                       cursor: 'pointer',
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>{report.reportDate || '-'}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ fontWeight: 600 }}>{report.reportDate || '-'}</div>
+                      <span
+                        aria-label={approvalSummary.label}
+                        title={`${approvalSummary.label} (${approvalSummary.approvedCount}/${approvalSummary.totalCount})`}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          minWidth: 10,
+                          borderRadius: '50%',
+                          background: approvalSummary.color,
+                          display: 'inline-block',
+                        }}
+                      />
+                    </div>
                     <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
                       Checked: {report.totalChecked || 0} | Low: {report.lowCount || 0} | No Ref: {report.missingReferenceCount || 0}
                     </div>
@@ -297,14 +370,6 @@ export default function Reports() {
               </div>
 
               <div style={{ padding: 12, borderBottom: '1px solid #eee' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={reviewChecked}
-                    onChange={(e) => setReviewChecked(e.target.checked)}
-                  />
-                  <span>Checked over and approved</span>
-                </label>
                 <textarea
                   value={reviewNotes}
                   onChange={(e) => setReviewNotes(e.target.value)}
@@ -313,6 +378,9 @@ export default function Reports() {
                   style={{ width: '100%', marginBottom: 8 }}
                 />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    Approval: {selectedApprovalSummary.approvedCount}/{selectedApprovalSummary.totalCount} lines approved
+                  </div>
                   <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                     <span>Acceptable variance %</span>
                     <input
@@ -338,7 +406,6 @@ export default function Reports() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#fafafa' }}>
-                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>B/C</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reservation</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Guest</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Room</th>
@@ -346,7 +413,6 @@ export default function Reports() {
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Booked</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>BAR</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Variance</th>
-                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Status</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Approval Notes</th>
                     </tr>
                   </thead>
@@ -359,9 +425,6 @@ export default function Reports() {
 
                       return (
                         <tr key={`${item.reservationId || idx}-${idx}`} style={{ background: isLow ? '#fff1f1' : isNoRef ? '#fffbea' : '#fff' }}>
-                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>
-                            {item.statusCode ? `${item.statusCode}${item.statusLabel ? ` (${item.statusLabel})` : ''}` : '-'}
-                          </td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.reservationId || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.guestName || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.roomType || '-'}</td>
@@ -374,9 +437,6 @@ export default function Reports() {
                           </td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>
                             {item.variance == null ? '-' : `${fmtCurrency(item.variance, item.bookedCurrency)} (${fmtPct(item.variancePct)})`}
-                          </td>
-                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', fontWeight: 600 }}>
-                            {item.status || '-'}
                           </td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', minWidth: 240 }}>
                             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -400,7 +460,7 @@ export default function Reports() {
                     })}
                     {filteredReservations.length === 0 && (
                       <tr>
-                        <td colSpan={10} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
+                        <td colSpan={8} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
                           No reservations fall outside the selected variance threshold.
                         </td>
                       </tr>
