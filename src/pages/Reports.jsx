@@ -2,10 +2,21 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { auth, db } from '../firebase';
 import { getCurrentUser } from '../services/valetFirestore';
-import { subscribeLowRateReports, updateLowRateReportReview } from '../services/reportsService';
+import {
+  subscribeLowRateReports,
+  subscribeOpenFoliosReports,
+  updateLowRateReportReview,
+  updateOpenFoliosReportReview,
+} from '../services/reportsService';
 
 function getLineItemKey(item, idx) {
   return [item?.reservationId || 'reservation', item?.checkInDate || 'date', item?.rowNumber || idx]
+    .map((value) => String(value || '').trim())
+    .join('__');
+}
+
+function getOpenFoliosLineItemKey(item, idx) {
+  return [item?.reservationId || 'reservation', item?.checkOutDate || 'date', item?.rowNumber || idx]
     .map((value) => String(value || '').trim())
     .join('__');
 }
@@ -99,8 +110,22 @@ export default function Reports() {
   const [varianceFilterInput, setVarianceFilterInput] = useState('');
   const [importSuccess, setImportSuccess] = useState('');
 
+  const [openFoliosReports, setOpenFoliosReports] = useState([]);
+  const [openFoliosLoading, setOpenFoliosLoading] = useState(true);
+  const [openFoliosLoadError, setOpenFoliosLoadError] = useState('');
+  const [openFoliosActionError, setOpenFoliosActionError] = useState('');
+  const [openFoliosImporting, setOpenFoliosImporting] = useState(false);
+  const [openFoliosSelectedFile, setOpenFoliosSelectedFile] = useState(null);
+  const [openFoliosSelectedReportId, setOpenFoliosSelectedReportId] = useState('');
+  const [openFoliosReviewSaving, setOpenFoliosReviewSaving] = useState(false);
+  const [openFoliosReviewNotes, setOpenFoliosReviewNotes] = useState('');
+  const [openFoliosLineItemReviews, setOpenFoliosLineItemReviews] = useState({});
+  const [openFoliosImportSuccess, setOpenFoliosImportSuccess] = useState('');
+
   const selectedReportIdRef = useRef(selectedReportId);
   selectedReportIdRef.current = selectedReportId;
+  const openFoliosSelectedReportIdRef = useRef(openFoliosSelectedReportId);
+  openFoliosSelectedReportIdRef.current = openFoliosSelectedReportId;
 
   useEffect(() => {
     const unsubscribe = subscribeLowRateReports(
@@ -120,9 +145,32 @@ export default function Reports() {
     return () => unsubscribe();
   }, []); // stable — subscription never needs to restart
 
+  useEffect(() => {
+    const unsubscribe = subscribeOpenFoliosReports(
+      (items) => {
+        setOpenFoliosReports(items);
+        setOpenFoliosLoading(false);
+        if (!openFoliosSelectedReportIdRef.current && items.length > 0) {
+          setOpenFoliosSelectedReportId(items[0].id);
+        }
+      },
+      (err) => {
+        setOpenFoliosLoadError(`Failed to load open folios reports: ${err?.message || err?.code || 'Unknown error'}`);
+        setOpenFoliosLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const selectedReport = useMemo(
     () => reports.find((r) => r.id === selectedReportId) || null,
     [reports, selectedReportId]
+  );
+
+  const selectedOpenFoliosReport = useMemo(
+    () => openFoliosReports.find((r) => r.id === openFoliosSelectedReportId) || null,
+    [openFoliosReports, openFoliosSelectedReportId]
   );
 
   useEffect(() => {
@@ -131,6 +179,16 @@ export default function Reports() {
     setLineItemReviews(selectedReport.lineItemReviews && typeof selectedReport.lineItemReviews === 'object' ? selectedReport.lineItemReviews : {});
     setVarianceFilterInput(selectedReport.tolerancePct != null ? String(selectedReport.tolerancePct) : '');
   }, [selectedReport]);
+
+  useEffect(() => {
+    if (!selectedOpenFoliosReport) return;
+    setOpenFoliosReviewNotes(String(selectedOpenFoliosReport.reviewNotes || ''));
+    setOpenFoliosLineItemReviews(
+      selectedOpenFoliosReport.lineItemReviews && typeof selectedOpenFoliosReport.lineItemReviews === 'object'
+        ? selectedOpenFoliosReport.lineItemReviews
+        : {}
+    );
+  }, [selectedOpenFoliosReport]);
 
   const varianceThreshold = useMemo(() => parseVarianceFilter(varianceFilterInput), [varianceFilterInput]);
 
@@ -148,9 +206,28 @@ export default function Reports() {
     [selectedReport, lineItemReviews, varianceThreshold]
   );
 
+  const selectedOpenFoliosSummary = useMemo(
+    () => getOpenFoliosVerificationSummary({
+      reservations: selectedOpenFoliosReport?.reservations || [],
+      lineItemReviews: openFoliosLineItemReviews,
+    }),
+    [selectedOpenFoliosReport, openFoliosLineItemReviews]
+  );
+
   function updateLineItemReview(item, idx, field, value) {
     const key = getLineItemKey(item, idx);
     setLineItemReviews((current) => ({
+      ...current,
+      [key]: {
+        ...(current[key] || {}),
+        [field]: value,
+      },
+    }));
+  }
+
+  function updateOpenFoliosLineItemReview(item, idx, field, value) {
+    const key = getOpenFoliosLineItemKey(item, idx);
+    setOpenFoliosLineItemReviews((current) => ({
       ...current,
       [key]: {
         ...(current[key] || {}),
@@ -264,6 +341,109 @@ export default function Reports() {
       setActionError(err.message || 'Failed to save review');
     } finally {
       setReviewSaving(false);
+    }
+  }
+
+  async function handleImportOpenFoliosCsv() {
+    setOpenFoliosActionError('');
+    setOpenFoliosImportSuccess('');
+
+    if (!openFoliosSelectedFile) {
+      setOpenFoliosActionError('Please choose an Open Folios CSV file first.');
+      return;
+    }
+
+    try {
+      setOpenFoliosImporting(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setOpenFoliosActionError('Not authenticated. Please log in again.');
+        return;
+      }
+
+      const csv = await openFoliosSelectedFile.text();
+      const idToken = await currentUser.getIdToken();
+
+      const response = await fetch('/api/ap-webhook', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          action: 'open-folios-ingest',
+          csv,
+          source: 'manual-upload-open-folios',
+        }),
+      });
+
+      const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+      const data = contentType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : {};
+
+      if (!response.ok) {
+        const detail = typeof data.detail === 'string' && data.detail.trim() ? `: ${data.detail.trim()}` : '';
+        if (data.error) {
+          throw new Error(`${data.error}${detail}`);
+        }
+        throw new Error(`Open folios import failed (${response.status})`);
+      }
+
+      const reportId = typeof data.reportId === 'string' ? data.reportId.trim() : '';
+      if (reportId) {
+        try {
+          const reportSnap = await getDoc(doc(db, 'reports_open_folios', reportId));
+          if (reportSnap.exists()) {
+            setOpenFoliosSelectedReportId(reportId);
+            setOpenFoliosLoadError('');
+            setOpenFoliosImportSuccess(`Open folios CSV imported. Report: ${reportId}`);
+          } else {
+            setOpenFoliosImportSuccess(`Open folios CSV imported. Report: ${reportId}`);
+            setOpenFoliosLoadError('Import succeeded, but this app session cannot read that report. Check Firebase project/env alignment.');
+          }
+        } catch (err) {
+          const detail = err?.message || err?.code || 'Unknown error';
+          setOpenFoliosImportSuccess(`Open folios CSV imported. Report: ${reportId}`);
+          setOpenFoliosLoadError(`Import succeeded, but report read failed: ${detail}`);
+        }
+      } else {
+        setOpenFoliosImportSuccess('Open folios CSV imported.');
+      }
+      setOpenFoliosSelectedFile(null);
+    } catch (err) {
+      setOpenFoliosActionError(err.message || 'Failed to import Open Folios CSV');
+    } finally {
+      setOpenFoliosImporting(false);
+    }
+  }
+
+  async function handleSaveOpenFoliosReview() {
+    if (!selectedOpenFoliosReport) return;
+
+    try {
+      setOpenFoliosReviewSaving(true);
+      setOpenFoliosActionError('');
+      const currentUser = getCurrentUser();
+      const serializedLineItemReviews = Object.fromEntries(
+        Object.entries(openFoliosLineItemReviews).map(([key, review]) => [key, {
+          verified: !!review?.verified,
+          notes: String(review?.notes || ''),
+          newBalance: review?.newBalance === '' || review?.newBalance == null ? null : Number(review.newBalance),
+          updatedBy: currentUser?.username || 'Unknown',
+          updatedAtMs: Date.now(),
+        }])
+      );
+
+      await updateOpenFoliosReportReview(selectedOpenFoliosReport.id, {
+        reviewNotes: openFoliosReviewNotes,
+        reviewCheckedBy: currentUser?.username || 'Unknown',
+        lineItemReviews: serializedLineItemReviews,
+      });
+    } catch (err) {
+      setOpenFoliosActionError(err.message || 'Failed to save Open Folios review');
+    } finally {
+      setOpenFoliosReviewSaving(false);
     }
   }
 
@@ -476,6 +656,195 @@ export default function Reports() {
                       <tr>
                         <td colSpan={8} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
                           No reservations fall outside the selected variance threshold.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 28, marginBottom: 16, padding: 12, border: '1px solid #ddd', borderRadius: 8, background: '#fafafa' }}>
+        <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 18 }}>Daily Open Folios Report</h3>
+        <p style={{ marginTop: 0, marginBottom: 8, color: 'var(--muted)' }}>
+          Upload the open folios CSV. The system captures reservations that checked out today and still have an outstanding balance.
+        </p>
+      </div>
+
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(e) => setOpenFoliosSelectedFile(e.target.files?.[0] || null)}
+        />
+        <button className="btn primary" type="button" onClick={handleImportOpenFoliosCsv} disabled={openFoliosImporting}>
+          {openFoliosImporting ? 'Importing...' : 'Import Open Folios CSV'}
+        </button>
+      </div>
+
+      {openFoliosImportSuccess && <div style={{ color: '#2f7d32', marginBottom: 12 }}>{openFoliosImportSuccess}</div>}
+      {openFoliosActionError && <div style={{ color: '#b00020', marginBottom: 12 }}>{openFoliosActionError}</div>}
+      {openFoliosLoadError && <div style={{ color: '#b00020', marginBottom: 12 }}>{openFoliosLoadError}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ padding: 10, borderBottom: '1px solid #ddd', background: '#f4f6fb', fontWeight: 600 }}>
+            Recent Open Folios Reports
+          </div>
+
+          {openFoliosLoading ? (
+            <div style={{ padding: 12, color: '#666' }}>Loading reports...</div>
+          ) : openFoliosReports.length === 0 ? (
+            <div style={{ padding: 12, color: '#666' }}>No open folios reports yet.</div>
+          ) : (
+            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+              {openFoliosReports.map((report) => {
+                const active = report.id === openFoliosSelectedReportId;
+                const verificationSummary = getOpenFoliosVerificationSummary({
+                  reservations: report.reservations || [],
+                  lineItemReviews: report.lineItemReviews || {},
+                });
+                const unverifiedCount = verificationSummary.totalCount - verificationSummary.verifiedCount;
+
+                return (
+                  <button
+                    key={report.id}
+                    type="button"
+                    onClick={() => setOpenFoliosSelectedReportId(report.id)}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      border: 'none',
+                      borderBottom: '1px solid #eee',
+                      background: active ? '#eef3ff' : '#fff',
+                      padding: 10,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ fontWeight: 600 }}>{report.reportDate || '-'}</div>
+                      <span
+                        aria-label={verificationSummary.label}
+                        title={`${verificationSummary.label} (${verificationSummary.verifiedCount}/${verificationSummary.totalCount})`}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          minWidth: 10,
+                          borderRadius: '50%',
+                          background: verificationSummary.color,
+                          display: 'inline-block',
+                        }}
+                      />
+                    </div>
+                    <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>
+                      Outstanding: {report.outstandingCount || 0} | Total: {fmtCurrency(report.totalOutstandingBalance || 0, 'AUD')}
+                      {unverifiedCount > 0 && (
+                        <span style={{ color: '#c62828', marginLeft: 6, fontWeight: 600 }}>
+                          · {unverifiedCount} unverified
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+          {!selectedOpenFoliosReport ? (
+            <div style={{ padding: 12, color: '#666' }}>Select an open folios report to review.</div>
+          ) : (
+            <>
+              <div style={{ padding: 12, borderBottom: '1px solid #ddd', background: '#f4f6fb' }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Report Date: {selectedOpenFoliosReport.reportDate || '-'}</div>
+                <div style={{ fontSize: 13, color: '#555' }}>
+                  Source: {selectedOpenFoliosReport.sourceLabel || '-'} | Imported rows: {selectedOpenFoliosReport.totalRows || 0} | Outstanding rows: {selectedOpenFoliosReport.outstandingCount || 0}
+                </div>
+              </div>
+
+              <div style={{ padding: 12, borderBottom: '1px solid #eee' }}>
+                <textarea
+                  value={openFoliosReviewNotes}
+                  onChange={(e) => setOpenFoliosReviewNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Open folios review notes"
+                  style={{ width: '100%', marginBottom: 8 }}
+                />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+                    Verification: {selectedOpenFoliosSummary.verifiedCount}/{selectedOpenFoliosSummary.totalCount} lines verified
+                  </div>
+                </div>
+                <button type="button" className="btn secondary" onClick={handleSaveOpenFoliosReview} disabled={openFoliosReviewSaving}>
+                  {openFoliosReviewSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#fafafa' }}>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reservation</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Guest</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Room</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Check-out</th>
+                      <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Current Balance</th>
+                      <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>New Balance</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedOpenFoliosReport.reservations || []).map((item, idx) => {
+                      const rowKey = getOpenFoliosLineItemKey(item, idx);
+                      const lineReview = openFoliosLineItemReviews[rowKey] || {};
+
+                      return (
+                        <tr key={`${item.reservationId || idx}-${idx}`}>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.reservationId || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.guestName || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.room || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.checkOutDate || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>
+                            {fmtCurrency(item.currentBalance, 'AUD')}
+                          </td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right', minWidth: 130 }}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={lineReview.newBalance ?? ''}
+                              placeholder={String(item.currentBalance ?? '')}
+                              onChange={(e) => updateOpenFoliosLineItemReview(item, idx, 'newBalance', e.target.value)}
+                              style={{ width: 120, textAlign: 'right' }}
+                            />
+                          </td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', minWidth: 280 }}>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                              <input
+                                type="checkbox"
+                                checked={!!lineReview.verified}
+                                onChange={(e) => updateOpenFoliosLineItemReview(item, idx, 'verified', e.target.checked)}
+                              />
+                              <span>Verified</span>
+                            </label>
+                            <textarea
+                              value={String(lineReview.notes || '')}
+                              onChange={(e) => updateOpenFoliosLineItemReview(item, idx, 'notes', e.target.value)}
+                              rows={2}
+                              placeholder="Add note"
+                              style={{ width: '100%', resize: 'vertical' }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {(selectedOpenFoliosReport.reservations || []).length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
+                          No checked-out reservations with outstanding balance were found for this date.
                         </td>
                       </tr>
                     )}

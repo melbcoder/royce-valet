@@ -6,6 +6,7 @@ import Busboy from 'busboy';
 import { Readable } from 'node:stream';
 import pdfParse from 'pdf-parse';
 import { ingestLowRateCsvPayload } from '../server/lib/lowRateReport.js';
+import { ingestOpenFoliosCsvPayload } from '../server/lib/openFoliosReport.js';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -905,7 +906,7 @@ export default async function handler(req, res) {
       const parsed = await parseMultipart(req);
       const fields = parsed.fields || {};
       const action = String(fields.action || '').trim().toLowerCase();
-      if (action !== 'low-rate-ingest') {
+      if (action !== 'low-rate-ingest' && action !== 'open-folios-ingest') {
         return res.status(400).json({ error: 'Unsupported action for bearer-auth request' });
       }
 
@@ -924,7 +925,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'Forbidden' });
       }
 
-      const result = await ingestLowRateCsvPayload({
+      const ingestPayload = {
         csv: String(fields.csv || ''),
         reportDateInput: fields.reportDate,
         sourceLabel: fields.source || 'manual-upload',
@@ -936,7 +937,10 @@ export default async function handler(req, res) {
         },
         sourceEmail: 'reports@mail.concierge.xin',
         db,
-      });
+      };
+      const result = action === 'open-folios-ingest'
+        ? await ingestOpenFoliosCsvPayload(ingestPayload)
+        : await ingestLowRateCsvPayload(ingestPayload);
 
       return res.status(200).json({ ok: true, reportId: result.reportId, summary: result.summary });
     }
@@ -1000,6 +1004,40 @@ export default async function handler(req, res) {
 
     const isReportsMailbox = lowerToEmail.includes('reports@mail.concierge.xin');
     const looksLikeReportMail = lowerSubject.includes('daily reservation activity') || lowerSubject.includes('low rate');
+    const looksLikeOpenFoliosMail = lowerSubject.includes('open folio') || lowerSubject.includes('open folios');
+
+    if (csvFile && (looksLikeOpenFoliosMail || lowerSubject.includes('outstanding balance'))) {
+      const csvText = csvFile.buffer.toString('utf8');
+      const reportDateFromName = parseReportDateFromText(csvFile.info?.filename || csvFile.name || '');
+      const reportDateFromSubject = parseReportDateFromText(subject);
+      const reportDate = reportDateFromName || reportDateFromSubject;
+
+      const result = await ingestOpenFoliosCsvPayload({
+        csv: csvText,
+        reportDateInput: reportDate,
+        sourceLabel: `sendgrid:${subject.slice(0, 80) || 'inbound-email'}`,
+        actor: {
+          mode: 'automation',
+          uid: '',
+          username: 'sendgrid-webhook',
+          role: 'system',
+        },
+        sourceEmail: 'reports@mail.concierge.xin',
+        db,
+      });
+
+      await db.collection('reports_open_folios_webhook_log').add({
+        receivedAt: new Date().toISOString(),
+        fromEmail,
+        toEmail,
+        subject,
+        status: 'ingested',
+        reportId: result.reportId,
+        summary: result.summary,
+      });
+
+      return res.status(200).json({ received: true, reportId: result.reportId, summary: result.summary });
+    }
 
     if (csvFile || isReportsMailbox || looksLikeReportMail) {
       if (!csvFile) {

@@ -194,5 +194,12 @@ service cloud.firestore {
       allow update: if hasPageAccess('reports');
       allow create, delete: if false;
     }
+
+    // Open folios reports - created server-side, reviewed by reports users/admins
+    match /reports_open_folios/{reportId} {
+      allow read: if hasPageAccess('reports');
+      allow update: if hasPageAccess('reports');
+      allow create, delete: if false;
+    }
   }
 }
