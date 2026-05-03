@@ -580,7 +580,7 @@ export default function Reports() {
           )}
         </div>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           {!selectedReport ? (
             <div style={{ padding: 12, color: '#666' }}>Select a report to review.</div>
           ) : (
@@ -780,7 +780,7 @@ export default function Reports() {
           )}
         </div>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
           {!selectedOpenFoliosReport ? (
             <div style={{ padding: 12, color: '#666' }}>Select an open folios report to review.</div>
           ) : (
