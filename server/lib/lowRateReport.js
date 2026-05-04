@@ -359,6 +359,11 @@ async function lookupReferenceRate(normalizedReservation, context = {}) {
     if (roomRates instanceof Map && normalizedReservation.roomTypeKey) {
       const roomSpecific = roomRates.get(normalizedReservation.roomTypeKey);
       if (roomSpecific) return roomSpecific;
+
+      // If the reservation has a specific room type but Selfbook has no matching
+      // online availability for that room, treat it as having no reference rate
+      // rather than falling back to a generic calendar rate.
+      return null;
     }
   }
 

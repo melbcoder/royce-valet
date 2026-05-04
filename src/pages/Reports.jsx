@@ -237,21 +237,11 @@ export default function Reports() {
   const [cancellationReviewSaving, setCancellationReviewSaving] = useState(false);
   const [cancellationLineItemReviews, setCancellationLineItemReviews] = useState({});
 
-  const selectedReportIdRef = useRef(selectedReportId);
-  selectedReportIdRef.current = selectedReportId;
-  const openFoliosSelectedReportIdRef = useRef(openFoliosSelectedReportId);
-  openFoliosSelectedReportIdRef.current = openFoliosSelectedReportId;
-  const selectedCancellationReportIdRef = useRef(selectedCancellationReportId);
-  selectedCancellationReportIdRef.current = selectedCancellationReportId;
-
   useEffect(() => {
     const unsubscribe = subscribeLowRateReports(
       (items) => {
         setReports(items);
         setLoading(false);
-        if (!selectedReportIdRef.current && items.length > 0) {
-          setSelectedReportId(items[0].id);
-        }
       },
       (err) => {
         setLoadError(`Failed to load reports: ${err?.message || err?.code || 'Unknown error'}`);
@@ -267,9 +257,6 @@ export default function Reports() {
       (items) => {
         setOpenFoliosReports(items);
         setOpenFoliosLoading(false);
-        if (!openFoliosSelectedReportIdRef.current && items.length > 0) {
-          setOpenFoliosSelectedReportId(items[0].id);
-        }
       },
       (err) => {
         setOpenFoliosLoadError(`Failed to load open folios reports: ${err?.message || err?.code || 'Unknown error'}`);
@@ -285,9 +272,6 @@ export default function Reports() {
       (items) => {
         setCancellationReports(items);
         setCancellationLoading(false);
-        if (!selectedCancellationReportIdRef.current && items.length > 0) {
-          setSelectedCancellationReportId(items[0].id);
-        }
       },
       (err) => {
         setCancellationLoadError(`Failed to load cancellation reports: ${err?.message || err?.code || 'Unknown error'}`);
