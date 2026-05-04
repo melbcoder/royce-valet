@@ -1,3 +1,5 @@
+import { getPreviousDateIsoForTimezone } from './reportDate.js';
+
 const ROYCE_STATUS_MAP = {
   A: 'arrived',
   C: 'confirmed',
@@ -346,12 +348,6 @@ async function fetchRoyceRoomRatesByDate({ dates = [], currency = 'AUD' }) {
   return out;
 }
 
-function getPreviousDateIso() {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
-
 async function lookupReferenceRate(normalizedReservation, context = {}) {
   const roomRatesByDate = context?.roomRatesByDate instanceof Map ? context.roomRatesByDate : null;
   if (roomRatesByDate && normalizedReservation.checkInDate) {
@@ -453,6 +449,7 @@ function normalizeRows(rows) {
 export async function ingestLowRateCsvPayload({
   csv,
   reportDateInput,
+  timezone,
   sourceLabel,
   actor,
   sourceEmail = 'reports@mail.concierge.xin',
@@ -468,7 +465,7 @@ export async function ingestLowRateCsvPayload({
     throw Object.assign(new Error('CSV has no data rows'), { status: 400 });
   }
 
-  const reportDate = toDateOnly(reportDateInput) || getPreviousDateIso();
+  const reportDate = toDateOnly(reportDateInput) || getPreviousDateIsoForTimezone(timezone);
   const effectiveSourceLabel = String(sourceLabel || actor?.mode || 'automation').slice(0, 120);
   const tolerancePct = Number(process.env.LOW_RATE_ALERT_PCT || 5);
 

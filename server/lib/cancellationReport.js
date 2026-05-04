@@ -1,3 +1,5 @@
+import { getPreviousDateIsoForTimezone } from './reportDate.js';
+
 function parseCsvLine(line) {
   const out = [];
   let current = '';
@@ -105,14 +107,6 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function getTodayIso() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function normalizeType(value) {
   const raw = String(value || '').trim().toUpperCase();
   if (raw === 'NS' || raw === 'N/S' || raw === 'NO SHOW' || raw === 'NO-SHOW') return 'no-show';
@@ -160,6 +154,7 @@ function normalizeRows(rows) {
 export async function ingestCancellationCsvPayload({
   csv,
   reportDateInput,
+  timezone,
   sourceLabel,
   actor,
   sourceEmail = 'reports@mail.concierge.xin',
@@ -178,7 +173,7 @@ export async function ingestCancellationCsvPayload({
   const normalized = normalizeRows(rows);
   const reportDate = toDateOnly(reportDateInput)
     || normalized.map((row) => row.eventDate).find(Boolean)
-    || getTodayIso();
+    || getPreviousDateIsoForTimezone(timezone);
 
   const effectiveSourceLabel = String(sourceLabel || actor?.mode || 'automation').slice(0, 120);
   const cancellations = normalized.filter((row) => row.type === 'cancellation').length;

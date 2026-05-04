@@ -1,3 +1,5 @@
+import { getTodayIsoForTimezone } from './reportDate.js';
+
 function parseCsvLine(line) {
   const out = [];
   let current = '';
@@ -105,14 +107,6 @@ function toDateOnly(value) {
   return d.toISOString().slice(0, 10);
 }
 
-function getTodayIso() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function normalizeRows(rows) {
   return rows.map((row, idx) => {
     const reservationId = firstValue(row, ['res_no', 'reservation_id', 'reservation', 'booking_id']);
@@ -139,6 +133,7 @@ function normalizeRows(rows) {
 export async function ingestOpenFoliosCsvPayload({
   csv,
   reportDateInput,
+  timezone,
   sourceLabel,
   actor,
   sourceEmail = 'reports@mail.concierge.xin',
@@ -154,7 +149,7 @@ export async function ingestOpenFoliosCsvPayload({
     throw Object.assign(new Error('CSV has no data rows'), { status: 400 });
   }
 
-  const reportDate = toDateOnly(reportDateInput) || getTodayIso();
+  const reportDate = toDateOnly(reportDateInput) || getTodayIsoForTimezone(timezone);
   const effectiveSourceLabel = String(sourceLabel || actor?.mode || 'automation').slice(0, 120);
 
   const normalized = normalizeRows(rows);

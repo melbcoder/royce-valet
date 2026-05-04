@@ -8,6 +8,7 @@ import pdfParse from 'pdf-parse';
 import { ingestLowRateCsvPayload } from '../server/lib/lowRateReport.js';
 import { ingestOpenFoliosCsvPayload } from '../server/lib/openFoliosReport.js';
 import { ingestCancellationCsvPayload } from '../server/lib/cancellationReport.js';
+import { getDefaultReportTimezone } from '../server/lib/reportDate.js';
 
 function normalizeBucketName(raw = '') {
   const value = String(raw || '').trim();
@@ -220,6 +221,19 @@ function normalizeHeaderToken(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
+}
+
+async function getConfiguredReportTimezone(db) {
+  try {
+    const settingsSnap = await db.collection('settings').doc('app').get();
+    const settings = settingsSnap.exists ? settingsSnap.data() || {} : {};
+    return typeof settings.timezone === 'string' && settings.timezone.trim()
+      ? settings.timezone.trim()
+      : getDefaultReportTimezone();
+  } catch (error) {
+    console.error('Failed to read report timezone from settings:', error);
+    return getDefaultReportTimezone();
+  }
 }
 
 function getLikelyCsvHeaderTokens(csvText) {
@@ -962,6 +976,7 @@ export default async function handler(req, res) {
 
   try {
     const { db, getBucket } = getFirebaseAdminServices();
+    const reportTimezone = await getConfiguredReportTimezone(db);
 
     const authHeader = String(req.headers.authorization || '');
     if (authHeader.toLowerCase().startsWith('bearer ')) {
@@ -990,6 +1005,7 @@ export default async function handler(req, res) {
       const ingestPayload = {
         csv: String(fields.csv || ''),
         reportDateInput: fields.reportDate,
+        timezone: reportTimezone,
         sourceLabel: fields.source || 'manual-upload',
         actor: {
           mode: 'user',
@@ -1087,6 +1103,7 @@ export default async function handler(req, res) {
       const result = await ingestCancellationCsvPayload({
         csv: csvText,
         reportDateInput: reportDate,
+        timezone: reportTimezone,
         sourceLabel: `sendgrid:${subject.slice(0, 80) || 'inbound-email'}`,
         actor: {
           mode: 'automation',
@@ -1121,6 +1138,7 @@ export default async function handler(req, res) {
       const result = await ingestOpenFoliosCsvPayload({
         csv: csvText,
         reportDateInput: reportDate,
+        timezone: reportTimezone,
         sourceLabel: `sendgrid:${subject.slice(0, 80) || 'inbound-email'}`,
         actor: {
           mode: 'automation',
@@ -1165,6 +1183,7 @@ export default async function handler(req, res) {
       const result = await ingestLowRateCsvPayload({
         csv: csvText,
         reportDateInput: reportDate,
+        timezone: reportTimezone,
         sourceLabel: `sendgrid:${subject.slice(0, 80) || 'inbound-email'}`,
         actor: {
           mode: 'automation',
