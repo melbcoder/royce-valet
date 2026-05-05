@@ -11,6 +11,12 @@ const DEFAULT_SMS_VEHICLE_READY_TEMPLATE = 'Your vehicle (#[VALET_TAG]) is ready
 const DEFAULT_SMS_ROOM_READY_TEMPLATE = 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.'
 const DEFAULT_SMS_DEPARTURE_TEMPLATE = 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.'
 
+const summarizeSmsTemplate = (value) => {
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return 'No message configured.'
+  return normalized.length > 120 ? `${normalized.slice(0, 117)}...` : normalized
+}
+
 const getPrimaryCode = (codeStr) => String(codeStr || '').split(',')[0]?.trim() || ''
 
 const resolveCountryCode = (value) => {
@@ -183,6 +189,7 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [smsRoomReadyEnabledInput, setSmsRoomReadyEnabledInput] = useState(true)
   const [smsDepartureTemplateInput, setSmsDepartureTemplateInput] = useState(DEFAULT_SMS_DEPARTURE_TEMPLATE)
   const [smsDepartureEnabledInput, setSmsDepartureEnabledInput] = useState(true)
+  const [activeSmsTemplateKey, setActiveSmsTemplateKey] = useState(null)
   const [smsTemplateSuccess, setSmsTemplateSuccess] = useState(false)
   const [smsTemplateError, setSmsTemplateError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -292,6 +299,51 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setSmsDepartureEnabledInput(settings.smsDepartureEnabled !== false)
   }, [settings.smsDepartureEnabled])
+
+  const smsTemplateConfigs = [
+    {
+      key: 'welcome',
+      title: 'Valet Welcome SMS',
+      description: 'Sent when a guest first receives valet access.',
+      template: smsWelcomeTemplateInput,
+      enabled: smsWelcomeEnabledInput,
+      setTemplate: setSmsWelcomeTemplateInput,
+      setEnabled: setSmsWelcomeEnabledInput,
+      rows: 4,
+    },
+    {
+      key: 'vehicle-ready',
+      title: 'Vehicle Ready SMS',
+      description: 'Sent when the vehicle is ready at the driveway.',
+      template: smsVehicleReadyTemplateInput,
+      enabled: smsVehicleReadyEnabledInput,
+      setTemplate: setSmsVehicleReadyTemplateInput,
+      setEnabled: setSmsVehicleReadyEnabledInput,
+      rows: 3,
+    },
+    {
+      key: 'room-ready',
+      title: 'Room Ready SMS',
+      description: 'Sent when the guest room becomes available.',
+      template: smsRoomReadyTemplateInput,
+      enabled: smsRoomReadyEnabledInput,
+      setTemplate: setSmsRoomReadyTemplateInput,
+      setEnabled: setSmsRoomReadyEnabledInput,
+      rows: 3,
+    },
+    {
+      key: 'departure',
+      title: 'Departure Luggage SMS',
+      description: 'Sent when departure luggage tags are issued.',
+      template: smsDepartureTemplateInput,
+      enabled: smsDepartureEnabledInput,
+      setTemplate: setSmsDepartureTemplateInput,
+      setEnabled: setSmsDepartureEnabledInput,
+      rows: 4,
+    },
+  ]
+
+  const activeSmsTemplate = smsTemplateConfigs.find((template) => template.key === activeSmsTemplateKey) || null
 
   // Debug function to check user document
   useEffect(() => {
@@ -681,7 +733,7 @@ export default function Settings({open = false, onClose, asPage = false}){
       const confirmed = window.confirm(
         'Saving these templates will change the SMS messages guests receive. Do you want to continue?'
       )
-      if (!confirmed) return
+      if (!confirmed) return false
 
       const welcome = String(smsWelcomeTemplateInput || '').trim()
       const vehicleReady = String(smsVehicleReadyTemplateInput || '').trim()
@@ -690,12 +742,12 @@ export default function Settings({open = false, onClose, asPage = false}){
 
       if (!welcome || !vehicleReady || !roomReady || !departure) {
         setSmsTemplateError('All SMS templates are required.')
-        return
+        return false
       }
 
       if (welcome.length > 1600 || vehicleReady.length > 1600 || roomReady.length > 1600 || departure.length > 1600) {
         setSmsTemplateError('Each template must be 1600 characters or fewer.')
-        return
+        return false
       }
 
       await updateSettings({
@@ -710,9 +762,18 @@ export default function Settings({open = false, onClose, asPage = false}){
       })
       setSmsTemplateSuccess(true)
       setTimeout(() => setSmsTemplateSuccess(false), 3000)
+      return true
     } catch (err) {
       console.error('Error updating SMS templates:', err)
       setSmsTemplateError('Failed to update SMS templates.')
+      return false
+    }
+  }
+
+  async function handleSaveActiveSmsTemplate() {
+    const saved = await handleSaveSmsTemplates()
+    if (saved) {
+      setActiveSmsTemplateKey(null)
     }
   }
 
@@ -1033,90 +1094,54 @@ export default function Settings({open = false, onClose, asPage = false}){
               </p>
 
               <div style={{display: 'grid', gap: 10}}>
-                <div>
-                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
-                    <span>Valet Welcome SMS</span>
-                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
-                      <input
-                        type="checkbox"
-                        checked={smsWelcomeEnabledInput}
-                        onChange={(e) => setSmsWelcomeEnabledInput(e.target.checked)}
-                      />
-                      Enabled
-                    </span>
-                  </label>
-                  <textarea
-                    value={smsWelcomeTemplateInput}
-                    onChange={(e) => setSmsWelcomeTemplateInput(e.target.value)}
-                    rows={4}
-                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
-                  />
-                </div>
+                <div style={{overflowX: 'auto', paddingBottom: 4}}>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))', gap: 12, minWidth: 940}}>
+                    {smsTemplateConfigs.map((template) => (
+                      <div
+                        key={template.key}
+                        style={{
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 12,
+                          padding: 14,
+                          background: '#fafafa',
+                          minHeight: 180,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                        }}
+                      >
+                        <div>
+                          <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10}}>
+                            <div>
+                              <div style={{fontSize: 14, fontWeight: 600, color: '#111827'}}>{template.title}</div>
+                              <div style={{fontSize: 12, color: '#6b7280', marginTop: 4}}>{template.description}</div>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              onClick={() => setActiveSmsTemplateKey(template.key)}
+                              style={{padding: '6px 10px', fontSize: 12, flexShrink: 0}}
+                              aria-label={`Edit ${template.title}`}
+                              title={`Edit ${template.title}`}
+                            >
+                              ✎ Edit
+                            </button>
+                          </div>
+                          <div style={{display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 8px', fontSize: 12, fontWeight: 600, background: template.enabled ? '#dcfce7' : '#fee2e2', color: template.enabled ? '#166534' : '#991b1b'}}>
+                            {template.enabled ? 'Enabled' : 'Disabled'}
+                          </div>
+                        </div>
 
-                <div>
-                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
-                    <span>Vehicle Ready SMS</span>
-                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
-                      <input
-                        type="checkbox"
-                        checked={smsVehicleReadyEnabledInput}
-                        onChange={(e) => setSmsVehicleReadyEnabledInput(e.target.checked)}
-                      />
-                      Enabled
-                    </span>
-                  </label>
-                  <textarea
-                    value={smsVehicleReadyTemplateInput}
-                    onChange={(e) => setSmsVehicleReadyTemplateInput(e.target.value)}
-                    rows={3}
-                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
-                  />
-                </div>
-
-                <div>
-                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
-                    <span>Room Ready SMS</span>
-                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
-                      <input
-                        type="checkbox"
-                        checked={smsRoomReadyEnabledInput}
-                        onChange={(e) => setSmsRoomReadyEnabledInput(e.target.checked)}
-                      />
-                      Enabled
-                    </span>
-                  </label>
-                  <textarea
-                    value={smsRoomReadyTemplateInput}
-                    onChange={(e) => setSmsRoomReadyTemplateInput(e.target.value)}
-                    rows={3}
-                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
-                  />
-                </div>
-
-                <div>
-                  <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: '#333'}}>
-                    <span>Departure Luggage SMS</span>
-                    <span style={{display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#444'}}>
-                      <input
-                        type="checkbox"
-                        checked={smsDepartureEnabledInput}
-                        onChange={(e) => setSmsDepartureEnabledInput(e.target.checked)}
-                      />
-                      Enabled
-                    </span>
-                  </label>
-                  <textarea
-                    value={smsDepartureTemplateInput}
-                    onChange={(e) => setSmsDepartureTemplateInput(e.target.value)}
-                    rows={3}
-                    style={{width: '100%', fontFamily: 'inherit', fontSize: 14}}
-                  />
+                        <div style={{fontSize: 13, lineHeight: 1.5, color: '#374151'}}>
+                          {summarizeSmsTemplate(template.template)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                  <button type="button" className="btn secondary" onClick={handleSaveSmsTemplates}>
-                    Save Templates
-                  </button>
                   <button type="button" className="btn secondary" onClick={handleResetSmsTemplatesToSaved}>
                     Revert to Saved
                   </button>
@@ -1300,6 +1325,52 @@ export default function Settings({open = false, onClose, asPage = false}){
             </>
           )
         })()}
+
+        <Modal
+          open={!!activeSmsTemplate}
+          title={activeSmsTemplate ? activeSmsTemplate.title : 'Edit SMS Template'}
+          onClose={() => setActiveSmsTemplateKey(null)}
+        >
+          {activeSmsTemplate && (
+            <div>
+              <p style={{margin: '0 0 12px 0', fontSize: 14, color: '#555'}}>
+                {activeSmsTemplate.description}
+              </p>
+              <label style={{display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#333', marginBottom: 12}}>
+                <input
+                  type="checkbox"
+                  checked={activeSmsTemplate.enabled}
+                  onChange={(e) => activeSmsTemplate.setEnabled(e.target.checked)}
+                />
+                Enabled
+              </label>
+              <textarea
+                value={activeSmsTemplate.template}
+                onChange={(e) => activeSmsTemplate.setTemplate(e.target.value)}
+                rows={activeSmsTemplate.rows}
+                style={{width: '100%', fontFamily: 'inherit', fontSize: 14, marginBottom: 12}}
+                autoFocus
+              />
+              <p style={{margin: '0 0 16px 0', fontSize: 12, color: '#6b7280'}}>
+                Save Template applies your current SMS template changes immediately.
+              </p>
+              {smsTemplateError && (
+                <div style={{color: '#ff4444', fontSize: 12, marginBottom: 12}}>{smsTemplateError}</div>
+              )}
+              {smsTemplateSuccess && (
+                <div style={{color: '#4CAF50', fontSize: 12, marginBottom: 12}}>SMS templates updated successfully!</div>
+              )}
+              <div style={{display: 'flex', justifyContent: 'flex-end', gap: 8}}>
+                <button type="button" className="btn primary" onClick={handleSaveActiveSmsTemplate}>
+                  Save Template
+                </button>
+                <button type="button" className="btn secondary" onClick={() => setActiveSmsTemplateKey(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </Modal>
 
         <Modal
           open={!!currentUser && isProfileModalOpen}
