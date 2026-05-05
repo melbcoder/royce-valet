@@ -1060,7 +1060,7 @@ export default function Settings({open = false, onClose, asPage = false}){
                             max={timeline.max}
                             value={timeline.value}
                             onChange={(e) => timeline.setValue(e.target.value)}
-                            style={{width: 96}}
+                            style={{width: 72, padding: '6px 8px', fontSize: 13}}
                           />
                           <span style={{fontSize: 13, color: '#666'}}>days</span>
                         </div>
@@ -1070,7 +1070,12 @@ export default function Settings({open = false, onClose, asPage = false}){
                         </div>
 
                         <div>
-                          <button type="button" className="btn secondary" onClick={timeline.onSave}>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={timeline.onSave}
+                            style={{padding: '4px 10px', fontSize: 12}}
+                          >
                             Save
                           </button>
                         </div>
