@@ -974,111 +974,117 @@ export default function Settings({open = false, onClose, asPage = false}){
               )}
 
               <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
-              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Contractor Photo Retention</h3>
-              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
-                Choose how many days contractor photos stay in history after sign-out.
-              </p>
-              <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={retentionDaysInput}
-                  onChange={(e) => setRetentionDaysInput(e.target.value)}
-                  style={{width: 120}}
-                />
-                <span style={{fontSize: 13, color: '#666'}}>days</span>
-                <button type="button" className="btn secondary" onClick={handleSavePhotoRetentionDays}>
-                  Save
-                </button>
-              </div>
-              {retentionError && (
-                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{retentionError}</div>
-              )}
-              {retentionSuccess && (
-                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Photo retention updated successfully!</div>
-              )}
-            </div>
+                <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Retention Timelines</h3>
+                <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                  Configure how long records stay available across contractor photos, vehicle photos, invoice PDFs, and valet links.
+                </p>
 
-            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
-              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Vehicle Photo Retention</h3>
-              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
-                Choose how many days vehicle photos stay available in valet history.
-              </p>
-              <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={vehicleRetentionDaysInput}
-                  onChange={(e) => setVehicleRetentionDaysInput(e.target.value)}
-                  style={{width: 120}}
-                />
-                <span style={{fontSize: 13, color: '#666'}}>days</span>
-                <button type="button" className="btn secondary" onClick={handleSaveVehiclePhotoRetentionDays}>
-                  Save
-                </button>
-              </div>
-              {vehicleRetentionError && (
-                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{vehicleRetentionError}</div>
-              )}
-              {vehicleRetentionSuccess && (
-                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Vehicle photo retention updated successfully!</div>
-              )}
-            </div>
+                <div style={{overflowX: 'auto', paddingBottom: 4}}>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, minmax(220px, 1fr))', gap: 12, minWidth: 940}}>
+                    {[
+                      {
+                        key: 'contractor-photo',
+                        title: 'Contractor Photo',
+                        description: 'Photos remain in contractor history after sign-out.',
+                        value: retentionDaysInput,
+                        setValue: setRetentionDaysInput,
+                        min: 1,
+                        max: 365,
+                        onSave: handleSavePhotoRetentionDays,
+                        error: retentionError,
+                        success: retentionSuccess,
+                        successText: 'Photo retention updated successfully!',
+                      },
+                      {
+                        key: 'vehicle-photo',
+                        title: 'Vehicle Photo',
+                        description: 'Photos stay available in valet history.',
+                        value: vehicleRetentionDaysInput,
+                        setValue: setVehicleRetentionDaysInput,
+                        min: 1,
+                        max: 365,
+                        onSave: handleSaveVehiclePhotoRetentionDays,
+                        error: vehicleRetentionError,
+                        success: vehicleRetentionSuccess,
+                        successText: 'Vehicle photo retention updated successfully!',
+                      },
+                      {
+                        key: 'invoice-pdf',
+                        title: 'AP Invoice PDF',
+                        description: 'Invoice PDFs remain accessible after receipt.',
+                        value: pdfRetentionDaysInput,
+                        setValue: setPdfRetentionDaysInput,
+                        min: 1,
+                        max: 3650,
+                        onSave: handleSavePdfRetentionDays,
+                        error: pdfRetentionError,
+                        success: pdfRetentionSuccess,
+                        successText: 'PDF retention updated successfully!',
+                      },
+                      {
+                        key: 'valet-link',
+                        title: 'Valet Link',
+                        description: 'Guest valet links stay active after departure.',
+                        value: guestLinkRetentionDaysInput,
+                        setValue: setGuestLinkRetentionDaysInput,
+                        min: 1,
+                        max: 30,
+                        onSave: handleSaveGuestLinkRetentionDays,
+                        error: guestLinkRetentionError,
+                        success: guestLinkRetentionSuccess,
+                        successText: 'Guest link retention updated successfully!',
+                      },
+                    ].map((timeline) => (
+                      <div
+                        key={timeline.key}
+                        style={{
+                          border: '1px solid #e5e7eb',
+                          borderRadius: 12,
+                          padding: 14,
+                          background: '#fafafa',
+                          minHeight: 200,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12,
+                        }}
+                      >
+                        <div>
+                          <div style={{fontSize: 14, fontWeight: 600, color: '#111827'}}>{timeline.title}</div>
+                          <div style={{fontSize: 12, color: '#6b7280', marginTop: 4}}>{timeline.description}</div>
+                        </div>
 
-            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
-              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>AP Invoice PDF Retention</h3>
-              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
-                Choose how many days AP invoice PDFs remain accessible after receipt.
-              </p>
-              <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                <input
-                  type="number"
-                  min="1"
-                  max="3650"
-                  value={pdfRetentionDaysInput}
-                  onChange={(e) => setPdfRetentionDaysInput(e.target.value)}
-                  style={{width: 120}}
-                />
-                <span style={{fontSize: 13, color: '#666'}}>days</span>
-                <button type="button" className="btn secondary" onClick={handleSavePdfRetentionDays}>
-                  Save
-                </button>
-              </div>
-              {pdfRetentionError && (
-                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{pdfRetentionError}</div>
-              )}
-              {pdfRetentionSuccess && (
-                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>PDF retention updated successfully!</div>
-              )}
-            </div>
+                        <div className="row" style={{gap: 8, alignItems: 'center'}}>
+                          <input
+                            type="number"
+                            min={timeline.min}
+                            max={timeline.max}
+                            value={timeline.value}
+                            onChange={(e) => timeline.setValue(e.target.value)}
+                            style={{width: 96}}
+                          />
+                          <span style={{fontSize: 13, color: '#666'}}>days</span>
+                        </div>
 
-            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
-              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Guest Link Retention</h3>
-              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
-                Choose how many days guest valet links stay active after a vehicle is marked as departed.
-              </p>
-              <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={guestLinkRetentionDaysInput}
-                  onChange={(e) => setGuestLinkRetentionDaysInput(e.target.value)}
-                  style={{width: 120}}
-                />
-                <span style={{fontSize: 13, color: '#666'}}>days</span>
-                <button type="button" className="btn secondary" onClick={handleSaveGuestLinkRetentionDays}>
-                  Save
-                </button>
-              </div>
-              {guestLinkRetentionError && (
-                <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{guestLinkRetentionError}</div>
-              )}
-              {guestLinkRetentionSuccess && (
-                <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Guest link retention updated successfully!</div>
-              )}
+                        <div style={{fontSize: 12, color: '#6b7280'}}>
+                          Allowed range: {timeline.min} to {timeline.max} days
+                        </div>
+
+                        <div>
+                          <button type="button" className="btn secondary" onClick={timeline.onSave}>
+                            Save
+                          </button>
+                        </div>
+
+                        {timeline.error && (
+                          <div style={{color: '#ff4444', fontSize: 12}}>{timeline.error}</div>
+                        )}
+                        {timeline.success && (
+                          <div style={{color: '#4CAF50', fontSize: 12}}>{timeline.successText}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
             </div>
 
             <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
@@ -1371,7 +1377,7 @@ export default function Settings({open = false, onClose, asPage = false}){
 
         <Modal
           open={!!currentUser && isProfileModalOpen}
-          title="Edit Profile"
+          title="Change Password"
           onClose={() => {
             setIsProfileModalOpen(false)
             setPasswordError('')
