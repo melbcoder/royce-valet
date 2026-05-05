@@ -1141,12 +1141,6 @@ export default function Settings({open = false, onClose, asPage = false}){
                   </div>
                 </div>
 
-                <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                  <button type="button" className="btn secondary" onClick={handleResetSmsTemplatesToSaved}>
-                    Revert to Saved
-                  </button>
-                </div>
-
                 {smsTemplateError && (
                   <div style={{color: '#ff4444', fontSize: 12}}>{smsTemplateError}</div>
                 )}
@@ -1361,6 +1355,9 @@ export default function Settings({open = false, onClose, asPage = false}){
                 <div style={{color: '#4CAF50', fontSize: 12, marginBottom: 12}}>SMS templates updated successfully!</div>
               )}
               <div style={{display: 'flex', justifyContent: 'flex-end', gap: 8}}>
+                <button type="button" className="btn secondary" onClick={handleResetSmsTemplatesToSaved}>
+                  Revert to Saved
+                </button>
                 <button type="button" className="btn primary" onClick={handleSaveActiveSmsTemplate}>
                   Save Template
                 </button>
