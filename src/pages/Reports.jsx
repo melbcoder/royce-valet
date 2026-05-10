@@ -850,6 +850,7 @@ export default function Reports() {
                     <tr style={{ background: '#fafafa' }}>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Reservation</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Guest</th>
+                      <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Organization</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Room</th>
                       <th style={{ textAlign: 'left', padding: 8, borderBottom: '1px solid #eee' }}>Stay Date</th>
                       <th style={{ textAlign: 'right', padding: 8, borderBottom: '1px solid #eee' }}>Booked</th>
@@ -869,6 +870,7 @@ export default function Reports() {
                         <tr key={`${item.reservationId || idx}-${idx}`} style={{ background: isLow ? '#fff1f1' : isNoRef ? '#fffbea' : '#fff' }}>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.reservationId || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.guestName || '-'}</td>
+                          <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.organization || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.roomType || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0' }}>{item.checkInDate || '-'}</td>
                           <td style={{ padding: 8, borderBottom: '1px solid #f0f0f0', textAlign: 'right' }}>
@@ -902,7 +904,7 @@ export default function Reports() {
                     })}
                     {filteredReservations.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
+                        <td colSpan={9} style={{ padding: 12, color: '#666', textAlign: 'center' }}>
                           No reservations fall outside the selected variance threshold.
                         </td>
                       </tr>
