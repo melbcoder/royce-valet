@@ -83,6 +83,8 @@ export default function Luggage() {
   const [tagInput, setTagInput] = useState('');
   const [editTagInput, setEditTagInput] = useState('');
   const [roomStatusMap, setRoomStatusMap] = useState({});
+  const [roomStatusUpdatedAt, setRoomStatusUpdatedAt] = useState(null);
+  const [minutesAgo, setMinutesAgo] = useState(0);
 
   const normalizeRoomKey = (value) =>
     String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
@@ -125,9 +127,24 @@ export default function Luggage() {
 
   // Subscribe to room status database
   useEffect(() => {
-    const unsubscribe = subscribeRoomStatus((map) => setRoomStatusMap(map));
+    const unsubscribe = subscribeRoomStatus((map) => {
+      setRoomStatusMap(map);
+      setRoomStatusUpdatedAt(new Date());
+      setMinutesAgo(0);
+    });
     return () => unsubscribe && unsubscribe();
   }, []);
+
+  // Update minutes-ago display
+  useEffect(() => {
+    if (!roomStatusUpdatedAt) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diff = Math.floor((now - roomStatusUpdatedAt) / 60000);
+      setMinutesAgo(diff);
+    }, 10000); // Update every 10 seconds
+    return () => clearInterval(interval);
+  }, [roomStatusUpdatedAt]);
 
   const deriveTypeFromTags = (tags) => {
     const hasDeparture = tags.some((t) => String(t).toUpperCase().startsWith('D'));
@@ -412,6 +429,11 @@ export default function Luggage() {
 
   return (
     <div className="page pad">
+      {roomStatusUpdatedAt && (
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
+          room statuses updated {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago
+        </div>
+      )}
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Luggage Storage</h2>
