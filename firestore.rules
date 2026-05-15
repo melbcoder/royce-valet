@@ -212,7 +212,7 @@ service cloud.firestore {
     // Room status database - written only by the server-side webhook, readable by amenities and luggage staff
     match /roomStatus/{roomId} {
       allow read: if hasAnyPageAccess(['amenities', 'amenities-history', 'luggage', 'luggage-history', 'dashboard']);
-      allow write: if false; // Only Firebase Admin (room-status-webhook) can write
+      allow write: if false; // Only Firebase Admin webhook code can write
     }
 
     // Room status webhook log - server-side only
