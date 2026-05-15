@@ -416,6 +416,7 @@ function normalizeRows(rows) {
     const bookedRate = toNumber(firstValue(row, ['booked_rate', 'rate', 'nightly_rate', 'bookedrate', 'price', 'room_no_rate']));
     const reservationId = firstValue(row, ['reservation_id', 'reservation', 'confirmation', 'booking_id', 'booking', 'res_no']);
     const guestName = firstValue(row, ['guest_name', 'name', 'guest', 'guest_name_1']);
+    const organization = firstValue(row, ['organization', 'organisation', 'guest_company', 'company']);
     const roomType = firstValue(row, ['room_type', 'room', 'category']);
     const checkInDate = toDateOnly(firstValue(row, ['check_in', 'arrival_date', 'arrive_date', 'arrival', 'stay_date', 'date']));
     const checkOutDate = toDateOnly(firstValue(row, ['check_out', 'departure_date', 'departure']));
@@ -431,6 +432,7 @@ function normalizeRows(rows) {
       isRateCheckEligible: isRateCheckEligibleStatus(statusCode),
       reservationId,
       guestName,
+      organization,
       roomType,
       roomTypeKey: normalizeRoomKey(roomType),
       bookedDate,
@@ -516,6 +518,7 @@ export async function ingestLowRateCsvPayload({
       statusLabel: row.statusLabel,
       reservationId: row.reservationId,
       guestName: row.guestName,
+      organization: row.organization,
       roomType: row.roomType,
       bookedDate: row.bookedDate,
       checkInDate: row.checkInDate,
