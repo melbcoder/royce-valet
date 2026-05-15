@@ -13,7 +13,9 @@ export default function Nav() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [frontOfficeOpen, setFrontOfficeOpen] = useState(false);
+  const [housekeepingOpen, setHousekeepingOpen] = useState(false);
   const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
+  const isHousekeepingPage = ['/room-status'].includes(location.pathname);
   const isFrontOfficePage = [
     '/valet',
     '/valet-history',
@@ -30,6 +32,7 @@ export default function Nav() {
     '/amenities',
     '/luggage-history',
     '/amenities-history',
+    '/room-status',
     '/maintenance',
     '/maintenance/jobs',
     '/maintenance/contractor-sign-in',
@@ -47,7 +50,8 @@ export default function Nav() {
     hasAccess('accounts-payable')
     || hasAccess('accounts-payable/travel-agents')
     || hasAccess('accounts-payable/suppliers');
-  const canAccessFrontOffice = hasAccess('valet') || hasAccess('luggage') || hasAccess('amenities');
+  const canAccessFrontOffice = hasAccess('valet') || hasAccess('luggage') || hasAccess('amenities') || hasAccess('dashboard');
+  const canAccessHousekeeping = hasAccess('amenities') || hasAccess('luggage') || hasAccess('dashboard');
   const apDefaultPath = hasAccess('accounts-payable')
     ? '/accounts-payable'
     : hasAccess('accounts-payable/travel-agents')
@@ -324,6 +328,57 @@ export default function Nav() {
                         Amenities
                       </NavLink>
                     )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {canAccessHousekeeping && (
+              <div
+                onMouseEnter={() => setHousekeepingOpen(true)}
+                onMouseLeave={() => setHousekeepingOpen(false)}
+                style={{ position: 'relative', display: 'inline-block' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setHousekeepingOpen((v) => !v)}
+                  style={{
+                    ...navLinkStyle(isHousekeepingPage),
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    fontSize: 'inherit',
+                    background: 'transparent',
+                  }}
+                >
+                  Housekeeping ▾
+                </button>
+                {housekeepingOpen && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      background: '#fff',
+                      border: '1px solid #ddd',
+                      borderRadius: 8,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                      padding: 6,
+                      zIndex: 50,
+                      minWidth: 180,
+                    }}
+                  >
+                    <NavLink
+                      to="/room-status"
+                      onClick={() => setHousekeepingOpen(false)}
+                      style={({ isActive }) => ({
+                        ...navLinkStyle(isActive),
+                        display: 'block',
+                        marginRight: 0,
+                      })}
+                    >
+                      Room Status
+                    </NavLink>
                   </div>
                 )}
               </div>
