@@ -40,9 +40,9 @@ export default function RoomStatus() {
   }, []);
 
   const rooms = useMemo(() => {
-    return Object.values(roomMap || {})
-      .map((item) => ({
-        roomNo: String(item.roomNo || '').trim(),
+    return Object.entries(roomMap || {})
+      .map(([docId, item]) => ({
+        roomNo: String(item.roomNo || docId || '').trim(),
         status: String(item.status || 'unknown').toLowerCase(),
         rawStatus: String(item.rawStatus || ''),
         updatedAt: item.updatedAt || '',
