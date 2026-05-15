@@ -152,6 +152,40 @@ function isCsvFileCandidate(file) {
   return filename.endsWith('.csv') || mimeType.includes('text/csv') || mimeType.includes('application/csv');
 }
 
+function decodeTextAttachment(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) return '';
+  let text = buffer.toString('utf8');
+  // Handle common UTF-16 LE exports (many PMS/email workflows emit these)
+  if (text.includes('\u0000')) {
+    text = buffer.toString('utf16le');
+  }
+  return String(text || '').replace(/^\uFEFF/, '');
+}
+
+function findRoomStatusAttachment(files = []) {
+  for (const file of files) {
+    const filename = String(file?.info?.filename || file?.name || '').toLowerCase();
+    const mimeType = String(file?.info?.mimeType || file?.info?.mimetype || '').toLowerCase();
+    const isLikelyText =
+      filename.endsWith('.csv')
+      || filename.endsWith('.txt')
+      || mimeType.includes('text/')
+      || mimeType.includes('csv')
+      || mimeType.includes('octet-stream');
+    if (!isLikelyText) continue;
+
+    const text = decodeTextAttachment(file.buffer);
+    if (!text) continue;
+    if (isRoomStatusCsv(text)) {
+      return {
+        ...file,
+        buffer: Buffer.from(text, 'utf8'),
+      };
+    }
+  }
+  return null;
+}
+
 function extractCsvsFromRawMime(rawMime) {
   const files = [];
   if (!rawMime || typeof rawMime !== 'string') return files;
@@ -1087,6 +1121,15 @@ export default async function handler(req, res) {
     const looksLikeReportMail = lowerSubject.includes('daily reservation activity') || lowerSubject.includes('low rate');
     const looksLikeOpenFoliosMail = lowerSubject.includes('open folio') || lowerSubject.includes('open folios');
     const looksLikeCancellationMail = lowerSubject.includes('cancellation') || lowerSubject.includes('no show') || lowerSubject.includes('no-show');
+
+    // Fallback: for reports mailbox, try parsing any text-like attachment as room-status CSV
+    if (!csvFile && isReportsMailbox && Array.isArray(files) && files.length > 0) {
+      const roomStatusAttachment = findRoomStatusAttachment(files);
+      if (roomStatusAttachment) {
+        csvFile = roomStatusAttachment;
+      }
+    }
+
     const inferredReportType = csvFile
       ? inferReportTypeFromCsv({
           csvBuffer: csvFile.buffer,
@@ -1191,6 +1234,19 @@ export default async function handler(req, res) {
 
     if (csvFile || isReportsMailbox || looksLikeReportMail) {
       if (!csvFile) {
+        if (isReportsMailbox) {
+          await db.collection('room_status_webhook_log').add({
+            receivedAt: new Date().toISOString(),
+            fromEmail,
+            toEmail,
+            subject,
+            status: 'no-detectable-room-status-csv',
+            attachmentCount: Array.isArray(files) ? files.length : 0,
+            attachmentNames: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.filename || f?.name || '')).slice(0, 10),
+            attachmentMimeTypes: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.mimeType || f?.info?.mimetype || '')).slice(0, 10),
+          });
+        }
+
         await db.collection('reports_low_rate_webhook_log').add({
           receivedAt: new Date().toISOString(),
           fromEmail,
