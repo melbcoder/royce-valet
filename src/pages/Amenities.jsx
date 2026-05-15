@@ -71,6 +71,32 @@ const STATUS_META = {
   unknown: { label: 'Unknown', color: '#455a64', bg: '#eceff1' },
 };
 
+const parseRoomStatusTimestamp = (value) => {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value?.toDate === 'function') {
+    const parsed = value.toDate();
+    return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  }
+  if (typeof value?.seconds === 'number') {
+    const parsed = new Date(value.seconds * 1000);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getLatestRoomStatusUpdatedAt = (map) => {
+  let latest = null;
+  Object.values(map || {}).forEach((entry) => {
+    const candidate = parseRoomStatusTimestamp(entry?.updatedAt);
+    if (candidate && (!latest || candidate > latest)) {
+      latest = candidate;
+    }
+  });
+  return latest;
+};
+
 export default function Amenities() {
   const navigate = useNavigate();
   const [amenityItems, setAmenityItems] = useState([]);
@@ -98,7 +124,8 @@ export default function Amenities() {
   const [errors, setErrors] = useState({});
   const [roomStatusMap, setRoomStatusMap] = useState({});
   const [roomStatusUpdatedAt, setRoomStatusUpdatedAt] = useState(null);
-  const [minutesAgo, setMinutesAgo] = useState(0);
+  const [timeAgoValue, setTimeAgoValue] = useState(0);
+  const [timeAgoUnit, setTimeAgoUnit] = useState('second');
 
   const normalizeRoomKey = (value) =>
     String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
@@ -143,8 +170,10 @@ export default function Amenities() {
   useEffect(() => {
     const unsubscribe = subscribeRoomStatus((map) => {
       setRoomStatusMap(map);
-      setRoomStatusUpdatedAt(new Date());
-      setMinutesAgo(0);
+      const latestUpdatedAt = getLatestRoomStatusUpdatedAt(map);
+      setRoomStatusUpdatedAt(latestUpdatedAt || new Date());
+      setTimeAgoValue(0);
+      setTimeAgoUnit('second');
     });
     return () => unsubscribe && unsubscribe();
   }, []);
@@ -154,10 +183,14 @@ export default function Amenities() {
     if (!roomStatusUpdatedAt) return;
     const updateDisplay = () => {
       const now = new Date();
-      const diffMs = now - roomStatusUpdatedAt;
-      const diffSecs = Math.floor(diffMs / 1000);
-      const diffMins = Math.floor(diffMs / 60000);
-      setMinutesAgo(diffMins > 0 ? diffMins : diffSecs);
+      const diffSecs = Math.max(0, Math.floor((now - roomStatusUpdatedAt) / 1000));
+      if (diffSecs < 60) {
+        setTimeAgoValue(diffSecs);
+        setTimeAgoUnit('second');
+        return;
+      }
+      setTimeAgoValue(Math.floor(diffSecs / 60));
+      setTimeAgoUnit('minute');
     };
     updateDisplay(); // Update immediately
     const interval = setInterval(updateDisplay, 1000); // Update every second
@@ -613,7 +646,7 @@ export default function Amenities() {
 
       {roomStatusUpdatedAt && (
         <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
-          room statuses updated {minutesAgo} {minutesAgo >= 60 ? 'minute' : 'second'}{minutesAgo !== 1 ? 's' : ''} ago
+          room statuses updated {timeAgoValue} {timeAgoUnit}{timeAgoValue !== 1 ? 's' : ''} ago
         </div>
       )}
 
