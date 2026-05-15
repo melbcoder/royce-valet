@@ -585,11 +585,6 @@ export default function Amenities() {
 
   return (
     <div className="page pad">
-      {roomStatusUpdatedAt && (
-        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
-          room statuses updated {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago
-        </div>
-      )}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Amenities</h2>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
@@ -611,6 +606,12 @@ export default function Amenities() {
           </button>
         </div>
       </div>
+
+      {roomStatusUpdatedAt && (
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
+          room statuses updated {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago
+        </div>
+      )}
 
       {uploadError && (
         <div style={{ 

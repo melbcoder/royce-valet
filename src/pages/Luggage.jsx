@@ -429,11 +429,6 @@ export default function Luggage() {
 
   return (
     <div className="page pad">
-      {roomStatusUpdatedAt && (
-        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
-          room statuses updated {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago
-        </div>
-      )}
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Luggage Storage</h2>
@@ -441,6 +436,12 @@ export default function Luggage() {
           Add Luggage
         </button>
       </div>
+
+      {roomStatusUpdatedAt && (
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
+          room statuses updated {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago
+        </div>
+      )}
 
       {/* Stored Luggage */}
       <section className="card pad" style={{ marginBottom: 16 }}>
