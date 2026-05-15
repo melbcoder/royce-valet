@@ -1106,8 +1106,31 @@ export default async function handler(req, res) {
     const toEmail   = fields.to || '';
     const lowerToEmail = String(toEmail || '').toLowerCase();
     const lowerSubject = String(subject || '').toLowerCase();
+    const isReportsMailbox = lowerToEmail.includes('reports@mail.concierge.xin');
+
+    const logRoomStatusWebhook = async (status, extra = {}) => {
+      if (!isReportsMailbox) return;
+      try {
+        await db.collection('room_status_webhook_log').add({
+          receivedAt: new Date().toISOString(),
+          fromEmail,
+          toEmail,
+          subject,
+          status,
+          ...extra,
+        });
+      } catch (err) {
+        console.error('room status webhook log write failed:', err?.message || err);
+      }
+    };
 
     const hasRawMime = typeof fields.email === 'string' && fields.email.length > 0;
+
+    await logRoomStatusWebhook('received', {
+      attachmentCount: Array.isArray(files) ? files.length : 0,
+      attachmentNames: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.filename || f?.name || '')).slice(0, 10),
+      attachmentMimeTypes: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.mimeType || f?.info?.mimetype || '')).slice(0, 10),
+    });
 
     let csvFile = files.find((f) => isCsvFileCandidate(f));
     if (!csvFile && hasRawMime) {
@@ -1117,7 +1140,6 @@ export default async function handler(req, res) {
       }
     }
 
-    const isReportsMailbox = lowerToEmail.includes('reports@mail.concierge.xin');
     const looksLikeReportMail = lowerSubject.includes('daily reservation activity') || lowerSubject.includes('low rate');
     const looksLikeOpenFoliosMail = lowerSubject.includes('open folio') || lowerSubject.includes('open folios');
     const looksLikeCancellationMail = lowerSubject.includes('cancellation') || lowerSubject.includes('no show') || lowerSubject.includes('no-show');
@@ -1149,12 +1171,7 @@ export default async function handler(req, res) {
       if (roomStatusCsv || (isReportsMailbox && looksLikeRoomStatusMail)) {
         const result = await ingestRoomStatusCsvPayload({ csv: csvText, db });
 
-        await db.collection('room_status_webhook_log').add({
-          receivedAt: new Date().toISOString(),
-          fromEmail,
-          toEmail,
-          subject,
-          status: 'ingested-via-ap-webhook',
+        await logRoomStatusWebhook('ingested-via-ap-webhook', {
           roomCount: result.count,
           filename: csvFile.info?.filename || csvFile.name || '',
         });
@@ -1235,12 +1252,7 @@ export default async function handler(req, res) {
     if (csvFile || isReportsMailbox || looksLikeReportMail) {
       if (!csvFile) {
         if (isReportsMailbox) {
-          await db.collection('room_status_webhook_log').add({
-            receivedAt: new Date().toISOString(),
-            fromEmail,
-            toEmail,
-            subject,
-            status: 'no-detectable-room-status-csv',
+          await logRoomStatusWebhook('no-detectable-room-status-csv', {
             attachmentCount: Array.isArray(files) ? files.length : 0,
             attachmentNames: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.filename || f?.name || '')).slice(0, 10),
             attachmentMimeTypes: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.mimeType || f?.info?.mimetype || '')).slice(0, 10),
@@ -1287,6 +1299,13 @@ export default async function handler(req, res) {
         reportId: result.reportId,
         summary: result.summary,
       });
+
+      if (isReportsMailbox) {
+        await logRoomStatusWebhook('routed-to-low-rate', {
+          inferredReportType,
+          filename: csvFile.info?.filename || csvFile.name || '',
+        });
+      }
 
       return res.status(200).json({ received: true, reportId: result.reportId, summary: result.summary });
     }
