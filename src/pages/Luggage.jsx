@@ -4,6 +4,7 @@ import {
   createLuggage,
   subscribeActiveLuggage,
   updateLuggage,
+  updateRoomStatus,
   markLuggageDelivered,
   markLuggageDeparted,
   deleteLuggage,
@@ -40,6 +41,14 @@ const resolveCountryCode = (value) => {
   if (nameMatch) return getPrimaryCode(nameMatch.code);
 
   return '';
+};
+
+const STATUS_META = {
+  clean: { label: 'Clean', color: '#2e7d32', bg: '#e8f5e9' },
+  dirty: { label: 'Dirty', color: '#c62828', bg: '#ffebee' },
+  occupied: { label: 'Occupied', color: '#ef6c00', bg: '#fff3e0' },
+  maintenance: { label: 'Maintenance', color: '#6a1b9a', bg: '#f3e5f5' },
+  unknown: { label: 'Unknown', color: '#455a64', bg: '#eceff1' },
 };
 
 export default function Luggage() {
@@ -100,6 +109,18 @@ export default function Luggage() {
     const status = String(findRoomStatusEntry(roomNumber)?.status || '').toLowerCase();
     if (status && status !== 'unknown') return status;
     return String(fallback || '').toLowerCase();
+  };
+
+  const getStatusMeta = (status) => STATUS_META[String(status || '').toLowerCase()] || STATUS_META.unknown;
+
+  const handleRoomStatusChange = async (roomNumber, status) => {
+    try {
+      await updateRoomStatus(roomNumber, status);
+      showToast(`Room ${roomNumber} marked ${status}.`);
+    } catch (error) {
+      console.error('Failed to update room status:', error);
+      showToast('Failed to update room status.');
+    }
   };
 
   // Subscribe to room status database
@@ -427,6 +448,11 @@ export default function Luggage() {
               )}
               {storedItems.map((item) => (
                 <tr key={item.id}>
+                  {(() => {
+                    const liveStatus = getLiveRoomStatus(item.roomNumber, item.roomStatus);
+                    const statusMeta = getStatusMeta(liveStatus);
+                    return (
+                      <>
                   <td>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                       {item.tags?.length > 0 ? item.tags.map((tag, idx) => (
@@ -463,22 +489,37 @@ export default function Luggage() {
                     {item.luggageType === 'departure' ? (
                       <span style={{ opacity: 0.6 }}>—</span>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          background: statusMeta.bg,
+                          color: statusMeta.color,
+                          border: `1px solid ${statusMeta.color}44`,
+                          borderRadius: 999,
+                          padding: '2px 8px',
+                        }}
+                      >
                         <span style={{
-                          width: 10,
-                          height: 10,
+                          width: 8,
+                          height: 8,
                           borderRadius: '50%',
-                          backgroundColor: 
-                            getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'clean' ? '#7fff7f' :
-                            getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'dirty' ? '#ff7f7f' :
-                            getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'occupied' ? '#f4c97a' :
-                            '#ddd',
+                          backgroundColor: statusMeta.color,
                           display: 'inline-block'
                         }} />
                         <select
-                          value={getLiveRoomStatus(item.roomNumber, item.roomStatus) || ''}
-                          disabled
-                          style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
+                          value={liveStatus || ''}
+                          onChange={(e) => handleRoomStatusChange(item.roomNumber, e.target.value)}
+                          style={{
+                            padding: '2px 4px',
+                            borderRadius: 6,
+                            border: 'none',
+                            background: 'transparent',
+                            color: statusMeta.color,
+                            fontWeight: 700,
+                            fontSize: 12,
+                          }}
                         >
                           <option value="">Select status</option>
                           <option value="occupied">Occupied</option>
@@ -518,6 +559,9 @@ export default function Luggage() {
                       <img src="/bin.png" alt="Delete" style={{ width: 20, height: 20 }} />
                     </button>
                   </td>
+                      </>
+                    );
+                  })()}
                 </tr>
               ))}
             </tbody>

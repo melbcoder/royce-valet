@@ -60,6 +60,33 @@ export function subscribeRoomStatus(callback, onError) {
   );
 }
 
+export async function updateRoomStatus(roomNumber, status, metadata = {}) {
+  const roomNo = String(roomNumber || '').trim();
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+  if (!roomNo || !normalizedStatus) {
+    throw new Error('Room number and status are required');
+  }
+
+  const roomRef = doc(roomStatusRef, roomNo);
+  const statusLabel = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+
+  await setDoc(
+    roomRef,
+    {
+      roomNo,
+      status: normalizedStatus,
+      rawStatus: `Manual - ${statusLabel}`,
+      updatedAt: new Date().toISOString(),
+      updatedBy: {
+        uid: auth.currentUser?.uid || '',
+        mode: 'user',
+      },
+      ...metadata,
+    },
+    { merge: true }
+  );
+}
+
 // ===== SETTINGS MANAGEMENT =====
 
 // Get app settings
