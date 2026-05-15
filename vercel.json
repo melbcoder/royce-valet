@@ -3,6 +3,10 @@
     "api/ap-webhook.js": {
       "maxDuration": 60,
       "memory": 1024
+    },
+    "api/room-status-webhook.js": {
+      "maxDuration": 30,
+      "memory": 512
     }
   },
   "headers": [
@@ -20,6 +24,10 @@
     {
       "source": "/api/ap-webhook/:routeSecret",
       "destination": "/api/ap-webhook?routeSecret=:routeSecret"
+    },
+    {
+      "source": "/api/room-status-webhook/:routeSecret",
+      "destination": "/api/room-status-webhook?routeSecret=:routeSecret"
     },
     {
       "source": "/(.*)",

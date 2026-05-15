@@ -9,6 +9,7 @@ import {
   deleteLuggage,
   getSettings,
   getLuggageAuditLog,
+  subscribeRoomStatus,
 } from '../services/valetFirestore';
 import { sendDepartureSMS, sendRoomReadySMS } from '../services/smsService';
 import { showToast } from '../components/Toast';
@@ -72,6 +73,13 @@ export default function Luggage() {
   const [errors, setErrors] = useState({});
   const [tagInput, setTagInput] = useState('');
   const [editTagInput, setEditTagInput] = useState('');
+  const [roomStatusMap, setRoomStatusMap] = useState({});
+
+  // Subscribe to room status database
+  useEffect(() => {
+    const unsubscribe = subscribeRoomStatus((map) => setRoomStatusMap(map));
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   const deriveTypeFromTags = (tags) => {
     const hasDeparture = tags.some((t) => String(t).toUpperCase().startsWith('D'));
@@ -732,11 +740,33 @@ export default function Luggage() {
               placeholder="Room Number (required)"
               value={newLuggage.roomNumber}
               onChange={(e) => {
-                setNewLuggage({ ...newLuggage, roomNumber: e.target.value });
+                const val = e.target.value;
+                const match = roomStatusMap[val];
+                setNewLuggage({
+                  ...newLuggage,
+                  roomNumber: val,
+                  ...(match ? {
+                    guestName: newLuggage.guestName || match.guestName || newLuggage.guestName,
+                    roomStatus: newLuggage.luggageType !== 'departure' && match.status !== 'unknown'
+                      ? (newLuggage.roomStatus || match.status)
+                      : newLuggage.roomStatus,
+                  } : {}),
+                });
                 if (errors.roomNumber) setErrors({ ...errors, roomNumber: false });
               }}
+              list="luggage-room-datalist"
               style={{ width: '100%', borderColor: errors.roomNumber ? '#ff4444' : undefined }}
+              autoComplete="off"
             />
+            <datalist id="luggage-room-datalist">
+              {Object.keys(roomStatusMap).sort().map((roomNo) => (
+                <option key={roomNo} value={roomNo}>
+                  {roomStatusMap[roomNo].guestName
+                    ? `${roomNo} \u2014 ${roomStatusMap[roomNo].guestName}`
+                    : roomNo}
+                </option>
+              ))}
+            </datalist>
             {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
           </div>
 
@@ -933,7 +963,9 @@ export default function Luggage() {
               <input
                 defaultValue={editingItem.roomNumber}
                 onBlur={(e) => handleUpdate('roomNumber', e.target.value)}
+                list="luggage-room-datalist"
                 style={{ width: '100%' }}
+                autoComplete="off"
               />
             </div>
 

@@ -9,6 +9,7 @@ import {
   archiveAmenity,
   getSettings,
   getAmenityAuditLog,
+  subscribeRoomStatus,
 } from '../services/valetFirestore';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
@@ -86,6 +87,13 @@ export default function Amenities() {
   });
 
   const [errors, setErrors] = useState({});
+  const [roomStatusMap, setRoomStatusMap] = useState({});
+
+  // Subscribe to room status database
+  useEffect(() => {
+    const unsubscribe = subscribeRoomStatus((map) => setRoomStatusMap(map));
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   // Subscribe to active amenities
   useEffect(() => {
@@ -783,10 +791,33 @@ export default function Amenities() {
         <div style={{ marginBottom: 16 }}>
           <input
             value={newAmenity.roomNumber}
-            onChange={(e) => setNewAmenity({ ...newAmenity, roomNumber: e.target.value })}
+            onChange={(e) => {
+              const val = e.target.value;
+              const match = roomStatusMap[val];
+              setNewAmenity({
+                ...newAmenity,
+                roomNumber: val,
+                ...(match ? {
+                  guestName: newAmenity.guestName || match.guestName || newAmenity.guestName,
+                  pax: newAmenity.pax || (match.pax ? String(match.pax) : newAmenity.pax),
+                } : {}),
+              });
+              if (errors.roomNumber) setErrors({ ...errors, roomNumber: false });
+            }}
+            list="amenity-room-datalist"
             placeholder="Room Number*"
             style={{ width: '100%', borderColor: errors.roomNumber ? '#ff4444' : undefined }}
+            autoComplete="off"
           />
+          <datalist id="amenity-room-datalist">
+            {Object.keys(roomStatusMap).sort().map((roomNo) => (
+              <option key={roomNo} value={roomNo}>
+                {roomStatusMap[roomNo].guestName
+                  ? `${roomNo} — ${roomStatusMap[roomNo].guestName}`
+                  : roomNo}
+              </option>
+            ))}
+          </datalist>
           {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
         </div>
 
@@ -860,9 +891,24 @@ export default function Amenities() {
             <div style={{ marginBottom: 16 }}>
               <input
                 value={editingItem.roomNumber}
-                onChange={(e) => setEditingItem({ ...editingItem, roomNumber: e.target.value })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const match = roomStatusMap[val];
+                  setEditingItem({
+                    ...editingItem,
+                    roomNumber: val,
+                    ...(match ? {
+                      guestName: editingItem.guestName || match.guestName || editingItem.guestName,
+                      roomStatus: match.status !== 'unknown' ? match.status : editingItem.roomStatus,
+                      pax: editingItem.pax || (match.pax ? String(match.pax) : editingItem.pax),
+                    } : {}),
+                  });
+                  if (errors.roomNumber) setErrors({ ...errors, roomNumber: false });
+                }}
+                list="amenity-room-datalist"
                 placeholder="Room Number*"
                 style={{ width: '100%', borderColor: errors.roomNumber ? '#ff4444' : undefined }}
+                autoComplete="off"
               />
               {errors.roomNumber && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '4px' }}>*required</div>}
             </div>

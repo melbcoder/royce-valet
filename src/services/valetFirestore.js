@@ -34,6 +34,22 @@ const amenitiesHistoryRef = collection(db, "amenitiesHistory");
 const amenitiesAuditRef = collection(db, "amenitiesAudit");
 const settingsRef = collection(db, "settings");
 const maintenanceJobsRef = collection(db, "maintenanceJobs");
+const roomStatusRef = collection(db, "roomStatus");
+
+// ===== ROOM STATUS =====
+
+/**
+ * Subscribe to the live room status database.
+ * Calls `callback` with a plain object keyed by room number:
+ *   { "100 KZ": { roomNo, status, guestName, arrive, depart, pax, updatedAt }, ... }
+ */
+export function subscribeRoomStatus(callback) {
+  return onSnapshot(roomStatusRef, (snapshot) => {
+    const map = {};
+    snapshot.docs.forEach((d) => { map[d.id] = d.data(); });
+    callback(map);
+  });
+}
 
 // ===== SETTINGS MANAGEMENT =====
 

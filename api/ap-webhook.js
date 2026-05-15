@@ -8,6 +8,7 @@ import pdfParse from 'pdf-parse';
 import { ingestLowRateCsvPayload } from '../server/lib/lowRateReport.js';
 import { ingestOpenFoliosCsvPayload } from '../server/lib/openFoliosReport.js';
 import { ingestCancellationCsvPayload } from '../server/lib/cancellationReport.js';
+import { ingestRoomStatusCsvPayload, isRoomStatusCsv } from '../server/lib/roomStatusReport.js';
 import { getDefaultReportTimezone } from '../server/lib/reportDate.js';
 
 function normalizeBucketName(raw = '') {
@@ -1093,6 +1094,31 @@ export default async function handler(req, res) {
           subject,
         })
       : 'unknown';
+
+    if (csvFile) {
+      const csvText = csvFile.buffer.toString('utf8');
+      const looksLikeRoomStatusMail =
+        lowerSubject.includes('room no status')
+        || lowerSubject.includes('room status')
+        || lowerSubject.includes('status verification');
+      const roomStatusCsv = isRoomStatusCsv(csvText);
+
+      if (roomStatusCsv || (isReportsMailbox && looksLikeRoomStatusMail)) {
+        const result = await ingestRoomStatusCsvPayload({ csv: csvText, db });
+
+        await db.collection('room_status_webhook_log').add({
+          receivedAt: new Date().toISOString(),
+          fromEmail,
+          toEmail,
+          subject,
+          status: 'ingested-via-ap-webhook',
+          roomCount: result.count,
+          filename: csvFile.info?.filename || csvFile.name || '',
+        });
+
+        return res.status(200).json({ received: true, roomCount: result.count });
+      }
+    }
 
     if (csvFile && (inferredReportType === 'cancellations' || looksLikeCancellationMail)) {
       const csvText = csvFile.buffer.toString('utf8');
