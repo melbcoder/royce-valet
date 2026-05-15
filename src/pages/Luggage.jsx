@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   createLuggage,
@@ -74,6 +74,33 @@ export default function Luggage() {
   const [tagInput, setTagInput] = useState('');
   const [editTagInput, setEditTagInput] = useState('');
   const [roomStatusMap, setRoomStatusMap] = useState({});
+
+  const normalizeRoomKey = (value) =>
+    String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+
+  const normalizedRoomStatusMap = useMemo(() => {
+    const out = {};
+    Object.entries(roomStatusMap || {}).forEach(([docId, data]) => {
+      const byDocId = normalizeRoomKey(docId);
+      if (byDocId) out[byDocId] = data;
+
+      const byField = normalizeRoomKey(data?.roomNo);
+      if (byField) out[byField] = data;
+    });
+    return out;
+  }, [roomStatusMap]);
+
+  const findRoomStatusEntry = (roomNumber) => {
+    const direct = roomStatusMap?.[roomNumber];
+    if (direct) return direct;
+    return normalizedRoomStatusMap[normalizeRoomKey(roomNumber)] || null;
+  };
+
+  const getLiveRoomStatus = (roomNumber, fallback = '') => {
+    const status = String(findRoomStatusEntry(roomNumber)?.status || '').toLowerCase();
+    if (status && status !== 'unknown') return status;
+    return String(fallback || '').toLowerCase();
+  };
 
   // Subscribe to room status database
   useEffect(() => {
@@ -442,21 +469,22 @@ export default function Luggage() {
                           height: 10,
                           borderRadius: '50%',
                           backgroundColor: 
-                            item.roomStatus === 'clean' ? '#7fff7f' :
-                            item.roomStatus === 'dirty' ? '#ff7f7f' :
-                            item.roomStatus === 'occupied' ? '#f4c97a' :
+                            getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'clean' ? '#7fff7f' :
+                            getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'dirty' ? '#ff7f7f' :
+                            getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'occupied' ? '#f4c97a' :
                             '#ddd',
                           display: 'inline-block'
                         }} />
                         <select
-                          value={item.roomStatus || ''}
-                          onChange={(e) => updateLuggage(item.id, { roomStatus: e.target.value })}
+                          value={getLiveRoomStatus(item.roomNumber, item.roomStatus) || ''}
+                          disabled
                           style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
                         >
                           <option value="">Select status</option>
                           <option value="occupied">Occupied</option>
                           <option value="dirty">Dirty</option>
                           <option value="clean">Clean</option>
+                          <option value="maintenance">Maintenance</option>
                         </select>
                       </div>
                     )}
@@ -741,7 +769,7 @@ export default function Luggage() {
               value={newLuggage.roomNumber}
               onChange={(e) => {
                 const val = e.target.value;
-                const match = roomStatusMap[val];
+                const match = findRoomStatusEntry(val);
                 setNewLuggage({
                   ...newLuggage,
                   roomNumber: val,
@@ -782,6 +810,7 @@ export default function Luggage() {
                 <option value="occupied">Occupied</option>
                 <option value="dirty">Dirty</option>
                 <option value="clean">Clean</option>
+                <option value="maintenance">Maintenance</option>
               </select>
             </div>
           )}

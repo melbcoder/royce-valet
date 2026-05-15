@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   createAmenity,
@@ -88,6 +88,33 @@ export default function Amenities() {
 
   const [errors, setErrors] = useState({});
   const [roomStatusMap, setRoomStatusMap] = useState({});
+
+  const normalizeRoomKey = (value) =>
+    String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+
+  const normalizedRoomStatusMap = useMemo(() => {
+    const out = {};
+    Object.entries(roomStatusMap || {}).forEach(([docId, data]) => {
+      const byDocId = normalizeRoomKey(docId);
+      if (byDocId) out[byDocId] = data;
+
+      const byField = normalizeRoomKey(data?.roomNo);
+      if (byField) out[byField] = data;
+    });
+    return out;
+  }, [roomStatusMap]);
+
+  const findRoomStatusEntry = (roomNumber) => {
+    const direct = roomStatusMap?.[roomNumber];
+    if (direct) return direct;
+    return normalizedRoomStatusMap[normalizeRoomKey(roomNumber)] || null;
+  };
+
+  const getLiveRoomStatus = (roomNumber, fallback = '') => {
+    const status = String(findRoomStatusEntry(roomNumber)?.status || '').toLowerCase();
+    if (status && status !== 'unknown') return status;
+    return String(fallback || '').toLowerCase();
+  };
 
   // Subscribe to room status database
   useEffect(() => {
@@ -594,21 +621,22 @@ export default function Amenities() {
                         height: 10,
                         borderRadius: '50%',
                         backgroundColor: 
-                          item.roomStatus === 'clean' ? '#7fff7f' :
-                          item.roomStatus === 'dirty' ? '#ff7f7f' :
-                          item.roomStatus === 'occupied' ? '#f4c97a' :
+                          getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'clean' ? '#7fff7f' :
+                          getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'dirty' ? '#ff7f7f' :
+                          getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'occupied' ? '#f4c97a' :
                           '#ddd',
                         display: 'inline-block'
                       }} />
                       <select
-                        value={item.roomStatus || ''}
-                        onChange={(e) => updateAmenity(item.id, { roomStatus: e.target.value })}
+                        value={getLiveRoomStatus(item.roomNumber, item.roomStatus) || ''}
+                        disabled
                         style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
                       >
                         <option value="">Select status</option>
                         <option value="occupied">Occupied</option>
                         <option value="dirty">Dirty</option>
                         <option value="clean">Clean</option>
+                        <option value="maintenance">Maintenance</option>
                       </select>
                     </div>
                   </td>
@@ -727,21 +755,22 @@ export default function Amenities() {
                         height: 10,
                         borderRadius: '50%',
                         backgroundColor: 
-                          item.roomStatus === 'clean' ? '#7fff7f' :
-                          item.roomStatus === 'dirty' ? '#ff7f7f' :
-                          item.roomStatus === 'occupied' ? '#f4c97a' :
+                          getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'clean' ? '#7fff7f' :
+                          getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'dirty' ? '#ff7f7f' :
+                          getLiveRoomStatus(item.roomNumber, item.roomStatus) === 'occupied' ? '#f4c97a' :
                           '#ddd',
                         display: 'inline-block'
                       }} />
                       <select
-                        value={item.roomStatus || ''}
-                        onChange={(e) => updateAmenity(item.id, { roomStatus: e.target.value })}
+                        value={getLiveRoomStatus(item.roomNumber, item.roomStatus) || ''}
+                        disabled
                         style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
                       >
                         <option value="">Select status</option>
                         <option value="occupied">Occupied</option>
                         <option value="dirty">Dirty</option>
                         <option value="clean">Clean</option>
+                        <option value="maintenance">Maintenance</option>
                       </select>
                     </div>
                   </td>
@@ -793,11 +822,12 @@ export default function Amenities() {
             value={newAmenity.roomNumber}
             onChange={(e) => {
               const val = e.target.value;
-              const match = roomStatusMap[val];
+              const match = findRoomStatusEntry(val);
               setNewAmenity({
                 ...newAmenity,
                 roomNumber: val,
                 ...(match ? {
+                  roomStatus: match.status !== 'unknown' ? match.status : newAmenity.roomStatus,
                   guestName: newAmenity.guestName || match.guestName || newAmenity.guestName,
                   pax: newAmenity.pax || (match.pax ? String(match.pax) : newAmenity.pax),
                 } : {}),
@@ -893,7 +923,7 @@ export default function Amenities() {
                 value={editingItem.roomNumber}
                 onChange={(e) => {
                   const val = e.target.value;
-                  const match = roomStatusMap[val];
+                  const match = findRoomStatusEntry(val);
                   setEditingItem({
                     ...editingItem,
                     roomNumber: val,
@@ -946,6 +976,7 @@ export default function Amenities() {
                 <option value="occupied">Occupied</option>
                 <option value="dirty">Dirty</option>
                 <option value="clean">Clean</option>
+                <option value="maintenance">Maintenance</option>
               </select>
             </div>
 
