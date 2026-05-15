@@ -149,14 +149,18 @@ export default function Amenities() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-  // Update minutes-ago display
+  // Update time-ago display
   useEffect(() => {
     if (!roomStatusUpdatedAt) return;
-    const interval = setInterval(() => {
+    const updateDisplay = () => {
       const now = new Date();
-      const diff = Math.floor((now - roomStatusUpdatedAt) / 60000);
-      setMinutesAgo(diff);
-    }, 10000); // Update every 10 seconds
+      const diffMs = now - roomStatusUpdatedAt;
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffMs / 60000);
+      setMinutesAgo(diffMins > 0 ? diffMins : diffSecs);
+    };
+    updateDisplay(); // Update immediately
+    const interval = setInterval(updateDisplay, 1000); // Update every second
     return () => clearInterval(interval);
   }, [roomStatusUpdatedAt]);
 
@@ -609,7 +613,7 @@ export default function Amenities() {
 
       {roomStatusUpdatedAt && (
         <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
-          room statuses updated {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago
+          room statuses updated {minutesAgo} {minutesAgo >= 60 ? 'minute' : 'second'}{minutesAgo !== 1 ? 's' : ''} ago
         </div>
       )}
 
