@@ -43,12 +43,21 @@ const roomStatusRef = collection(db, "roomStatus");
  * Calls `callback` with a plain object keyed by room number:
  *   { "100 KZ": { roomNo, status, guestName, arrive, depart, pax, updatedAt }, ... }
  */
-export function subscribeRoomStatus(callback) {
-  return onSnapshot(roomStatusRef, (snapshot) => {
-    const map = {};
-    snapshot.docs.forEach((d) => { map[d.id] = d.data(); });
-    callback(map);
-  });
+export function subscribeRoomStatus(callback, onError) {
+  return onSnapshot(
+    roomStatusRef,
+    (snapshot) => {
+      const map = {};
+      snapshot.docs.forEach((d) => { map[d.id] = d.data(); });
+      callback(map);
+    },
+    (error) => {
+      console.error('Room status subscription failed:', error);
+      if (typeof onError === 'function') {
+        onError(error);
+      }
+    }
+  );
 }
 
 // ===== SETTINGS MANAGEMENT =====

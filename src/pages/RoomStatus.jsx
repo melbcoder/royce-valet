@@ -31,11 +31,21 @@ export default function RoomStatus() {
   const [roomMap, setRoomMap] = useState({});
   const [statusFilter, setStatusFilter] = useState('all');
   const [query, setQuery] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [hasLoadedSnapshot, setHasLoadedSnapshot] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = subscribeRoomStatus((map) => {
-      setRoomMap(map || {});
-    });
+    const unsubscribe = subscribeRoomStatus(
+      (map) => {
+        setRoomMap(map || {});
+        setHasLoadedSnapshot(true);
+        setLoadError('');
+      },
+      (error) => {
+        setHasLoadedSnapshot(true);
+        setLoadError(error?.message || 'Failed to load room status data.');
+      }
+    );
     return () => unsubscribe && unsubscribe();
   }, []);
 
@@ -87,6 +97,28 @@ export default function RoomStatus() {
       </div>
 
       <section className="card pad" style={{ marginBottom: 16 }}>
+        {loadError && (
+          <div
+            style={{
+              background: '#ffebee',
+              color: '#b71c1c',
+              border: '1px solid #ffcdd2',
+              borderRadius: 8,
+              padding: '10px 12px',
+              marginBottom: 12,
+              fontSize: 13,
+            }}
+          >
+            Could not read room status from Firestore: {loadError}
+          </div>
+        )}
+
+        {!loadError && !hasLoadedSnapshot && (
+          <div style={{ marginBottom: 12, fontSize: 13, opacity: 0.75 }}>
+            Loading room status data...
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
           <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12 }}>
             <div style={{ fontSize: 12, opacity: 0.7 }}>All Rooms</div>
