@@ -132,14 +132,33 @@ export default function Amenities() {
   const normalizeRoomKey = (value) =>
     String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
 
+  const extractRoomNumberKey = (value) => {
+    const normalized = normalizeRoomKey(value);
+    const match = normalized.match(/^(\d{3})(?:\s|$)/);
+    return match ? match[1] : '';
+  };
+
   const normalizedRoomStatusMap = useMemo(() => {
     const out = {};
     Object.entries(roomStatusMap || {}).forEach(([docId, data]) => {
+      const entry = { ...data, roomNo: String(data?.roomNo || docId || '').trim() };
       const byDocId = normalizeRoomKey(docId);
-      if (byDocId) out[byDocId] = data;
+      if (byDocId) out[byDocId] = entry;
 
-      const byField = normalizeRoomKey(data?.roomNo);
-      if (byField) out[byField] = data;
+      const byField = normalizeRoomKey(entry?.roomNo);
+      if (byField) out[byField] = entry;
+    });
+    return out;
+  }, [roomStatusMap]);
+
+  const roomStatusByNumberMap = useMemo(() => {
+    const out = {};
+    Object.entries(roomStatusMap || {}).forEach(([docId, data]) => {
+      const entry = { ...data, roomNo: String(data?.roomNo || docId || '').trim() };
+      const key = extractRoomNumberKey(entry.roomNo);
+      if (!key) return;
+      if (!out[key]) out[key] = [];
+      out[key].push(entry);
     });
     return out;
   }, [roomStatusMap]);
@@ -147,7 +166,22 @@ export default function Amenities() {
   const findRoomStatusEntry = (roomNumber) => {
     const direct = roomStatusMap?.[roomNumber];
     if (direct) return direct;
-    return normalizedRoomStatusMap[normalizeRoomKey(roomNumber)] || null;
+
+    const normalizedMatch = normalizedRoomStatusMap[normalizeRoomKey(roomNumber)];
+    if (normalizedMatch) return normalizedMatch;
+
+    const numericKey = extractRoomNumberKey(roomNumber);
+    if (!numericKey) return null;
+
+    const candidates = roomStatusByNumberMap[numericKey] || [];
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+
+    return [...candidates].sort((a, b) => {
+      const aTime = parseRoomStatusTimestamp(a?.updatedAt)?.getTime() || 0;
+      const bTime = parseRoomStatusTimestamp(b?.updatedAt)?.getTime() || 0;
+      return bTime - aTime;
+    })[0];
   };
 
   const getLiveRoomStatus = (roomNumber, fallback = '') => {
@@ -160,8 +194,9 @@ export default function Amenities() {
 
   const handleRoomStatusChange = async (roomNumber, status) => {
     try {
-      await updateRoomStatus(roomNumber, status);
-      showToast(`Room ${roomNumber} marked ${status}.`);
+      const matchedRoomNo = String(findRoomStatusEntry(roomNumber)?.roomNo || roomNumber || '').trim();
+      await updateRoomStatus(matchedRoomNo, status);
+      showToast(`Room ${matchedRoomNo} marked ${status}.`);
     } catch (error) {
       console.error('Failed to update room status:', error);
       showToast('Failed to update room status.');
