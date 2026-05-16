@@ -14,13 +14,14 @@
 const ROOM_STATUS_MAP = {
   'Vac Cln': 'clean',
   'Vac Dty': 'dirty',
+  'Vac Ins': 'inspection',
   'Occ':     'occupied',
   'Maint':   'maintenance',
 };
 
 function normalizeRoomStatus(raw) {
   const trimmed = String(raw || '').trim();
-  return ROOM_STATUS_MAP[trimmed] || 'unknown';
+  return ROOM_STATUS_MAP[trimmed] || trimmed.toLowerCase() || 'unknown';
 }
 
 function parseCsvLine(line) {

@@ -4,10 +4,12 @@ import { subscribeRoomStatus } from '../services/valetFirestore';
 const STATUS_META = {
   clean: { label: 'Clean', color: '#2e7d32', bg: '#e8f5e9' },
   dirty: { label: 'Dirty', color: '#c62828', bg: '#ffebee' },
+  inspection: { label: 'Inspection Required', color: '#c62828', bg: '#ffebee' },
   occupied: { label: 'Occupied', color: '#ef6c00', bg: '#fff3e0' },
   maintenance: { label: 'Maintenance', color: '#6a1b9a', bg: '#f3e5f5' },
-  unknown: { label: 'Unknown', color: '#455a64', bg: '#eceff1' },
 };
+
+const STATUS_META_FALLBACK = { label: 'Unknown', color: '#455a64', bg: '#eceff1' };
 
 function formatTimestamp(value) {
   if (!value) return 'N/A';
@@ -17,7 +19,7 @@ function formatTimestamp(value) {
 }
 
 function getStatusMeta(status) {
-  return STATUS_META[status] || STATUS_META.unknown;
+  return STATUS_META[status] || STATUS_META_FALLBACK;
 }
 
 function normalizeRoomSortKey(roomNo) {
@@ -53,7 +55,7 @@ export default function RoomStatus() {
     return Object.entries(roomMap || {})
       .map(([docId, item]) => ({
         roomNo: String(item.roomNo || docId || '').trim(),
-        status: String(item.status || 'unknown').toLowerCase(),
+        status: String(item.status || '').toLowerCase() || 'unknown',
         rawStatus: String(item.rawStatus || ''),
         updatedAt: item.updatedAt || '',
       }))
@@ -62,10 +64,11 @@ export default function RoomStatus() {
   }, [roomMap]);
 
   const counts = useMemo(() => {
-    const out = { all: rooms.length, clean: 0, dirty: 0, occupied: 0, maintenance: 0, unknown: 0 };
+    const out = { all: rooms.length, clean: 0, dirty: 0, inspection: 0, occupied: 0, maintenance: 0, other: 0 };
     rooms.forEach((room) => {
-      const key = STATUS_META[room.status] ? room.status : 'unknown';
-      out[key] += 1;
+      const key = STATUS_META[room.status] ? room.status : 'other';
+      if (key !== 'other') out[key] = (out[key] || 0) + 1;
+      else out.other += 1;
     });
     return out;
   }, [rooms]);
@@ -124,7 +127,7 @@ export default function RoomStatus() {
             <div style={{ fontSize: 12, opacity: 0.7 }}>All Rooms</div>
             <div style={{ fontSize: 28, fontWeight: 700 }}>{counts.all}</div>
           </div>
-          {['clean', 'occupied', 'dirty', 'maintenance', 'unknown'].map((key) => {
+          {['clean', 'occupied', 'dirty', 'inspection', 'maintenance'].map((key) => {
             const meta = getStatusMeta(key);
             return (
               <div key={key} style={{ border: `1px solid ${meta.color}33`, background: meta.bg, borderRadius: 8, padding: 12 }}>
@@ -149,7 +152,7 @@ export default function RoomStatus() {
             <option value="occupied">Occupied</option>
             <option value="dirty">Dirty</option>
             <option value="maintenance">Maintenance</option>
-            <option value="unknown">Unknown</option>
+            <option value="inspection">Inspection Required</option>
           </select>
         </div>
       </section>

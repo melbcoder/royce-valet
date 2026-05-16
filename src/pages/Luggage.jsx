@@ -46,10 +46,12 @@ const resolveCountryCode = (value) => {
 const STATUS_META = {
   clean: { label: 'Clean', color: '#2e7d32', bg: '#e8f5e9' },
   dirty: { label: 'Dirty', color: '#c62828', bg: '#ffebee' },
+  inspection: { label: 'Inspection Required', color: '#c62828', bg: '#ffebee' },
   occupied: { label: 'Occupied', color: '#ef6c00', bg: '#fff3e0' },
   maintenance: { label: 'Maintenance', color: '#6a1b9a', bg: '#f3e5f5' },
-  unknown: { label: 'Unknown', color: '#455a64', bg: '#eceff1' },
 };
+
+const STATUS_META_FALLBACK = { label: 'Unknown', color: '#455a64', bg: '#eceff1' };
 
 const parseRoomStatusTimestamp = (value) => {
   if (!value) return null;
@@ -140,7 +142,7 @@ export default function Luggage() {
     return String(fallback || '').toLowerCase();
   };
 
-  const getStatusMeta = (status) => STATUS_META[String(status || '').toLowerCase()] || STATUS_META.unknown;
+  const getStatusMeta = (status) => STATUS_META[String(status || '').toLowerCase()] || STATUS_META_FALLBACK;
 
   const handleRoomStatusChange = async (roomNumber, status) => {
     try {
@@ -584,6 +586,7 @@ export default function Luggage() {
                           <option value="">Select status</option>
                           <option value="occupied">Occupied</option>
                           <option value="dirty">Dirty</option>
+                          <option value="inspection">Inspection Required</option>
                           <option value="clean">Clean</option>
                           <option value="maintenance">Maintenance</option>
                         </select>
@@ -913,6 +916,7 @@ export default function Luggage() {
                 <option value="">Select status</option>
                 <option value="occupied">Occupied</option>
                 <option value="dirty">Dirty</option>
+                <option value="inspection">Inspection Required</option>
                 <option value="clean">Clean</option>
                 <option value="maintenance">Maintenance</option>
               </select>
@@ -1112,7 +1116,9 @@ export default function Luggage() {
                 <option value="">Select status</option>
                 <option value="occupied">Occupied</option>
                 <option value="dirty">Dirty</option>
+                <option value="inspection">Inspection Required</option>
                 <option value="clean">Clean</option>
+                <option value="maintenance">Maintenance</option>
               </select>
             </div>
 
