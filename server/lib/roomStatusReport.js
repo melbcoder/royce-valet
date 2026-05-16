@@ -5,7 +5,7 @@
  * and writes the results to the Firestore `roomStatus` collection.
  *
  * Expected CSV headers (case-insensitive):
- *   Room No, Status, Guest Name, Arrive, Depart, Recp - Pax, ...
+ *   Room No, Status, Arrive, Depart, Recp - Pax, ...
  *
  * Normalised status values stored in Firestore:
  *   clean | dirty | occupied | maintenance | unknown
@@ -108,7 +108,6 @@ export function parseRoomStatusCsv(text) {
   const idx = {
     roomNo:    headers.indexOf('room_no'),
     status:    headers.indexOf('status'),
-    guestName: headers.indexOf('guest_name'),
     arrive:    headers.findIndex((h) => h === 'arrive' || h === 'arrive_date' || h === 'arrival'),
     depart:    headers.findIndex((h) => h === 'depart' || h === 'depart_date' || h === 'departure'),
     // "Recp - Pax" normalises to "recp___pax" or similar — match by prefix
@@ -122,13 +121,12 @@ export function parseRoomStatusCsv(text) {
     if (!roomNo) continue;
 
     const rawStatus  = idx.status    >= 0 ? String(cols[idx.status]    || '').trim() : '';
-    const guestName  = idx.guestName >= 0 ? String(cols[idx.guestName] || '').trim() : '';
     const arrive     = idx.arrive    >= 0 ? parseDate(cols[idx.arrive])               : '';
     const depart     = idx.depart    >= 0 ? parseDate(cols[idx.depart])               : '';
     const paxRaw     = idx.pax       >= 0 ? String(cols[idx.pax]       || '').trim() : '';
     const pax        = paxRaw ? (parseInt(paxRaw, 10) || 0) : 0;
 
-    rooms.push({ roomNo, status: normalizeRoomStatus(rawStatus), rawStatus, guestName, arrive, depart, pax });
+    rooms.push({ roomNo, status: normalizeRoomStatus(rawStatus), rawStatus, arrive, depart, pax });
   }
 
   return rooms;
@@ -168,7 +166,6 @@ export async function ingestRoomStatusCsvPayload({ csv, db }) {
         roomNo:    room.roomNo,
         status:    room.status,
         rawStatus: room.rawStatus,
-        guestName: room.guestName,
         arrive:    room.arrive,
         depart:    room.depart,
         pax:       room.pax,
