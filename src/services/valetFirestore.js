@@ -13,6 +13,7 @@ import {
   getDocs,
   arrayUnion,
 } from "firebase/firestore";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getTodayInTimezone } from "../utils/timezoneUtils";
 
@@ -660,9 +661,6 @@ export async function initializeDefaultAdmin({ username, password, phoneNumber =
 
 // Authenticate user with Firebase Auth
 export async function authenticateUser(username, password) {
-  const { signInWithEmailAndPassword } = await import('firebase/auth');
-  const { auth } = await import('../firebase');
-  
   // Input validation
   if (!username || typeof username !== 'string' || username.length > 50) {
     throw new Error('Invalid username');
