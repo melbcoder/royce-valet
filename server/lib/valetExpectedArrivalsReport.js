@@ -66,6 +66,42 @@ function getHeaderIndex(headers, candidates) {
   return -1;
 }
 
+function normalizeKeyToken(value, fallback = 'na') {
+  const token = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return token || fallback;
+}
+
+function normalizeTagToken(value, fallback = '') {
+  const token = String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  return token || fallback;
+}
+
+function tinyHash(value) {
+  const raw = String(value || '');
+  let acc = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    acc = (acc * 31 + raw.charCodeAt(i)) >>> 0;
+  }
+  return acc.toString(36).toUpperCase().slice(0, 5) || '0';
+}
+
+function buildArrivedVehicleTag(row, docId) {
+  const resPart = normalizeTagToken(row.resNo, 'RES').slice(-8);
+  const guestPart = normalizeTagToken(row.guestNo || row.surname, 'G').slice(-4);
+  const hashPart = tinyHash(docId);
+  return `AR${resPart}${guestPart}${hashPart}`.slice(0, 20);
+}
+
+function normalizeReservationStatus(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 export function parseValetExpectedArrivalsCsv(text) {
   const raw = String(text || '').replace(/^\uFEFF/, '').trim();
   if (!raw) return [];
@@ -141,8 +177,19 @@ export function parseValetExpectedArrivalsCsv(text) {
 export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEmail = '', subject = '', filename = '' }) {
   const rows = parseValetExpectedArrivalsCsv(csv);
   const collectionRef = db.collection('valetExpectedArrivals');
+  const vehiclesRef = db.collection('vehicles');
 
   const existing = await collectionRef.get();
+  const existingMergeMeta = new Map(
+    existing.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      return [docSnap.id, {
+        mergedAt: data.mergedAt || null,
+        mergedVehicleTag: data.mergedVehicleTag || null,
+        mergeState: data.mergeState || null,
+      }];
+    })
+  );
   const batchSize = 400;
 
   for (let i = 0; i < existing.docs.length; i += batchSize) {
@@ -157,12 +204,33 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
     return { count: 0 };
   }
 
-  for (let i = 0; i < rows.length; i += batchSize) {
+  const docIdCounts = new Map();
+  const rowsWithDocIds = rows.map((row) => {
+    const baseDocId = [
+      normalizeKeyToken(row.resNo),
+      normalizeKeyToken(row.guestNo || row.surname),
+      normalizeKeyToken(row.from),
+      normalizeKeyToken(row.to),
+      normalizeKeyToken(row.addOnSundry),
+    ].join('_').slice(0, 120);
+
+    const seen = docIdCounts.get(baseDocId) || 0;
+    docIdCounts.set(baseDocId, seen + 1);
+    const docId = seen === 0 ? baseDocId : `${baseDocId}_${seen + 1}`;
+
+    return { row, docId };
+  });
+
+  for (let i = 0; i < rowsWithDocIds.length; i += batchSize) {
     const batch = db.batch();
-    for (const row of rows.slice(i, i + batchSize)) {
-      const docId = `${row.resNo}-${row.guestNo || row.surname || i}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+    for (const { row, docId } of rowsWithDocIds.slice(i, i + batchSize)) {
+      const priorMerge = existingMergeMeta.get(docId) || {};
       batch.set(collectionRef.doc(docId), {
         ...row,
+        rowDocId: docId,
+        ...(priorMerge.mergedAt ? { mergedAt: priorMerge.mergedAt } : {}),
+        ...(priorMerge.mergedVehicleTag ? { mergedVehicleTag: priorMerge.mergedVehicleTag } : {}),
+        ...(priorMerge.mergeState ? { mergeState: priorMerge.mergeState } : {}),
         sourceEmail,
         subject,
         filename,
@@ -170,6 +238,89 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
       });
     }
     await batch.commit();
+  }
+
+  // Auto-upsert active valet dockets for reservations that are already arrived.
+  for (const { row, docId } of rowsWithDocIds) {
+    const nowIso = new Date().toISOString();
+
+    const byExpectedSnap = await vehiclesRef
+      .where('expectedArrivalId', '==', docId)
+      .limit(1)
+      .get();
+
+    if (!byExpectedSnap.empty) {
+      const existingDoc = byExpectedSnap.docs[0];
+      const existing = existingDoc.data() || {};
+      await existingDoc.ref.set(
+        {
+          ...existing,
+          resNo: row.resNo,
+          expectedArrivalId: docId,
+          autoCreatedFromCsv: true,
+          source: 'expected-arrivals-csv',
+          expectedStatus: row.status,
+          guestName: existing.guestName || row.surname || '',
+          departureDate: existing.departureDate || row.depart || '',
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
+
+      await collectionRef.doc(docId).set(
+        {
+          mergedAt: nowIso,
+          mergedVehicleTag: existing.tag || existingDoc.id,
+          mergeState: 'merged',
+          updatedAt: nowIso,
+        },
+        { merge: true }
+      );
+      continue;
+    }
+
+    if (normalizeReservationStatus(row.status) !== 'arrived') continue;
+
+    const autoTag = buildArrivedVehicleTag(row, docId);
+
+    const tagDoc = vehiclesRef.doc(autoTag);
+    const tagSnap = await tagDoc.get();
+    const existingByTag = tagSnap.exists ? (tagSnap.data() || {}) : null;
+
+    await tagDoc.set(
+      {
+        tag: autoTag,
+        resNo: row.resNo,
+        expectedArrivalId: docId,
+        autoCreatedFromCsv: true,
+        source: 'expected-arrivals-csv',
+        expectedStatus: row.status,
+        guestName: existingByTag?.guestName || row.surname || '',
+        roomNumber: existingByTag?.roomNumber || '',
+        phone: existingByTag?.phone || '',
+        status: existingByTag?.status || 'received',
+        license: existingByTag?.license || '',
+        make: existingByTag?.make || '',
+        color: existingByTag?.color || '',
+        bay: existingByTag?.bay || '',
+        departureDate: existingByTag?.departureDate || row.depart || '',
+        scheduledAt: existingByTag?.scheduledAt || null,
+        requested: existingByTag?.requested || false,
+        createdAt: existingByTag?.createdAt || nowIso,
+        updatedAt: nowIso,
+      },
+      { merge: true }
+    );
+
+    await collectionRef.doc(docId).set(
+      {
+        mergedAt: nowIso,
+        mergedVehicleTag: autoTag,
+        mergeState: 'merged',
+        updatedAt: nowIso,
+      },
+      { merge: true }
+    );
   }
 
   return { count: rows.length };

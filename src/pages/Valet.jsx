@@ -317,7 +317,7 @@ export default function Staff() {
   const filteredExpectedArrivals = useMemo(() => {
     return expectedArrivals.filter((row) => {
       const status = String(row.status || '').trim().toLowerCase();
-      return status === 'confirmed';
+      return status === 'confirmed' && !row.mergedAt;
     });
   }, [expectedArrivals]);
 
@@ -418,6 +418,7 @@ export default function Staff() {
 
     await createVehicle({
       resNo,
+      expectedArrivalId: arrivalSource?.id || '',
       tag,
       guestName,
       roomNumber,

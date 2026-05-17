@@ -334,9 +334,89 @@ export async function createVehicle(data) {
   if (!validateTag(data.tag)) {
     throw new Error('Invalid tag format');
   }
+
+  const tag = sanitizeString(data.tag, 20);
+  let expectedArrivalId = sanitizeString(data.expectedArrivalId || '', 120);
+  const cleanResNo = sanitizeString(data.resNo || '', 80);
+
+  if (!expectedArrivalId && cleanResNo) {
+    const byResQ = query(expectedArrivalsRef, where('resNo', '==', cleanResNo));
+    const byResSnap = await getDocs(byResQ);
+    const firstUnmerged = byResSnap.docs.find((d) => {
+      const row = d.data() || {};
+      return !row.mergedAt;
+    });
+    if (firstUnmerged) {
+      expectedArrivalId = sanitizeString(firstUnmerged.id, 120);
+    }
+  }
+
+  // If this vehicle originates from an expected-arrival row and a placeholder docket
+  // already exists for that row, merge into one active docket.
+  if (expectedArrivalId) {
+    const byExpectedQ = query(vehiclesRef, where('expectedArrivalId', '==', expectedArrivalId));
+    const byExpectedSnap = await getDocs(byExpectedQ);
+    if (!byExpectedSnap.empty) {
+      const existingDoc = byExpectedSnap.docs[0];
+      const existing = existingDoc.data() || {};
+      const existingTag = sanitizeString(existingDoc.id, 20);
+
+      const merged = {
+        ...existing,
+        tag,
+        resNo: cleanResNo || sanitizeString(existing.resNo || '', 80),
+        guestName: sanitizeString(data.guestName, 200) || sanitizeString(existing.guestName || '', 200),
+        roomNumber: sanitizeString(data.roomNumber, 50) || sanitizeString(existing.roomNumber || '', 50),
+        phone: sanitizeString(data.phone, 20) || sanitizeString(existing.phone || '', 20),
+        departureDate: data.departureDate
+          ? sanitizeString(data.departureDate, 10)
+          : sanitizeString(existing.departureDate || '', 10),
+        status: existing.status || 'received',
+        expectedArrivalId,
+        updatedAt: serverTimestamp(),
+      };
+
+      // If the incoming tag differs, move the merged docket to the operator tag.
+      if (existingTag && existingTag !== tag) {
+        const incomingTagDoc = await getDoc(doc(vehiclesRef, tag));
+        if (incomingTagDoc.exists()) {
+          throw new Error('Tag already exists on another active vehicle');
+        }
+
+        await setDoc(doc(vehiclesRef, tag), merged, { merge: true });
+        await deleteDoc(existingDoc.ref);
+        await addVehicleAuditLog(tag, 'merged_from_expected_arrival', {
+          previousTag: existingTag,
+          expectedArrivalId,
+        });
+      } else {
+        await setDoc(doc(vehiclesRef, tag), merged, { merge: true });
+        await addVehicleAuditLog(tag, 'updated', {
+          expectedArrivalId,
+          mergeSource: 'expected_arrival',
+        });
+      }
+
+      await setDoc(
+        doc(expectedArrivalsRef, expectedArrivalId),
+        {
+          mergedAt: new Date().toISOString(),
+          mergedVehicleTag: tag,
+          resNo: cleanResNo,
+          mergeState: 'merged',
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      return;
+    }
+  }
   
   const v = {
-    tag: sanitizeString(data.tag, 20),
+    tag,
+    resNo: cleanResNo,
+    expectedArrivalId: expectedArrivalId || null,
     guestName: sanitizeString(data.guestName, 200),
     roomNumber: sanitizeString(data.roomNumber, 50),
     phone: sanitizeString(data.phone, 20),
@@ -355,11 +435,42 @@ export async function createVehicle(data) {
     updatedAt: serverTimestamp(),
   };
 
-  const tag = sanitizeString(data.tag, 20);
-  await setDoc(doc(vehiclesRef, tag), v);
+  const existingVehicleDoc = await getDoc(doc(vehiclesRef, tag));
+  if (existingVehicleDoc.exists()) {
+    const existing = existingVehicleDoc.data() || {};
+    const mergedVehicle = {
+      ...existing,
+      ...v,
+      // Preserve existing vehicle details if this is just a front-desk merge/update.
+      license: sanitizeString(existing.license || '', 20),
+      make: sanitizeString(existing.make || '', 40),
+      color: sanitizeString(existing.color || '', 30),
+      bay: sanitizeString(existing.bay || '', 20),
+      status: existing.status || v.status,
+      createdAt: existing.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(doc(vehiclesRef, tag), mergedVehicle, { merge: true });
+  } else {
+    await setDoc(doc(vehiclesRef, tag), v);
+  }
+
+  if (expectedArrivalId) {
+    await setDoc(
+      doc(expectedArrivalsRef, expectedArrivalId),
+      {
+        mergedAt: new Date().toISOString(),
+        mergedVehicleTag: tag,
+        mergeState: 'merged',
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  }
   
   // Add audit log
   await addVehicleAuditLog(tag, 'created', {
+    resNo: v.resNo,
     guestName: v.guestName,
     roomNumber: v.roomNumber,
     departureDate: v.departureDate
