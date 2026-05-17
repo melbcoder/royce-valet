@@ -131,6 +131,7 @@ export default function Staff() {
   const [newOpen, setNewOpen] = useState(false);
   const [arrivalSource, setArrivalSource] = useState(null);
   const [newVehicle, setNewVehicle] = useState({
+    resNo: "",
     tag: "",
     guestName: "",
     roomNumber: "",
@@ -139,6 +140,7 @@ export default function Staff() {
     departureDate: "",
   });
   const [newVehicleErrors, setNewVehicleErrors] = useState({
+    resNo: false,
     tag: false,
     guestName: false,
     roomNumber: false,
@@ -309,7 +311,15 @@ export default function Staff() {
 
   // Active Vehicles (all), filtered by status if selected
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const [viewMode, setViewMode] = useState("list"); // "list" or "map"
+  const [viewMode, setViewMode] = useState("list"); // "list", "tiles", or "map"
+  
+  // Filter expected arrivals to only show confirmed status
+  const filteredExpectedArrivals = useMemo(() => {
+    return expectedArrivals.filter((row) => {
+      const status = String(row.status || '').trim().toLowerCase();
+      return status === 'confirmed';
+    });
+  }, [expectedArrivals]);
 
   // Close status dropdown when clicking outside
   useEffect(() => {
@@ -360,6 +370,7 @@ export default function Staff() {
   const startExpectedArrival = (row) => {
     setArrivalSource(row);
     setNewVehicle({
+      resNo: row.resNo || '',
       tag: '',
       guestName: row.surname || '',
       roomNumber: '',
@@ -368,6 +379,7 @@ export default function Staff() {
       departureDate: row.depart || row.departureDate || '',
     });
     setNewVehicleErrors({
+      resNo: false,
       tag: false,
       guestName: false,
       roomNumber: false,
@@ -379,12 +391,13 @@ export default function Staff() {
   };
 
   const handleCreate = async () => {
-    const { tag, guestName, roomNumber, countryCode, phone, departureDate } = newVehicle;
+    const { resNo, tag, guestName, roomNumber, countryCode, phone, departureDate } = newVehicle;
     const parsedCode = resolveCountryCode(countryCode);
     const effectiveCode = parsedCode || "+61";
     const phoneDigits = String(phone).replace(/\D/g, "").replace(/^0+/, "");
     
     const errors = {
+      resNo: !String(resNo).trim(),
       tag: !String(tag).trim(),
       guestName: !String(guestName).trim(),
       roomNumber: !String(roomNumber).trim(),
@@ -404,6 +417,7 @@ export default function Staff() {
     const formattedPhone = formatPhoneNumber(`${effectiveCode}${phoneDigits}`);
 
     await createVehicle({
+      resNo,
       tag,
       guestName,
       roomNumber,
@@ -425,6 +439,7 @@ export default function Staff() {
     }
     
     setNewVehicle({
+      resNo: '',
       tag: '',
       guestName: '',
       roomNumber: '',
@@ -433,6 +448,7 @@ export default function Staff() {
       departureDate: '',
     });
     setNewVehicleErrors({
+      resNo: false,
       tag: false,
       guestName: false,
       roomNumber: false,
@@ -708,9 +724,6 @@ export default function Staff() {
         <div className="row space-between" style={{ gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
           <div>
             <h3 style={{ marginBottom: 6 }}>Expected Arrivals</h3>
-            <p style={{ margin: 0, opacity: 0.7 }}>
-              Ingested from the PMS AddOn email sent to reports@mail.concierge.xin. Use these rows to speed up manual check-in when the guest arrives.
-            </p>
           </div>
         </div>
 
@@ -720,7 +733,7 @@ export default function Staff() {
           </div>
         )}
 
-        {expectedArrivals.length === 0 ? (
+        {filteredExpectedArrivals.length === 0 ? (
           <div style={{ padding: 16, border: '1px dashed #d0d5dd', borderRadius: 12, color: '#667085', fontSize: 14 }}>
             No PMS rows received yet.
           </div>
@@ -739,7 +752,7 @@ export default function Staff() {
                 </tr>
               </thead>
               <tbody>
-                {expectedArrivals.map((row) => (
+                {filteredExpectedArrivals.map((row) => (
                   <tr key={row.id}>
                     <td>{row.resNo}</td>
                     <td>{row.surname}</td>
@@ -906,6 +919,19 @@ export default function Staff() {
                 }}
               >
                 List
+              </button>
+              <button
+                className="btn secondary"
+                onClick={() => setViewMode("tiles")}
+                style={{
+                  padding: "6px 16px",
+                  background: viewMode === "tiles" ? "#fff" : "transparent",
+                  border: "none",
+                  boxShadow: viewMode === "tiles" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                  fontSize: "14px"
+                }}
+              >
+                Tiles
               </button>
               <button
                 className="btn secondary"
@@ -1121,6 +1147,17 @@ export default function Staff() {
             </tbody>
           </table>
         </div>
+        ) : viewMode === "tiles" ? (
+          <VehicleTileView
+            vehicles={active}
+            onPark={openPark}
+            onReady={setReady}
+            onHandOver={handOver}
+            onPhotos={openPhotos}
+            onAudit={handleViewAudit}
+            onSchedule={setSchedule}
+            onCancelSchedule={cancelSched}
+          />
         ) : (
           <ParkingMapView 
             vehicles={active} 
@@ -1149,6 +1186,22 @@ export default function Staff() {
               </div>
             </div>
           )}
+          <div>
+            <input 
+              placeholder="Reservation Number (required)" 
+              value={newVehicle.resNo}
+              onChange={(e) => {
+                setNewVehicle({ ...newVehicle, resNo: e.target.value });
+                if (newVehicleErrors.resNo) setNewVehicleErrors({ ...newVehicleErrors, resNo: false });
+              }}
+              style={{ borderColor: newVehicleErrors.resNo ? "#ff4444" : undefined }}
+            />
+            {newVehicleErrors.resNo && (
+              <div style={{ color: "#ff4444", fontSize: "12px", marginTop: "4px" }}>
+                *this field is required
+              </div>
+            )}
+          </div>
           <div>
             <input 
               placeholder="Tag Number (required)" 
@@ -1858,6 +1911,132 @@ function ScheduleInline({ v, onSet, onClear }) {
             Cancel
           </button>
         </>      )}
+    </div>
+  );
+}
+
+// Vehicle Tile View Component
+function VehicleTileView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAudit, onSchedule, onCancelSchedule }) {
+  if (vehicles.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: 40, opacity: 0.7 }}>
+        <p>No vehicles to display.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+      gap: "16px",
+      padding: "8px"
+    }}>
+      {vehicles.map((v) => (
+        <div
+          key={`tile-${v.tag}`}
+          style={{
+            border: "1px solid #d0d5dd",
+            borderRadius: "12px",
+            padding: "16px",
+            background: "#fff",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+            transition: "all 0.2s"
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)"}
+          onMouseLeave={(e) => e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.08)"}
+        >
+          {/* Header with tag and status */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+            <div>
+              <div style={{ fontSize: "20px", fontWeight: "600", color: "#1a1a1a" }}>
+                #{v.tag}
+              </div>
+              <div style={{ fontSize: "13px", opacity: 0.6 }}>
+                {v.guestName}
+              </div>
+            </div>
+            <span className={`status-pill status-${v.status}`} style={{ fontSize: "11px" }}>
+              {v.status === "out" ? "Out" : cap(v.status)}
+            </span>
+          </div>
+
+          {/* Incomplete indicator for received status */}
+          {v.status === "received" && (
+            <div style={{
+              padding: "8px 12px",
+              background: "#fff3cd",
+              border: "1px solid #ffc107",
+              borderRadius: "6px",
+              fontSize: "12px",
+              color: "#856404",
+              fontWeight: "500"
+            }}>
+              ⚠️ Missing details - activate to complete check-in
+            </div>
+          )}
+
+          {/* Details */}
+          <div style={{ fontSize: "13px", display: "flex", flexDirection: "column", gap: "6px", opacity: 0.8 }}>
+            <div><strong>Room:</strong> {v.roomNumber}</div>
+            {v.bay && <div><strong>Bay:</strong> {v.bay}</div>}
+            <div><strong>Vehicle:</strong> {v.color} {v.make}</div>
+            {v.license && <div><strong>Plate:</strong> {v.license}</div>}
+            {v.departureDate && <div><strong>Depart:</strong> {fmtDate(v.departureDate)}</div>}
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
+            <button 
+              className="btn secondary" 
+              onClick={() => onPark(v)} 
+              style={{ flex: "1", minWidth: "60px", padding: "6px 8px", fontSize: "12px" }}
+              title="Park / update parking details"
+            >
+              <ParkIcon /> Park
+            </button>
+            {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
+              <button 
+                className="btn secondary" 
+                onClick={() => onReady(v.tag)}
+                style={{ flex: "1", minWidth: "60px", padding: "6px 8px", fontSize: "12px" }}
+                title="Mark vehicle as ready for handover"
+              >
+                <ReadyIcon /> Ready
+              </button>
+            )}
+            {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
+              <button 
+                className="btn secondary" 
+                onClick={() => onHandOver(v.tag)}
+                style={{ flex: "1", minWidth: "60px", padding: "6px 8px", fontSize: "12px" }}
+                title="Hand over vehicle to guest"
+              >
+                <HandOverIcon /> Hand Over
+              </button>
+            )}
+            <button 
+              className="btn secondary" 
+              onClick={() => onPhotos(v.tag)}
+              style={{ flex: "0 0 auto", padding: "6px 8px", fontSize: "12px" }}
+              title="View or add vehicle photos"
+            >
+              <CameraIcon />
+            </button>
+            <button 
+              className="btn secondary" 
+              onClick={() => onAudit(v.tag)}
+              style={{ flex: "0 0 auto", padding: "6px 8px", fontSize: "12px" }}
+              title="View audit log"
+            >
+              <AuditIcon />
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
