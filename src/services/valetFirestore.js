@@ -404,6 +404,7 @@ export async function createVehicle(data) {
           mergedVehicleTag: tag,
           resNo: cleanResNo,
           mergeState: 'merged',
+          workflowStatus: 'arrived',
           updatedAt: new Date().toISOString(),
         },
         { merge: true }
@@ -462,6 +463,7 @@ export async function createVehicle(data) {
         mergedAt: new Date().toISOString(),
         mergedVehicleTag: tag,
         mergeState: 'merged',
+        workflowStatus: 'arrived',
         updatedAt: new Date().toISOString(),
       },
       { merge: true }

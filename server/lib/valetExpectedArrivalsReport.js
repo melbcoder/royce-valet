@@ -102,6 +102,13 @@ function normalizeReservationStatus(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function deriveWorkflowStatus(value) {
+  const normalized = normalizeReservationStatus(value);
+  if (normalized === 'arrived') return 'arrived';
+  if (normalized === 'confirmed') return 'expected';
+  return 'ignored';
+}
+
 export function parseValetExpectedArrivalsCsv(text) {
   const raw = String(text || '').replace(/^\uFEFF/, '').trim();
   if (!raw) return [];
@@ -225,9 +232,12 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
     const batch = db.batch();
     for (const { row, docId } of rowsWithDocIds.slice(i, i + batchSize)) {
       const priorMerge = existingMergeMeta.get(docId) || {};
+      const csvWorkflowStatus = deriveWorkflowStatus(row.status);
+      const workflowStatus = priorMerge.mergedAt ? 'arrived' : csvWorkflowStatus;
       batch.set(collectionRef.doc(docId), {
         ...row,
         rowDocId: docId,
+        workflowStatus,
         ...(priorMerge.mergedAt ? { mergedAt: priorMerge.mergedAt } : {}),
         ...(priorMerge.mergedVehicleTag ? { mergedVehicleTag: priorMerge.mergedVehicleTag } : {}),
         ...(priorMerge.mergeState ? { mergeState: priorMerge.mergeState } : {}),
@@ -272,6 +282,7 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
           mergedAt: nowIso,
           mergedVehicleTag: existing.tag || existingDoc.id,
           mergeState: 'merged',
+          workflowStatus: 'arrived',
           updatedAt: nowIso,
         },
         { merge: true }
@@ -317,6 +328,7 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
         mergedAt: nowIso,
         mergedVehicleTag: autoTag,
         mergeState: 'merged',
+        workflowStatus: 'arrived',
         updatedAt: nowIso,
       },
       { merge: true }

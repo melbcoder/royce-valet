@@ -27,6 +27,12 @@ import { getSettings } from "../services/valetFirestore";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+const displayVehicleStatus = (status) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'out') return 'Out';
+  if (normalized === 'received') return 'Arrived';
+  return cap(normalized);
+};
 const fmtDT = (t) => (t ? new Date(t).toLocaleString() : "—");
 // time only (HH:MM) — accepts ms or ISO string
 const fmtTime = (t) =>
@@ -313,9 +319,13 @@ export default function Staff() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [viewMode, setViewMode] = useState("tiles"); // "tiles" or "map"
   
-  // Filter expected arrivals to only show confirmed status
+  // Filter expected arrivals to only show entries awaiting check-in.
   const filteredExpectedArrivals = useMemo(() => {
     return expectedArrivals.filter((row) => {
+      const workflowStatus = String(row.workflowStatus || '').trim().toLowerCase();
+      if (workflowStatus) return workflowStatus === 'expected';
+
+      // Backward compatibility for older rows before workflowStatus existed.
       const status = String(row.status || '').trim().toLowerCase();
       return status === 'confirmed' && !row.mergedAt;
     });
@@ -1524,7 +1534,7 @@ function ParkingMapView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAud
             <div style={{ marginBottom: "8px" }}>
               <strong>Status:</strong>{" "}
               <span className={`status-pill status-${selectedVehicle.status}`}>
-                {selectedVehicle.status === "out" ? "Out" : cap(selectedVehicle.status)}
+                {displayVehicleStatus(selectedVehicle.status)}
               </span>
             </div>
             {selectedVehicle.departureDate && (
@@ -1704,7 +1714,7 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <strong>Res {row.resNo || "-"}</strong>
-              <span className="status-pill">Confirmed</span>
+              <span className="status-pill">Expected</span>
             </div>
             <div style={{ fontSize: 14, opacity: 0.9 }}>
               <div><strong>Guest:</strong> {row.surname || "-"}</div>
@@ -1750,7 +1760,7 @@ function RequestQueueTileView({ vehicles, onAck, onHandOver, onCancel }) {
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong>#{v.tag}</strong>
-            <span className={`status-pill status-${v.status}`}>{v.status === "out" ? "Out" : cap(v.status)}</span>
+            <span className={`status-pill status-${v.status}`}>{displayVehicleStatus(v.status)}</span>
           </div>
           <div style={{ fontSize: 14, opacity: 0.9 }}>
             <div><strong>Guest:</strong> {v.guestName}</div>
@@ -1796,7 +1806,7 @@ function ScheduledPickupTileView({ vehicles, onQueueNow, onCancel }) {
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong>#{v.tag}</strong>
-            <span className={`status-pill status-${v.status}`}>{v.status === "out" ? "Out" : cap(v.status)}</span>
+            <span className={`status-pill status-${v.status}`}>{displayVehicleStatus(v.status)}</span>
           </div>
           <div style={{ fontSize: 14, opacity: 0.9 }}>
             <div><strong>Guest:</strong> {v.guestName}</div>
@@ -1862,9 +1872,28 @@ function VehicleTileView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAu
               <div style={{ fontSize: "13px", opacity: 0.6 }}>
                 {v.guestName}
               </div>
+              {v.autoCreatedFromCsv && (
+                <div
+                  style={{
+                    marginTop: "6px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "3px 8px",
+                    borderRadius: "999px",
+                    background: "#eef4ff",
+                    color: "#1d4ed8",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                  }}
+                  title="This docket was automatically created from an expected arrivals CSV row"
+                >
+                  Auto-created from expected arrival
+                </div>
+              )}
             </div>
             <span className={`status-pill status-${v.status}`} style={{ fontSize: "11px" }}>
-              {v.status === "out" ? "Out" : cap(v.status)}
+              {displayVehicleStatus(v.status)}
             </span>
           </div>
 
