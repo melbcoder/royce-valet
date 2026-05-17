@@ -215,8 +215,14 @@ service cloud.firestore {
       allow write: if hasAnyPageAccess(['amenities', 'luggage', 'housekeeping', 'room-status']);
     }
 
-    // Room status webhook log - server-side only
-    match /room_status_webhook_log/{logId} {
+    // Valet expected arrivals - created server-side from emailed PMS AddOn reports
+    match /valetExpectedArrivals/{arrivalId} {
+      allow read: if hasAnyPageAccess(['dashboard', 'valet']);
+      allow write: if false;
+    }
+
+    // Valet expected arrivals webhook log - server-side only
+    match /valet_expected_arrivals_webhook_log/{logId} {
       allow read: if isAdmin();
       allow write: if false;
     }

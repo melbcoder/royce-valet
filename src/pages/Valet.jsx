@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   createVehicle,
   subscribeActiveVehicles,
+  subscribeExpectedArrivals,
   updateVehicle,
   requestVehicle,
   cancelRequest,
@@ -13,7 +14,7 @@ import {
   clearSchedule,
   getVehicleAuditLog,
   archiveVehicle,
-  reinstateVehicle, // Add this import
+  reinstateVehicle,
 } from "../services/valetFirestore";
 import { sendWelcomeSMS } from "../services/smsService";
 import Modal from "../components/Modal";
@@ -65,43 +66,6 @@ const resolveCountryCode = (value) => {
 
   return "";
 };
-
-const MAX_ADDON_FILE_SIZE = 5 * 1024 * 1024;
-
-const parseCsvLine = (line) => {
-  const cells = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"' && inQuotes && next === '"') {
-      current += '"';
-      i += 1;
-      continue;
-    }
-
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      cells.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  cells.push(current.trim());
-  return cells;
-};
-
-const sanitizeCsvValue = (value) => String(value || '').replace(/[<>]/g, '').trim();
 
 const parseMoney = (value) => {
   const normalized = String(value || '').replace(/[^\d.-]/g, '');
@@ -157,13 +121,11 @@ const AuditIcon = () => (
 
 export default function Staff() {
   const navigate = useNavigate();
-  const expectedFileInputRef = useRef(null);
   
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
   const [expectedArrivals, setExpectedArrivals] = useState([]);
-  const [expectedImportError, setExpectedImportError] = useState('');
-  const [expectedImportSummary, setExpectedImportSummary] = useState('');
+  const [expectedImportSummary, setExpectedImportSummary] = useState('Waiting for PMS AddOn email to reports@mail.concierge.xin.');
   const [valetParkingPrice, setValetParkingPrice] = useState(70);
   const [filterStatus, setFilterStatus] = useState(""); // active table filter
   const [newOpen, setNewOpen] = useState(false);
@@ -282,6 +244,25 @@ export default function Staff() {
   }, []);
 
   // tab title badge
+
+  useEffect(() => {
+    const unsub = subscribeExpectedArrivals((list) => {
+      const sorted = [...list].sort((a, b) => {
+        const timeA = Date.parse(a.updatedAt || a.importedAt || 0) || 0;
+        const timeB = Date.parse(b.updatedAt || b.importedAt || 0) || 0;
+        return timeB - timeA;
+      });
+
+      setExpectedArrivals(sorted);
+      setExpectedImportSummary(
+        sorted.length > 0
+          ? `Synced ${sorted.length} expected arrival(s) from reports@mail.concierge.xin.`
+          : 'Waiting for PMS AddOn email to reports@mail.concierge.xin.'
+      );
+    });
+
+    return () => unsub && unsub();
+  }, []);
   useEffect(() => {
     document.title =
       badgeCount > 0 ? `(${badgeCount}) ${titleBase.current}` : titleBase.current;
@@ -376,6 +357,27 @@ export default function Staff() {
   }, [vehicles]);
 
   // ---------- actions ----------
+  const startExpectedArrival = (row) => {
+    setArrivalSource(row);
+    setNewVehicle({
+      tag: '',
+      guestName: row.surname || '',
+      roomNumber: '',
+      countryCode: '',
+      phone: '',
+      departureDate: row.depart || row.departureDate || '',
+    });
+    setNewVehicleErrors({
+      tag: false,
+      guestName: false,
+      roomNumber: false,
+      countryCode: false,
+      phone: false,
+      departureDate: false,
+    });
+    setNewOpen(true);
+  };
+
   const handleCreate = async () => {
     const { tag, guestName, roomNumber, countryCode, phone, departureDate } = newVehicle;
     const parsedCode = resolveCountryCode(countryCode);
@@ -423,12 +425,12 @@ export default function Staff() {
     }
     
     setNewVehicle({
-      tag: "",
-      guestName: "",
-      roomNumber: "",
-      countryCode: "",
-      phone: "",
-      departureDate: "",
+      tag: '',
+      guestName: '',
+      roomNumber: '',
+      countryCode: '',
+      phone: '',
+      departureDate: '',
     });
     setNewVehicleErrors({
       tag: false,
@@ -440,146 +442,6 @@ export default function Staff() {
     });
     setNewOpen(false);
     setArrivalSource(null);
-  };
-
-  const startExpectedArrival = (row) => {
-    setArrivalSource(row);
-    setNewVehicle({
-      tag: '',
-      guestName: row.surname || '',
-      roomNumber: '',
-      countryCode: '',
-      phone: '',
-      departureDate: row.departureDate || '',
-    });
-    setNewVehicleErrors({
-      tag: false,
-      guestName: false,
-      roomNumber: false,
-      countryCode: false,
-      phone: false,
-      departureDate: false,
-    });
-    setNewOpen(true);
-  };
-
-  const clearExpectedArrivals = () => {
-    setExpectedArrivals([]);
-    setExpectedImportSummary('');
-    setExpectedImportError('');
-    if (expectedFileInputRef.current) {
-      expectedFileInputRef.current.value = '';
-    }
-  };
-
-  const handleExpectedCsvUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setExpectedImportError('');
-    setExpectedImportSummary('');
-
-    const isCsvFile = file.name.toLowerCase().endsWith('.csv')
-      && ['text/csv', 'application/csv', 'application/vnd.ms-excel', ''].includes(file.type);
-    if (!isCsvFile) {
-      setExpectedImportError('Please upload a valid CSV file.');
-      if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
-      return;
-    }
-
-    if (file.size > MAX_ADDON_FILE_SIZE) {
-      setExpectedImportError('CSV file is too large.');
-      if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      if (!text.trim()) {
-        setExpectedImportError('CSV file is empty.');
-        if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
-        return;
-      }
-
-      const lines = text.split(/\r?\n/).filter((line) => line.trim());
-      if (lines.length < 2) {
-        setExpectedImportError('CSV file must include a header row and at least one data row.');
-        if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
-        return;
-      }
-
-      const headers = parseCsvLine(lines[0]).map((header) => sanitizeCsvValue(header).toLowerCase());
-      const colIndex = (name) => headers.findIndex((header) => header === name.toLowerCase());
-
-      const requiredColumns = ['res no', 'surname', 'status', 'arrive', 'depart', 'add on type', 'add on', 'amount'];
-      const missingColumns = requiredColumns.filter((column) => colIndex(column) === -1);
-      if (missingColumns.length > 0) {
-        setExpectedImportError(`CSV is missing required columns: ${missingColumns.join(', ')}.`);
-        if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
-        return;
-      }
-
-      const importedRows = [];
-      let skippedRows = 0;
-
-      for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
-        const values = parseCsvLine(lines[lineIndex]).map((value) => sanitizeCsvValue(value));
-        if (values.length < headers.length) {
-          skippedRows += 1;
-          continue;
-        }
-
-        const addOnType = values[colIndex('add on type')] || '';
-        if (!/valet parking/i.test(addOnType)) {
-          skippedRows += 1;
-          continue;
-        }
-
-        const resNo = values[colIndex('res no')] || '';
-        const guestNo = values[colIndex('guest no')] || '';
-        const status = values[colIndex('status')] || '';
-        const surname = values[colIndex('surname')] || '';
-        const arrive = values[colIndex('arrive')] || '';
-        const depart = values[colIndex('depart')] || '';
-        const addOn = values[colIndex('add on')] || '';
-        const amountRaw = values[colIndex('amount')] || '';
-        const amount = parseMoney(amountRaw);
-
-        if (!resNo || !surname || !arrive || !depart || amount === null) {
-          skippedRows += 1;
-          continue;
-        }
-
-        importedRows.push({
-          id: `${resNo}-${guestNo || surname}`,
-          resNo,
-          guestNo,
-          status,
-          surname,
-          arrive,
-          depart,
-          addOn,
-          amount,
-          amountRaw,
-          departureDate: (() => {
-            const parsed = new Date(depart);
-            return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
-          })(),
-        });
-      }
-
-      importedRows.sort((a, b) => String(a.arrive).localeCompare(String(b.arrive)));
-      setExpectedArrivals(importedRows);
-      setExpectedImportSummary(`Imported ${importedRows.length} expected arrival(s).${skippedRows > 0 ? ` Skipped ${skippedRows} row(s).` : ''}`);
-
-      if (expectedFileInputRef.current) {
-        expectedFileInputRef.current.value = '';
-      }
-    } catch (error) {
-      console.error('Error parsing PMS add-on CSV:', error);
-      setExpectedImportError('Failed to parse the PMS add-on CSV.');
-      if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
-    }
   };
 
   const openPark = (v) => {
@@ -833,9 +695,6 @@ export default function Staff() {
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button className="btn secondary" onClick={() => expectedFileInputRef.current?.click()} title="Import a PMS add-on CSV to create expected arrivals">
-            Import PMS Add-On
-          </button>
           <button className="btn secondary" onClick={() => navigate('/valet-history')} title="Go to valet history">
             View History
           </button>
@@ -845,37 +704,16 @@ export default function Staff() {
         </div>
       </div>
 
-      <input
-        ref={expectedFileInputRef}
-        type="file"
-        accept=".csv,text/csv"
-        onChange={handleExpectedCsvUpload}
-        style={{ display: 'none' }}
-      />
-
       <section className="card pad" style={{ marginBottom: 16 }}>
         <div className="row space-between" style={{ gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
           <div>
             <h3 style={{ marginBottom: 6 }}>Expected Arrivals</h3>
             <p style={{ margin: 0, opacity: 0.7 }}>
-              Imported from the PMS AddOn report. Use these rows to speed up manual check-in when the guest arrives.
+              Ingested from the PMS AddOn email sent to reports@mail.concierge.xin. Use these rows to speed up manual check-in when the guest arrives.
             </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn secondary" onClick={() => expectedFileInputRef.current?.click()} title="Upload a new PMS add-on CSV">
-              Upload CSV
-            </button>
-            <button className="btn secondary" onClick={clearExpectedArrivals} title="Clear the imported list">
-              Clear
-            </button>
           </div>
         </div>
 
-        {expectedImportError && (
-          <div style={{ marginBottom: 10, color: '#c62828', fontSize: 13 }}>
-            {expectedImportError}
-          </div>
-        )}
         {expectedImportSummary && (
           <div style={{ marginBottom: 10, color: '#2e7d32', fontSize: 13 }}>
             {expectedImportSummary}
@@ -884,7 +722,7 @@ export default function Staff() {
 
         {expectedArrivals.length === 0 ? (
           <div style={{ padding: 16, border: '1px dashed #d0d5dd', borderRadius: 12, color: '#667085', fontSize: 14 }}>
-            No PMS rows imported yet.
+            No PMS rows received yet.
           </div>
         ) : (
           <div className="table-wrap">
@@ -905,8 +743,8 @@ export default function Staff() {
                   <tr key={row.id}>
                     <td>{row.resNo}</td>
                     <td>{row.surname}</td>
-                    <td>{row.arrive}</td>
-                    <td>{row.depart}</td>
+                    <td>{row.arrive || '—'}</td>
+                    <td>{row.depart || '—'}</td>
                     <td>{formatMoney(row.amount)}</td>
                     <td>
                       {(() => {
@@ -940,7 +778,6 @@ export default function Staff() {
       {/* Request Queue */}
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Request Queue</h3>
-
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -959,7 +796,7 @@ export default function Staff() {
               {requestQueue.length === 0 && (
                 <tr>
                   <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
-                    No current requests.
+                    No vehicles in request queue.
                   </td>
                 </tr>
               )}
@@ -969,7 +806,7 @@ export default function Staff() {
                   <td>{v.guestName}</td>
                   <td>{v.roomNumber}</td>
                   <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
-                  <td>{v.requestedAt ? fmtTime(v.requestedAt) : "—"}</td>
+                  <td>{fmtTime(v.requestedAt)}</td>
                   <td>
                     <span className={`status-pill status-${v.status}`}>
                       {v.status === "out" ? "Out" : cap(v.status)}
@@ -977,27 +814,17 @@ export default function Staff() {
                   </td>
                   <td>{v.bay || "—"}</td>
                   <td style={{ display: "flex", gap: 6 }}>
-                    {/* one button at a time */}
-                    {v.status === "requested" && (
-                      <button className="btn secondary" onClick={() => ackRequest(v)} title="Acknowledge — start retrieving vehicle">
+                    {!v.ack && (
+                      <button className="btn secondary" onClick={() => ackRequest(v)} title="Acknowledge request">
                         <AcknowledgeIcon />
                       </button>
                     )}
-                    {v.status === "retrieving" && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)} title="Mark vehicle as ready for handover">
-                        <ReadyIcon />
-                      </button>
-                    )}
-                    {v.status === "ready" && (
-                      <button className="btn secondary" onClick={() => handOver(v.tag)} title="Hand over vehicle to guest">
-                        <HandOverIcon />
-                      </button>
-                    )}
-                    {v.status !== "out" && (
-                      <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)} title="Cancel this request">
-                        <CancelIcon />
-                      </button>
-                    )}
+                    <button className="btn secondary" onClick={() => handOver(v.tag)} title="Hand over vehicle to guest">
+                      <HandOverIcon />
+                    </button>
+                    <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)} title="Cancel request">
+                      <CancelIcon />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -1009,10 +836,6 @@ export default function Staff() {
       {/* Scheduled Pickups */}
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Scheduled Pickups</h3>
-        <p style={{ marginTop: 6, marginBottom: 12, fontSize: "0.9em" }}>
-          Vehicles will enter the Request Queue 10 minutes before their scheduled pickup time.
-        </p>
-
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -1021,10 +844,10 @@ export default function Staff() {
                 <th>Guest</th>
                 <th>Room</th>
                 <th>Vehicle</th>
-                <th>Pickup Time</th>
+                <th>Scheduled At</th>
                 <th>Status</th>
                 <th>Bay</th>
-                <th>Actions</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>

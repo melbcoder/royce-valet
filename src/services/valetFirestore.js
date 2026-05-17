@@ -551,6 +551,16 @@ export function subscribeActiveVehicles(callback) {
   });
 }
 
+export function subscribeExpectedArrivals(callback) {
+  return onSnapshot(query(expectedArrivalsRef, orderBy('updatedAt', 'desc')), (snapshot) => {
+    const list = snapshot.docs.map((d) => ({
+      ...d.data(),
+      id: d.id,
+    }));
+    callback(list);
+  });
+}
+
 // Subscribe: guest page
 export function subscribeVehicleByTag(tag, callback) {
   return onSnapshot(doc(db, "vehicles", tag), (snap) => {

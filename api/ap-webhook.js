@@ -9,6 +9,7 @@ import { ingestLowRateCsvPayload } from '../server/lib/lowRateReport.js';
 import { ingestOpenFoliosCsvPayload } from '../server/lib/openFoliosReport.js';
 import { ingestCancellationCsvPayload } from '../server/lib/cancellationReport.js';
 import { ingestRoomStatusCsvPayload, isRoomStatusCsv } from '../server/lib/roomStatusReport.js';
+import { ingestValetExpectedArrivalsCsvPayload } from '../server/lib/valetExpectedArrivalsReport.js';
 import { getDefaultReportTimezone } from '../server/lib/reportDate.js';
 
 function normalizeBucketName(raw = '') {
@@ -314,6 +315,16 @@ function inferReportTypeFromCsv({ csvBuffer, filename = '', subject = '' } = {})
     && (headers.has('depart_date_medium') || headers.has('depart_date') || headers.has('check_out') || headers.has('departure_date'));
 
   if (isOpenFoliosCsv) return 'open-folios';
+
+  const isValetAddOnCsv =
+    headers.has('property_name')
+    && headers.has('res_no')
+    && headers.has('guest_no')
+    && headers.has('add_on_type')
+    && headers.has('add_on')
+    && headers.has('amount');
+
+  if (isValetAddOnCsv) return 'valet-add-on';
 
   const isLowRateCsv =
     headers.has('res_no')
@@ -1133,6 +1144,7 @@ export default async function handler(req, res) {
     });
 
     let csvFile = files.find((f) => isCsvFileCandidate(f));
+    const looksLikeValetAddOnMail = lowerSubject.includes('daily addon') || lowerSubject.includes('daily add on') || lowerSubject.includes('addon');
     if (!csvFile && hasRawMime) {
       const mimeCsvs = extractCsvsFromRawMime(fields.email);
       if (mimeCsvs.length > 0) {
@@ -1177,6 +1189,27 @@ export default async function handler(req, res) {
         });
 
         return res.status(200).json({ received: true, roomCount: result.count });
+      }
+
+      if (inferredReportType === 'valet-add-on' || looksLikeValetAddOnMail || lowerSubject.includes('daily addon')) {
+        const result = await ingestValetExpectedArrivalsCsvPayload({
+          csv: csvText,
+          sourceEmail: 'reports@mail.concierge.xin',
+          subject,
+          filename: csvFile.info?.filename || csvFile.name || '',
+          db,
+        });
+
+        await db.collection('valet_expected_arrivals_webhook_log').add({
+          receivedAt: new Date().toISOString(),
+          fromEmail,
+          toEmail,
+          subject,
+          status: 'ingested',
+          expectedArrivalCount: result.count,
+        });
+
+        return res.status(200).json({ received: true, count: result.count });
       }
     }
 
