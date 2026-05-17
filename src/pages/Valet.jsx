@@ -22,6 +22,7 @@ import PhotoModal from "../components/PhotoModal";
 import { formatPhoneNumber } from "../utils/phoneFormatter";
 import { countryCodes } from "../utils/countryCodes";
 import CountryCodeSelect from "../components/CountryCodeSelect";
+import { getSettings } from "../services/valetFirestore";
 
 // ---------- helpers ----------
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
@@ -63,6 +64,55 @@ const resolveCountryCode = (value) => {
   if (nameMatch) return getPrimaryCode(nameMatch.code);
 
   return "";
+};
+
+const MAX_ADDON_FILE_SIZE = 5 * 1024 * 1024;
+
+const parseCsvLine = (line) => {
+  const cells = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      i += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      cells.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  cells.push(current.trim());
+  return cells;
+};
+
+const sanitizeCsvValue = (value) => String(value || '').replace(/[<>]/g, '').trim();
+
+const parseMoney = (value) => {
+  const normalized = String(value || '').replace(/[^\d.-]/g, '');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const formatMoney = (value) => {
+  const parsed = parseMoney(value);
+  if (parsed === null) return '—';
+  return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(parsed);
 };
 
 // Reusable Park Icon Component
@@ -107,11 +157,17 @@ const AuditIcon = () => (
 
 export default function Staff() {
   const navigate = useNavigate();
+  const expectedFileInputRef = useRef(null);
   
   // ---------- state ----------
   const [vehicles, setVehicles] = useState([]);
+  const [expectedArrivals, setExpectedArrivals] = useState([]);
+  const [expectedImportError, setExpectedImportError] = useState('');
+  const [expectedImportSummary, setExpectedImportSummary] = useState('');
+  const [valetParkingPrice, setValetParkingPrice] = useState(70);
   const [filterStatus, setFilterStatus] = useState(""); // active table filter
   const [newOpen, setNewOpen] = useState(false);
+  const [arrivalSource, setArrivalSource] = useState(null);
   const [newVehicle, setNewVehicle] = useState({
     tag: "",
     guestName: "",
@@ -206,6 +262,23 @@ export default function Staff() {
       setVehicles(stable);
     });
     return () => unsub && unsub();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getSettings()
+      .then((settings) => {
+        if (!active) return;
+        const parsed = Number(settings?.valetParkingPrice);
+        setValetParkingPrice(Number.isFinite(parsed) ? parsed : 70);
+      })
+      .catch((error) => {
+        console.error('Failed to load valet price setting:', error);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // tab title badge
@@ -366,6 +439,147 @@ export default function Staff() {
       departureDate: false,
     });
     setNewOpen(false);
+    setArrivalSource(null);
+  };
+
+  const startExpectedArrival = (row) => {
+    setArrivalSource(row);
+    setNewVehicle({
+      tag: '',
+      guestName: row.surname || '',
+      roomNumber: '',
+      countryCode: '',
+      phone: '',
+      departureDate: row.departureDate || '',
+    });
+    setNewVehicleErrors({
+      tag: false,
+      guestName: false,
+      roomNumber: false,
+      countryCode: false,
+      phone: false,
+      departureDate: false,
+    });
+    setNewOpen(true);
+  };
+
+  const clearExpectedArrivals = () => {
+    setExpectedArrivals([]);
+    setExpectedImportSummary('');
+    setExpectedImportError('');
+    if (expectedFileInputRef.current) {
+      expectedFileInputRef.current.value = '';
+    }
+  };
+
+  const handleExpectedCsvUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setExpectedImportError('');
+    setExpectedImportSummary('');
+
+    const isCsvFile = file.name.toLowerCase().endsWith('.csv')
+      && ['text/csv', 'application/csv', 'application/vnd.ms-excel', ''].includes(file.type);
+    if (!isCsvFile) {
+      setExpectedImportError('Please upload a valid CSV file.');
+      if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
+      return;
+    }
+
+    if (file.size > MAX_ADDON_FILE_SIZE) {
+      setExpectedImportError('CSV file is too large.');
+      if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      if (!text.trim()) {
+        setExpectedImportError('CSV file is empty.');
+        if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
+        return;
+      }
+
+      const lines = text.split(/\r?\n/).filter((line) => line.trim());
+      if (lines.length < 2) {
+        setExpectedImportError('CSV file must include a header row and at least one data row.');
+        if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
+        return;
+      }
+
+      const headers = parseCsvLine(lines[0]).map((header) => sanitizeCsvValue(header).toLowerCase());
+      const colIndex = (name) => headers.findIndex((header) => header === name.toLowerCase());
+
+      const requiredColumns = ['res no', 'surname', 'status', 'arrive', 'depart', 'add on type', 'add on', 'amount'];
+      const missingColumns = requiredColumns.filter((column) => colIndex(column) === -1);
+      if (missingColumns.length > 0) {
+        setExpectedImportError(`CSV is missing required columns: ${missingColumns.join(', ')}.`);
+        if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
+        return;
+      }
+
+      const importedRows = [];
+      let skippedRows = 0;
+
+      for (let lineIndex = 1; lineIndex < lines.length; lineIndex += 1) {
+        const values = parseCsvLine(lines[lineIndex]).map((value) => sanitizeCsvValue(value));
+        if (values.length < headers.length) {
+          skippedRows += 1;
+          continue;
+        }
+
+        const addOnType = values[colIndex('add on type')] || '';
+        if (!/valet parking/i.test(addOnType)) {
+          skippedRows += 1;
+          continue;
+        }
+
+        const resNo = values[colIndex('res no')] || '';
+        const guestNo = values[colIndex('guest no')] || '';
+        const status = values[colIndex('status')] || '';
+        const surname = values[colIndex('surname')] || '';
+        const arrive = values[colIndex('arrive')] || '';
+        const depart = values[colIndex('depart')] || '';
+        const addOn = values[colIndex('add on')] || '';
+        const amountRaw = values[colIndex('amount')] || '';
+        const amount = parseMoney(amountRaw);
+
+        if (!resNo || !surname || !arrive || !depart || amount === null) {
+          skippedRows += 1;
+          continue;
+        }
+
+        importedRows.push({
+          id: `${resNo}-${guestNo || surname}`,
+          resNo,
+          guestNo,
+          status,
+          surname,
+          arrive,
+          depart,
+          addOn,
+          amount,
+          amountRaw,
+          departureDate: (() => {
+            const parsed = new Date(depart);
+            return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+          })(),
+        });
+      }
+
+      importedRows.sort((a, b) => String(a.arrive).localeCompare(String(b.arrive)));
+      setExpectedArrivals(importedRows);
+      setExpectedImportSummary(`Imported ${importedRows.length} expected arrival(s).${skippedRows > 0 ? ` Skipped ${skippedRows} row(s).` : ''}`);
+
+      if (expectedFileInputRef.current) {
+        expectedFileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error parsing PMS add-on CSV:', error);
+      setExpectedImportError('Failed to parse the PMS add-on CSV.');
+      if (expectedFileInputRef.current) expectedFileInputRef.current.value = '';
+    }
   };
 
   const openPark = (v) => {
@@ -618,7 +832,10 @@ export default function Staff() {
       {/* Header */}
       <div className="row space-between" style={{ marginBottom: 16 }}>
         <h2>Valet Management</h2>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="btn secondary" onClick={() => expectedFileInputRef.current?.click()} title="Import a PMS add-on CSV to create expected arrivals">
+            Import PMS Add-On
+          </button>
           <button className="btn secondary" onClick={() => navigate('/valet-history')} title="Go to valet history">
             View History
           </button>
@@ -627,6 +844,98 @@ export default function Staff() {
           </button>
         </div>
       </div>
+
+      <input
+        ref={expectedFileInputRef}
+        type="file"
+        accept=".csv,text/csv"
+        onChange={handleExpectedCsvUpload}
+        style={{ display: 'none' }}
+      />
+
+      <section className="card pad" style={{ marginBottom: 16 }}>
+        <div className="row space-between" style={{ gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+          <div>
+            <h3 style={{ marginBottom: 6 }}>Expected Arrivals</h3>
+            <p style={{ margin: 0, opacity: 0.7 }}>
+              Imported from the PMS AddOn report. Use these rows to speed up manual check-in when the guest arrives.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn secondary" onClick={() => expectedFileInputRef.current?.click()} title="Upload a new PMS add-on CSV">
+              Upload CSV
+            </button>
+            <button className="btn secondary" onClick={clearExpectedArrivals} title="Clear the imported list">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        {expectedImportError && (
+          <div style={{ marginBottom: 10, color: '#c62828', fontSize: 13 }}>
+            {expectedImportError}
+          </div>
+        )}
+        {expectedImportSummary && (
+          <div style={{ marginBottom: 10, color: '#2e7d32', fontSize: 13 }}>
+            {expectedImportSummary}
+          </div>
+        )}
+
+        {expectedArrivals.length === 0 ? (
+          <div style={{ padding: 16, border: '1px dashed #d0d5dd', borderRadius: 12, color: '#667085', fontSize: 14 }}>
+            No PMS rows imported yet.
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Res No</th>
+                  <th>Guest</th>
+                  <th>Arrive</th>
+                  <th>Depart</th>
+                  <th>Amount</th>
+                  <th>Price Check</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expectedArrivals.map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.resNo}</td>
+                    <td>{row.surname}</td>
+                    <td>{row.arrive}</td>
+                    <td>{row.depart}</td>
+                    <td>{formatMoney(row.amount)}</td>
+                    <td>
+                      {(() => {
+                        const amountMismatch = Math.abs((row.amount || 0) - valetParkingPrice) > 0.01;
+                        return (
+                      <span
+                        className="status-pill"
+                        style={{
+                          background: amountMismatch ? '#ffebee' : '#e8f5e9',
+                          color: amountMismatch ? '#c62828' : '#2e7d32',
+                        }}
+                      >
+                        {amountMismatch ? `Mismatch vs AUD ${valetParkingPrice.toFixed(2)}` : 'Matches valet price'}
+                      </span>
+                        );
+                      })()}
+                    </td>
+                    <td>
+                      <button className="btn secondary" onClick={() => startExpectedArrival(row)} title="Use this PMS row for manual arrival check-in">
+                        Create Arrival
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* Request Queue */}
       <section className="card pad" style={{ marginBottom: 16 }}>
@@ -1002,8 +1311,21 @@ export default function Staff() {
       </section>
 
       {/* Create Vehicle */}
-      <Modal open={newOpen} onClose={() => setNewOpen(false)} title="Add Vehicle">
+      <Modal open={newOpen} onClose={() => { setNewOpen(false); setArrivalSource(null); }} title="Add Vehicle">
         <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {arrivalSource && (
+            <div style={{ border: '1px solid #d0d5dd', borderRadius: 12, padding: 12, background: '#f8fafc', fontSize: 13 }}>
+              <strong>Imported PMS row:</strong> {arrivalSource.resNo} / {arrivalSource.surname}
+              <div style={{ marginTop: 4, color: '#667085' }}>
+                Enter the guest's first name, tag number, room number, and phone to complete the check-in.
+              </div>
+              <div style={{ marginTop: 4, color: Math.abs((arrivalSource.amount || 0) - valetParkingPrice) > 0.01 ? '#c62828' : '#2e7d32' }}>
+                {Math.abs((arrivalSource.amount || 0) - valetParkingPrice) > 0.01
+                  ? `Amount ${formatMoney(arrivalSource.amount)} does not match valet price ${formatMoney(valetParkingPrice)}.`
+                  : `Amount matches valet price ${formatMoney(valetParkingPrice)}.`}
+              </div>
+            </div>
+          )}
           <div>
             <input 
               placeholder="Tag Number (required)" 
@@ -1023,7 +1345,7 @@ export default function Staff() {
 
           <div>
             <input 
-              placeholder="Guest Name (required)" 
+              placeholder={arrivalSource ? "First name + surname (required)" : "Guest Name (required)"} 
               value={newVehicle.guestName}
               onChange={(e) => {
                 setNewVehicle({ ...newVehicle, guestName: e.target.value });
@@ -1109,7 +1431,7 @@ export default function Staff() {
 
           <div className="row" style={{ gap: 8, marginTop: 8 }}>
             <button className="btn primary" onClick={handleCreate} title="Add this vehicle to the valet system">Create Vehicle</button>
-            <button className="btn secondary" onClick={() => setNewOpen(false)} title="Cancel and close">Cancel</button>
+            <button className="btn secondary" onClick={() => { setNewOpen(false); setArrivalSource(null); }} title="Cancel and close">Cancel</button>
           </div>
         </div>
       </Modal>

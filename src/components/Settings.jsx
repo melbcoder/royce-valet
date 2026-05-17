@@ -188,6 +188,9 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [vehicleRetentionDaysInput, setVehicleRetentionDaysInput] = useState('7')
   const [vehicleRetentionSuccess, setVehicleRetentionSuccess] = useState(false)
   const [vehicleRetentionError, setVehicleRetentionError] = useState('')
+  const [valetParkingPriceInput, setValetParkingPriceInput] = useState('70')
+  const [valetParkingPriceSuccess, setValetParkingPriceSuccess] = useState(false)
+  const [valetParkingPriceError, setValetParkingPriceError] = useState('')
   const [pdfRetentionDaysInput, setPdfRetentionDaysInput] = useState('90')
   const [pdfRetentionSuccess, setPdfRetentionSuccess] = useState(false)
   const [pdfRetentionError, setPdfRetentionError] = useState('')
@@ -266,6 +269,10 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setVehicleRetentionDaysInput(String(settings.vehiclePhotoRetentionDays || 7))
   }, [settings.vehiclePhotoRetentionDays])
+
+  useEffect(() => {
+    setValetParkingPriceInput(String(Number.isFinite(Number(settings.valetParkingPrice)) ? settings.valetParkingPrice : 70))
+  }, [settings.valetParkingPrice])
 
   useEffect(() => {
     setPdfRetentionDaysInput(String(settings.pdfRetentionDays || 90))
@@ -689,6 +696,26 @@ export default function Settings({open = false, onClose, asPage = false}){
     } catch (err) {
       console.error('Error updating vehicle photo retention days:', err)
       setVehicleRetentionError('Failed to update vehicle photo retention days.')
+    }
+  }
+
+  async function handleSaveValetParkingPrice() {
+    try {
+      setValetParkingPriceError('')
+      setValetParkingPriceSuccess(false)
+
+      const parsed = Number(valetParkingPriceInput)
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10000) {
+        setValetParkingPriceError('Please enter a valid valet parking price.')
+        return
+      }
+
+      await updateSettings({ valetParkingPrice: parsed })
+      setValetParkingPriceSuccess(true)
+      setTimeout(() => setValetParkingPriceSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating valet parking price:', err)
+      setValetParkingPriceError('Failed to update valet parking price.')
     }
   }
 
@@ -1167,6 +1194,40 @@ export default function Settings({open = false, onClose, asPage = false}){
                 )}
               </div>
             </div>
+
+                <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+                  <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Valet Pricing</h3>
+                  <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                    Set the default valet parking price used to flag mismatches in the PMS add-on import.
+                  </p>
+
+                  <div style={{maxWidth: 360, border: '1px solid #e5e7eb', borderRadius: 12, padding: 14, background: '#fafafa'}}>
+                    <div style={{fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 8}}>Per-vehicle valet parking price</div>
+                    <div className="row" style={{gap: 8, alignItems: 'center', marginBottom: 10}}>
+                      <span style={{fontSize: 13, color: '#666'}}>AUD</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={valetParkingPriceInput}
+                        onChange={(e) => setValetParkingPriceInput(e.target.value)}
+                        style={{width: 140, padding: '6px 8px', fontSize: 13}}
+                      />
+                    </div>
+                    <div style={{fontSize: 12, color: '#6b7280', marginBottom: 10}}>
+                      Imported add-on rows will be flagged if Amount does not match this price.
+                    </div>
+                    <button type="button" className="btn secondary" onClick={handleSaveValetParkingPrice} style={{padding: '4px 10px', fontSize: 12}}>
+                      Save
+                    </button>
+                    {valetParkingPriceError && (
+                      <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{valetParkingPriceError}</div>
+                    )}
+                    {valetParkingPriceSuccess && (
+                      <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Valet pricing updated successfully!</div>
+                    )}
+                  </div>
+                </div>
             </div>
           </section>
         )}

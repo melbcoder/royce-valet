@@ -106,6 +106,9 @@ export async function getSettings() {
         vehiclePhotoRetentionDays: Number.isInteger(data.vehiclePhotoRetentionDays)
           ? data.vehiclePhotoRetentionDays
           : 7,
+        valetParkingPrice: Number.isFinite(Number(data.valetParkingPrice))
+          ? Number(data.valetParkingPrice)
+          : 70,
         pdfRetentionDays: Number.isInteger(data.pdfRetentionDays)
           ? data.pdfRetentionDays
           : 90,
@@ -135,6 +138,7 @@ export async function getSettings() {
       timezone: "Australia/Melbourne", // Default to Melbourne, Australia
       contractorPhotoRetentionDays: 7,
       vehiclePhotoRetentionDays: 7,
+      valetParkingPrice: 70,
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
       smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
@@ -152,6 +156,7 @@ export async function getSettings() {
       timezone: "Australia/Melbourne",
       contractorPhotoRetentionDays: 7,
       vehiclePhotoRetentionDays: 7,
+      valetParkingPrice: 70,
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
       smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
@@ -188,6 +193,9 @@ export function subscribeSettings(callback) {
         vehiclePhotoRetentionDays: Number.isInteger(data.vehiclePhotoRetentionDays)
           ? data.vehiclePhotoRetentionDays
           : 7,
+        valetParkingPrice: Number.isFinite(Number(data.valetParkingPrice))
+          ? Number(data.valetParkingPrice)
+          : 70,
         pdfRetentionDays: Number.isInteger(data.pdfRetentionDays)
           ? data.pdfRetentionDays
           : 90,
@@ -216,6 +224,7 @@ export function subscribeSettings(callback) {
         timezone: "Australia/Melbourne",
         contractorPhotoRetentionDays: 7,
         vehiclePhotoRetentionDays: 7,
+        valetParkingPrice: 70,
         pdfRetentionDays: 90,
         guestLinkRetentionDays: 2,
         smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
