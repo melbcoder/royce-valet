@@ -5,7 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-export default function ProtectedRoute({ children, requiredPage }) {
+export default function ProtectedRoute({ children, requiredPage, requiredAnyPages = [] }) {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [isAuthorized, setIsAuthorized] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function ProtectedRoute({ children, requiredPage }) {
 
       setIsAuthenticated(true);
 
-      if (!requiredPage) {
+      if (!requiredPage && requiredAnyPages.length === 0) {
         setIsAuthorized(true);
         setLoading(false);
         return;
@@ -36,7 +36,11 @@ export default function ProtectedRoute({ children, requiredPage }) {
         const userData = userSnap.exists() ? userSnap.data() : {};
         const isAdmin = userData?.role === 'admin';
         const pages = Array.isArray(userData?.pages) ? userData.pages : [];
-        setIsAuthorized(isAdmin || pages.includes(requiredPage));
+        const hasRequiredPage = requiredPage ? pages.includes(requiredPage) : false;
+        const hasAnyRequiredPage = requiredAnyPages.length > 0
+          ? requiredAnyPages.some((page) => pages.includes(page))
+          : false;
+        setIsAuthorized(isAdmin || hasRequiredPage || hasAnyRequiredPage);
       } catch (error) {
         console.error('ProtectedRoute authorization check failed:', error);
         setIsAuthorized(false);
@@ -49,7 +53,7 @@ export default function ProtectedRoute({ children, requiredPage }) {
       active = false;
       unsubscribe();
     };
-  }, [requiredPage]);
+  }, [requiredAnyPages, requiredPage]);
 
   // Show loading state while checking authentication
   if (loading) {

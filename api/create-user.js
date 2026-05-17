@@ -9,6 +9,8 @@ const VALID_PAGE_IDS = new Set([
   'luggage-history',
   'amenities',
   'amenities-history',
+  'housekeeping',
+  'room-status',
   'maintenance',
   'maintenance/jobs',
   'maintenance/contractor-sign-in',

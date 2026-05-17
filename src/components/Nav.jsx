@@ -15,7 +15,7 @@ export default function Nav() {
   const [frontOfficeOpen, setFrontOfficeOpen] = useState(false);
   const [housekeepingOpen, setHousekeepingOpen] = useState(false);
   const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
-  const isHousekeepingPage = ['/room-status'].includes(location.pathname);
+  const isHousekeepingPage = ['/housekeeping', '/room-status'].includes(location.pathname);
   const isFrontOfficePage = [
     '/valet',
     '/valet-history',
@@ -32,6 +32,7 @@ export default function Nav() {
     '/amenities',
     '/luggage-history',
     '/amenities-history',
+    '/housekeeping',
     '/room-status',
     '/maintenance',
     '/maintenance/jobs',
@@ -45,13 +46,13 @@ export default function Nav() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userPages, setUserPages] = useState([]);
 
-  const hasAccess = (pageId) => userPages.includes(pageId);
+  const hasAccess = (pageId) => isAdmin || userPages.includes(pageId);
   const canAccessAccountsPayable =
     hasAccess('accounts-payable')
     || hasAccess('accounts-payable/travel-agents')
     || hasAccess('accounts-payable/suppliers');
   const canAccessFrontOffice = hasAccess('valet') || hasAccess('luggage') || hasAccess('amenities') || hasAccess('dashboard');
-  const canAccessHousekeeping = hasAccess('amenities') || hasAccess('luggage') || hasAccess('dashboard');
+  const canAccessHousekeeping = hasAccess('housekeeping') || hasAccess('room-status');
   const apDefaultPath = hasAccess('accounts-payable')
     ? '/accounts-payable'
     : hasAccess('accounts-payable/travel-agents')
@@ -368,17 +369,32 @@ export default function Nav() {
                       minWidth: 180,
                     }}
                   >
-                    <NavLink
-                      to="/room-status"
-                      onClick={() => setHousekeepingOpen(false)}
-                      style={({ isActive }) => ({
-                        ...navLinkStyle(isActive),
-                        display: 'block',
-                        marginRight: 0,
-                      })}
-                    >
-                      Room Status
-                    </NavLink>
+                    {hasAccess('housekeeping') && (
+                      <NavLink
+                        to="/housekeeping"
+                        onClick={() => setHousekeepingOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Housekeeping Home
+                      </NavLink>
+                    )}
+                    {hasAccess('room-status') && (
+                      <NavLink
+                        to="/room-status"
+                        onClick={() => setHousekeepingOpen(false)}
+                        style={({ isActive }) => ({
+                          ...navLinkStyle(isActive),
+                          display: 'block',
+                          marginRight: 0,
+                        })}
+                      >
+                        Room Status
+                      </NavLink>
+                    )}
                   </div>
                 )}
               </div>

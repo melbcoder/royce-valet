@@ -68,6 +68,8 @@ const AVAILABLE_PAGES = [
   { id: 'luggage-history', label: 'Luggage History', icon: '📋' },
   { id: 'amenities', label: 'Amenities', icon: '🎁' },
   { id: 'amenities-history', label: 'Amenities History', icon: '📋' },
+  { id: 'housekeeping', label: 'Housekeeping', icon: '🛎️' },
+  { id: 'room-status', label: 'Room Status', icon: '🛏️' },
   { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
   { id: 'accounts-payable', label: 'Accounts Payable', icon: '💰' },
   { id: 'accounts-payable/travel-agents', label: 'Travel Agents', icon: '💰' },
@@ -102,6 +104,15 @@ const AVAILABLE_SECTIONS = [
     pages: [
       { id: 'amenities', label: 'Amenities' },
       { id: 'amenities-history', label: 'Amenities History' },
+    ],
+  },
+  {
+    id: 'housekeeping-section',
+    label: 'Housekeeping',
+    icon: '🛎️',
+    pages: [
+      { id: 'housekeeping', label: 'Housekeeping Home' },
+      { id: 'room-status', label: 'Room Status' },
     ],
   },
   {

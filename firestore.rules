@@ -211,8 +211,8 @@ service cloud.firestore {
 
     // Room status database - readable by amenities/luggage staff and writable from those pages
     match /roomStatus/{roomId} {
-      allow read: if hasAnyPageAccess(['amenities', 'amenities-history', 'luggage', 'luggage-history', 'dashboard']);
-      allow write: if hasAnyPageAccess(['amenities', 'luggage']);
+      allow read: if hasAnyPageAccess(['amenities', 'amenities-history', 'luggage', 'luggage-history', 'dashboard', 'housekeeping', 'room-status']);
+      allow write: if hasAnyPageAccess(['amenities', 'luggage', 'housekeeping', 'room-status']);
     }
 
     // Room status webhook log - server-side only

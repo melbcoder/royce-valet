@@ -17,6 +17,7 @@ import TravelAgentDatabase from './pages/TravelAgentDatabase';
 import SupplierDatabase from './pages/SupplierDatabase';
 import Reports from './pages/Reports';
 import RoomStatus from './pages/RoomStatus';
+import Housekeeping from './pages/Housekeeping';
 import QRLogin from './pages/QRLogin';
 import ProtectedRoute from './components/ProtectedRoute';
 import Nav from './components/Nav';
@@ -154,9 +155,17 @@ export default function App(){
               } 
             />
             <Route
+              path="/housekeeping"
+              element={
+                <ProtectedRoute requiredPage="housekeeping">
+                  <Housekeeping />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/room-status"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredPage="room-status">
                   <RoomStatus />
                 </ProtectedRoute>
               }
