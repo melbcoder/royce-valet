@@ -9,6 +9,7 @@ import {
   deleteDoc,
   query,
   where,
+  orderBy,
   serverTimestamp,
   getDocs,
   arrayUnion,
@@ -38,6 +39,7 @@ const amenitiesAuditRef = collection(db, "amenitiesAudit");
 const settingsRef = collection(db, "settings");
 const maintenanceJobsRef = collection(db, "maintenanceJobs");
 const roomStatusRef = collection(db, "roomStatus");
+const expectedArrivalsRef = collection(db, "valetExpectedArrivals");
 
 // ===== ROOM STATUS =====
 
