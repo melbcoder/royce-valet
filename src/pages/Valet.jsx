@@ -318,10 +318,22 @@ export default function Staff() {
   // Active Vehicles (all), filtered by status if selected
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [viewMode, setViewMode] = useState("tiles"); // "tiles" or "map"
+
+  const linkedExpectedArrivalIds = useMemo(() => {
+    const ids = new Set();
+    vehicles.forEach((v) => {
+      const id = String(v.expectedArrivalId || '').trim();
+      if (id) ids.add(id);
+    });
+    return ids;
+  }, [vehicles]);
   
   // Filter expected arrivals to only show entries awaiting check-in.
   const filteredExpectedArrivals = useMemo(() => {
     return expectedArrivals.filter((row) => {
+      const rowId = String(row.id || row.rowDocId || '').trim();
+      if (rowId && linkedExpectedArrivalIds.has(rowId)) return false;
+
       const workflowStatus = String(row.workflowStatus || '').trim().toLowerCase();
       if (workflowStatus) return workflowStatus === 'expected';
 
@@ -329,7 +341,7 @@ export default function Staff() {
       const status = String(row.status || '').trim().toLowerCase();
       return status === 'confirmed' && !row.mergedAt;
     });
-  }, [expectedArrivals]);
+  }, [expectedArrivals, linkedExpectedArrivalIds]);
 
   // Close status dropdown when clicking outside
   useEffect(() => {

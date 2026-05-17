@@ -328,6 +328,21 @@ const addAmenityAuditLog = async (amenityId, action, details = {}) => {
   }
 };
 
+const markExpectedArrivalMerged = async (expectedArrivalId, payload) => {
+  if (!expectedArrivalId) return;
+  try {
+    await setDoc(doc(expectedArrivalsRef, expectedArrivalId), payload, { merge: true });
+  } catch (error) {
+    if (error?.code === 'permission-denied') {
+      debugLog('Skipping expected-arrivals merge marker write due to Firestore rules', {
+        expectedArrivalId,
+      });
+      return;
+    }
+    throw error;
+  }
+};
+
 // Create / check-in vehicle
 export async function createVehicle(data) {
   // Validate and sanitize inputs
@@ -397,18 +412,14 @@ export async function createVehicle(data) {
         });
       }
 
-      await setDoc(
-        doc(expectedArrivalsRef, expectedArrivalId),
-        {
-          mergedAt: new Date().toISOString(),
-          mergedVehicleTag: tag,
-          resNo: cleanResNo,
-          mergeState: 'merged',
-          workflowStatus: 'arrived',
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
+      await markExpectedArrivalMerged(expectedArrivalId, {
+        mergedAt: new Date().toISOString(),
+        mergedVehicleTag: tag,
+        resNo: cleanResNo,
+        mergeState: 'merged',
+        workflowStatus: 'arrived',
+        updatedAt: new Date().toISOString(),
+      });
 
       return;
     }
@@ -457,17 +468,13 @@ export async function createVehicle(data) {
   }
 
   if (expectedArrivalId) {
-    await setDoc(
-      doc(expectedArrivalsRef, expectedArrivalId),
-      {
-        mergedAt: new Date().toISOString(),
-        mergedVehicleTag: tag,
-        mergeState: 'merged',
-        workflowStatus: 'arrived',
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    await markExpectedArrivalMerged(expectedArrivalId, {
+      mergedAt: new Date().toISOString(),
+      mergedVehicleTag: tag,
+      mergeState: 'merged',
+      workflowStatus: 'arrived',
+      updatedAt: new Date().toISOString(),
+    });
   }
   
   // Add audit log
