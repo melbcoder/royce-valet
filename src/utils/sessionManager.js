@@ -1,3 +1,5 @@
+import { clearSessionUser } from './userSession';
+
 const SESSION_EXPIRY_KEY = 'sessionExpiry';
 const DEFAULT_SESSION_MS = 8 * 60 * 60 * 1000; // 8 hours
 
@@ -27,7 +29,7 @@ export const sessionManager = {
 
   endSession() {
     localStorage.removeItem(SESSION_EXPIRY_KEY);
-    localStorage.removeItem('currentUser');
+    clearSessionUser();
     if (typeof window !== 'undefined') {
       const path = window.location.pathname || '';
       const isPublicPath = path === '/login'

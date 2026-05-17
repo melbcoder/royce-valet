@@ -5,6 +5,8 @@ import { formatPhoneNumber } from '../utils/phoneFormatter'
 import { countryCodes } from '../utils/countryCodes'
 import CountryCodeSelect from './CountryCodeSelect'
 import Modal from './Modal'
+import { debugLog } from '../utils/debugLog'
+import { getSessionUser } from '../utils/userSession'
 
 const DEFAULT_SMS_WELCOME_TEMPLATE = "Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [VALET_LINK]"
 const DEFAULT_SMS_VEHICLE_READY_TEMPLATE = 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!'
@@ -199,7 +201,7 @@ export default function Settings({open = false, onClose, asPage = false}){
   const isEditingSelf = editingUser && editingUser.id === currentUser?.id
   const isVisible = asPage || open
 
-  // Load current user from localStorage and Firebase Auth when modal opens
+  // Load current user from session storage and Firebase Auth when modal opens
   useEffect(() => {
     if (!isVisible) return
     
@@ -208,15 +210,9 @@ export default function Settings({open = false, onClose, asPage = false}){
       try {
         const { auth } = await import('../firebase')
         
-        // Get user from localStorage
-        const userStr = localStorage.getItem('currentUser')
-        if (userStr) {
-          try {
-            const userData = JSON.parse(userStr)
-            setCurrentUser(userData)
-          } catch (err) {
-            console.error('Failed to parse current user:', err)
-          }
+        const userData = getSessionUser()
+        if (userData) {
+          setCurrentUser(userData)
         }
         
         // Verify Firebase auth state
@@ -238,7 +234,7 @@ export default function Settings({open = false, onClose, asPage = false}){
     }
     setUsersLoading(true)
     const unsubscribe = subscribeUsers((updatedUsers) => {
-      console.log('Users received:', updatedUsers) // Debug log
+      debugLog('Users received:', updatedUsers)
       setUsers(updatedUsers)
       setUsersLoading(false)
     })
@@ -357,7 +353,7 @@ export default function Settings({open = false, onClose, asPage = false}){
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid || currentUser.id))
         
         if (userDoc.exists()) {
-          console.log('User document found:', {
+          debugLog('User document found:', {
             docId: userDoc.id,
             data: userDoc.data(),
             currentUserUid: currentUser.uid,
@@ -621,8 +617,8 @@ export default function Settings({open = false, onClose, asPage = false}){
       
       // Debug: Check auth state
       const { auth } = await import('../firebase')
-      console.log('Current auth user:', auth.currentUser?.uid)
-      console.log('Attempting to update timezone to:', timezone)
+      debugLog('Current auth user:', auth.currentUser?.uid)
+      debugLog('Attempting to update timezone to:', timezone)
       
       await updateSettings({ timezone })
       setTimezoneSuccess(true)

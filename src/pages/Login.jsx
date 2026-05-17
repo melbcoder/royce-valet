@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authenticateUser } from '../services/valetFirestore';
+import { saveSessionUser } from '../utils/userSession';
 
 // Security utilities
 const sanitizeInput = (input) => {
@@ -10,6 +11,7 @@ const sanitizeInput = (input) => {
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+const IS_DEV = import.meta.env.DEV;
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -87,26 +89,19 @@ export default function Login() {
     }
     
     try {
-      setDebugInfo('Checking if users exist...');
+      if (IS_DEV) setDebugInfo('Checking if users exist...');
       
-      setDebugInfo('Authenticating user...');
+      if (IS_DEV) setDebugInfo('Authenticating user...');
       
       const user = await authenticateUser(cleanUsername, cleanPassword);
       
       if (user) {
-        setDebugInfo('Authentication successful!');
+        if (IS_DEV) setDebugInfo('Authentication successful!');
         
         localStorage.removeItem('loginAttempts');
         localStorage.removeItem('lastLoginAttempt');
         
-        // Store user info in localStorage for non-sensitive data
-        localStorage.setItem('currentUser', JSON.stringify({
-          id: user.id,
-          uid: user.uid,
-          username: user.username,
-          role: user.role,
-          mustChangePassword: user.mustChangePassword
-        }));
+        saveSessionUser(user);
         
         // Check if user must change password
         if (user.mustChangePassword === true) {
@@ -148,7 +143,7 @@ export default function Login() {
       }
       
       setError(errorMessage);
-      setDebugInfo('Error: ' + err.code);
+      if (IS_DEV) setDebugInfo('Error: ' + err.code);
       setPassword('');
     } finally {
       setLoading(false);
@@ -185,7 +180,7 @@ export default function Login() {
         <h1 style={{ textAlign: 'center', marginBottom: 24 }}>Staff Login</h1>
         
         {/* Debug info */}
-        {debugInfo && (
+        {IS_DEV && debugInfo && (
           <div style={{ 
             background: '#f0f0f0', 
             padding: '8px', 

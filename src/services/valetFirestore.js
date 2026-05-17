@@ -16,6 +16,8 @@ import {
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 import { getTodayInTimezone } from "../utils/timezoneUtils";
+import { debugLog } from "../utils/debugLog";
+import { getSessionUser } from "../utils/userSession";
 
 import { db, auth } from "../firebase";
 
@@ -246,15 +248,7 @@ const validateTag = (tag) => {
 
 // Helper function to get current user from session
 export const getCurrentUser = () => {
-  try {
-    const userStr = localStorage.getItem('currentUser');
-    if (userStr) {
-      return JSON.parse(userStr);
-    }
-  } catch (error) {
-    console.error('Error getting current user:', error);
-  }
-  return null;
+  return getSessionUser();
 };
 
 // Helper function to add audit log entry for luggage
@@ -651,7 +645,7 @@ export async function initializeDefaultAdmin({ username, password, phoneNumber =
   } catch (error) {
     // If user already exists, that's okay
     if (error.code === 'auth/email-already-in-use') {
-      console.log('Default admin already exists');
+      debugLog('Default admin already exists');
       return null;
     }
     console.error('Error creating default admin:', error);

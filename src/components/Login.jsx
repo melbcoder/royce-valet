@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authenticateUser } from '../services/valetFirestore';
+import { saveSessionUser } from '../utils/userSession';
+import { debugLog } from '../utils/debugLog';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -14,28 +16,27 @@ const Login = () => {
     setError(null);
     setLoading(true);
 
-    console.log('Attempting login with username:', username);
+    debugLog('Attempting login with username:', username);
 
     try {
       // Use the authenticateUser function which handles username -> email conversion
       const userData = await authenticateUser(username, password);
 
-      console.log('Login successful, userData:', userData);
-      console.log('mustChangePassword value:', userData.mustChangePassword);
-      console.log('Type of mustChangePassword:', typeof userData.mustChangePassword);
+      debugLog('Login successful, userData:', userData);
+      debugLog('mustChangePassword value:', userData.mustChangePassword);
+      debugLog('Type of mustChangePassword:', typeof userData.mustChangePassword);
 
-      // Store in localStorage
-      localStorage.setItem('currentUser', JSON.stringify(userData));
+      saveSessionUser(userData);
 
       // Check if user must change password
       if (userData.mustChangePassword === true) {
-        console.log('User must change password, redirecting to /force-change-password');
+        debugLog('User must change password, redirecting to /force-change-password');
         // Try using window.location instead of navigate for a hard redirect
         window.location.href = '/force-change-password';
         return;
       }
 
-      console.log('Navigating to home page');
+      debugLog('Navigating to home page');
       navigate('/');
     } catch (err) {
       console.error('Login error:', err);

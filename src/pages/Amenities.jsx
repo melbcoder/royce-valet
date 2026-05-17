@@ -15,6 +15,7 @@ import {
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
 import { getTodayInTimezone, getTomorrowInTimezone } from '../utils/timezoneUtils';
+import { debugLog } from '../utils/debugLog';
 
 // Security utility functions
 const sanitizeInput = (input) => {
@@ -252,19 +253,19 @@ export default function Amenities() {
       const todayLocal = getTodayInTimezone(timezone);
       const tomorrowLocal = getTomorrowInTimezone(timezone);
       
-      console.log('Checking for old amenities to archive. Today:', todayLocal, 'Tomorrow:', tomorrowLocal);
+      debugLog('Checking for old amenities to archive. Today:', todayLocal, 'Tomorrow:', tomorrowLocal);
       
       // Archive all items that are NOT today or tomorrow
       const itemsToArchive = amenityItems.filter(item => {
         const shouldArchive = item.deliveryDate && item.deliveryDate !== todayLocal && item.deliveryDate !== tomorrowLocal;
         if (shouldArchive) {
-          console.log('Will archive amenity with date:', item.deliveryDate);
+          debugLog('Will archive amenity with date:', item.deliveryDate);
         }
         return shouldArchive;
       });
       
       if (itemsToArchive.length > 0) {
-        console.log(`Archiving ${itemsToArchive.length} old amenity items...`);
+        debugLog(`Archiving ${itemsToArchive.length} old amenity items...`);
         for (const item of itemsToArchive) {
           await archiveAmenity(item.id, item);
         }
@@ -281,7 +282,7 @@ export default function Amenities() {
       const newDate = new Date().toDateString();
       
       if (newDate !== currentDate) {
-        console.log('New day detected, running archive check...');
+        debugLog('New day detected, running archive check...');
         await archiveOldAmenities();
         currentDate = newDate;
       }
@@ -585,7 +586,7 @@ export default function Amenities() {
               
               // Check if date is today or tomorrow
               if (deliveryDate !== today && deliveryDate !== tomorrowStr) {
-                console.log(`Skipping amenity with date ${deliveryDate} (today: ${today}, tomorrow: ${tomorrowStr})`);
+                debugLog(`Skipping amenity with date ${deliveryDate} (today: ${today}, tomorrow: ${tomorrowStr})`);
                 skippedCount++;
                 continue; // Skip this amenity
               }

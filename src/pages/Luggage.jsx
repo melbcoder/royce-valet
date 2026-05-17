@@ -19,6 +19,7 @@ import { formatPhoneNumber } from '../utils/phoneFormatter';
 import { getTodayInTimezone } from '../utils/timezoneUtils';
 import { countryCodes } from '../utils/countryCodes';
 import CountryCodeSelect from '../components/CountryCodeSelect';
+import { debugLog } from '../utils/debugLog';
 
 const getPrimaryCode = (codeStr) =>
   String(codeStr || '').split(',')[0]?.trim() || '';
@@ -262,7 +263,7 @@ export default function Luggage() {
       });
       
       if (oldItems.length > 0) {
-        console.log(`Deleting ${oldItems.length} luggage items from previous day(s)...`);
+        debugLog(`Deleting ${oldItems.length} luggage items from previous day(s)...`);
         const deletePromises = oldItems.map(item => deleteLuggage(item.id));
         await Promise.all(deletePromises);
         showToast(`Cleared ${oldItems.length} luggage record(s) from previous day(s).`);
@@ -276,7 +277,7 @@ export default function Luggage() {
   }, [luggageItems]);
 
   const handleCreate = async () => {
-    console.log('handleCreate called', newLuggage);
+    debugLog('handleCreate called', newLuggage);
     
     const validationErrors = {
       tags: !newLuggage.noBaggage && newLuggage.tags.length === 0,
@@ -290,12 +291,12 @@ export default function Luggage() {
     setErrors(validationErrors);
 
     if (Object.values(validationErrors).some(e => e)) {
-      console.log('Validation failed', validationErrors);
+      debugLog('Validation failed', validationErrors);
       return;
     }
 
     try {
-      console.log('Creating luggage with tags:', newLuggage.tags);
+      debugLog('Creating luggage with tags:', newLuggage.tags);
 
       // Format phone number to international format
       const parsedCode = resolveCountryCode(newLuggage.countryCode);

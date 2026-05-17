@@ -1,6 +1,7 @@
 // SMS Service - Frontend interface for sending SMS via Twilio
 import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { debugLog } from '../utils/debugLog';
 
 const DEFAULT_SMS_TEMPLATES = {
   welcome: "Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we'll take care of the rest.\n\nWhen you're ready for your vehicle, request it here: [VALET_LINK]",
@@ -220,7 +221,7 @@ export async function sendWelcomeSMS(phone, tag) {
     VALET_LINK: guestLink,
   }));
 
-  console.log('Attempting to send SMS to:', phone.replace(/\d(?=\d{4})/g, '*'));
+  debugLog('Attempting to send SMS to:', phone.replace(/\d(?=\d{4})/g, '*'));
   
   try {
     const headers = await getAuthHeaders();
@@ -234,7 +235,7 @@ export async function sendWelcomeSMS(phone, tag) {
       }),
     });
 
-    console.log('Response status:', response.status);
+    debugLog('Response status:', response.status);
 
     const text = await response.text();
     const data = text ? JSON.parse(text) : {};

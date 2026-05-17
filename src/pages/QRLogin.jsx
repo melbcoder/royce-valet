@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../firebase';
+import { saveSessionUser } from '../utils/userSession';
 
 export default function QRLogin() {
   const [searchParams] = useSearchParams();
@@ -44,14 +45,12 @@ export default function QRLogin() {
         const idTokenResult = await credential.user.getIdTokenResult();
         const claims = idTokenResult.claims;
 
-        // Reproduce the same localStorage shape used by the normal login flow
-        localStorage.setItem('currentUser', JSON.stringify({
+        saveSessionUser({
           id: credential.user.uid,
-          uid: credential.user.uid,
           username: claims.username || '',
           role: claims.role || 'staff',
           mustChangePassword: claims.mustChangePassword || false,
-        }));
+        });
 
         if (claims.mustChangePassword) {
           window.location.href = '/force-change-password';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { clearSessionUser, getSessionUser, updateSessionUser } from '../utils/userSession'
 
 export default function ForceChangePassword() {
   const [currentPassword, setCurrentPassword] = useState('')
@@ -11,13 +12,12 @@ export default function ForceChangePassword() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const userStr = localStorage.getItem('currentUser')
-    if (!userStr) {
+    const userData = getSessionUser()
+    if (!userData) {
       navigate('/login')
       return
     }
-    
-    const userData = JSON.parse(userStr)
+
     setCurrentUser(userData)
     
     // If user doesn't need to change password, redirect to home
@@ -92,9 +92,7 @@ export default function ForceChangePassword() {
         mustChangePassword: false
       })
       
-      // Update localStorage
-      const updatedUser = { ...currentUser, mustChangePassword: false }
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser))
+      updateSessionUser({ mustChangePassword: false })
       
       // Redirect to home
       navigate('/')
@@ -116,7 +114,7 @@ export default function ForceChangePassword() {
       const { auth } = await import('../firebase')
       const { signOut } = await import('firebase/auth')
       await signOut(auth)
-      localStorage.clear()
+      clearSessionUser()
       navigate('/login')
     } catch (err) {
       console.error('Sign out error:', err)

@@ -4,6 +4,7 @@ import { storage } from "../services/valetFirestore";
 import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from "firebase/storage";
 import { updateVehicle } from "../services/valetFirestore";
 import { showToast } from "./Toast";
+import { debugLog } from "../utils/debugLog";
 
 const PHOTO_ANGLES = [
   { key: "front", label: "Front" },
@@ -56,7 +57,7 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
         newPreviews[angle.key] = url;
       } catch (error) {
         // Photo doesn't exist yet - this is normal
-        console.log(`No ${angle.key} photo found`);
+        debugLog(`No ${angle.key} photo found`);
       }
     }
 
@@ -107,8 +108,8 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       return;
     }
 
-    console.log("Starting upload for vehicle:", vehicleTag);
-    console.log("Photos to upload:", Object.entries(photos).filter(([k, v]) => v !== null));
+    debugLog("Starting upload for vehicle:", vehicleTag);
+    debugLog("Photos to upload:", Object.entries(photos).filter(([k, v]) => v !== null));
     
     setUploading(true);
     try {
@@ -118,15 +119,15 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
       for (const angle of PHOTO_ANGLES) {
         const file = photos[angle.key];
         if (file) {
-          console.log(`Preparing to upload ${angle.key} photo, size: ${file.size} bytes`);
+          debugLog(`Preparing to upload ${angle.key} photo, size: ${file.size} bytes`);
           const photoRef = ref(storage, `vehicles/${vehicleTag}/${angle.key}.jpg`);
-          console.log(`Storage path: vehicles/${vehicleTag}/${angle.key}.jpg`);
+          debugLog(`Storage path: vehicles/${vehicleTag}/${angle.key}.jpg`);
           
           uploadPromises.push(
             uploadBytes(photoRef, file)
               .then((snapshot) => {
                 uploadCount++;
-                console.log(`${angle.key} uploaded successfully`, snapshot);
+                debugLog(`${angle.key} uploaded successfully`, snapshot);
                 return snapshot;
               })
               .catch((err) => {
@@ -143,21 +144,21 @@ export default function PhotoModal({ open, onClose, vehicleTag, vehicle }) {
         return;
       }
 
-      console.log(`Uploading ${uploadPromises.length} photos...`);
+      debugLog(`Uploading ${uploadPromises.length} photos...`);
       const results = await Promise.all(uploadPromises);
-      console.log("All uploads complete:", results);
+      debugLog("All uploads complete:", results);
 
       // Update vehicle record with photo timestamp
-      console.log("Updating vehicle record...");
+      debugLog("Updating vehicle record...");
       await updateVehicle(vehicleTag, {
         photosUpdatedAt: Date.now(),
       });
 
-      console.log(`Successfully uploaded ${uploadCount} photos`);
+      debugLog(`Successfully uploaded ${uploadCount} photos`);
       showToast(`${uploadCount} photo(s) uploaded successfully.`);
       
       // Reload photos to show saved versions
-      console.log("Reloading photos from storage...");
+      debugLog("Reloading photos from storage...");
       await loadExistingPhotos();
       
       // Clear the new photos state
