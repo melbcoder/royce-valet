@@ -311,7 +311,7 @@ export default function Staff() {
 
   // Active Vehicles (all), filtered by status if selected
   const [showStatusMenu, setShowStatusMenu] = useState(false);
-  const [viewMode, setViewMode] = useState("list"); // "list", "tiles", or "map"
+  const [viewMode, setViewMode] = useState("tiles"); // "tiles" or "map"
   
   // Filter expected arrivals to only show confirmed status
   const filteredExpectedArrivals = useMemo(() => {
@@ -733,170 +733,32 @@ export default function Staff() {
           </div>
         )}
 
-        {filteredExpectedArrivals.length === 0 ? (
-          <div style={{ padding: 16, border: '1px dashed #d0d5dd', borderRadius: 12, color: '#667085', fontSize: 14 }}>
-            No PMS rows received yet.
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Res No</th>
-                  <th>Guest</th>
-                  <th>Arrive</th>
-                  <th>Depart</th>
-                  <th>Amount</th>
-                  <th>Price Check</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredExpectedArrivals.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.resNo}</td>
-                    <td>{row.surname}</td>
-                    <td>{row.arrive || '—'}</td>
-                    <td>{row.depart || '—'}</td>
-                    <td>{formatMoney(row.amount)}</td>
-                    <td>
-                      {(() => {
-                        const amountMismatch = Math.abs((row.amount || 0) - valetParkingPrice) > 0.01;
-                        return (
-                      <span
-                        className="status-pill"
-                        style={{
-                          background: amountMismatch ? '#ffebee' : '#e8f5e9',
-                          color: amountMismatch ? '#c62828' : '#2e7d32',
-                        }}
-                      >
-                        {amountMismatch ? `Mismatch vs AUD ${valetParkingPrice.toFixed(2)}` : 'Matches valet price'}
-                      </span>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      <button className="btn secondary" onClick={() => startExpectedArrival(row)} title="Use this PMS row for manual arrival check-in">
-                        Create Arrival
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ExpectedArrivalsTileView
+          rows={filteredExpectedArrivals}
+          valetParkingPrice={valetParkingPrice}
+          onCreateArrival={startExpectedArrival}
+        />
       </section>
 
       {/* Request Queue */}
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Request Queue</h3>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Tag</th>
-                <th>Guest</th>
-                <th>Room</th>
-                <th>Vehicle</th>
-                <th>Requested At</th>
-                <th>Status</th>
-                <th>Bay</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requestQueue.length === 0 && (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
-                    No vehicles in request queue.
-                  </td>
-                </tr>
-              )}
-              {requestQueue.map((v) => (
-                <tr key={`q-${v.tag}`}>
-                  <td>{"#" + v.tag}</td>
-                  <td>{v.guestName}</td>
-                  <td>{v.roomNumber}</td>
-                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
-                  <td>{fmtTime(v.requestedAt)}</td>
-                  <td>
-                    <span className={`status-pill status-${v.status}`}>
-                      {v.status === "out" ? "Out" : cap(v.status)}
-                    </span>
-                  </td>
-                  <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: 6 }}>
-                    {!v.ack && (
-                      <button className="btn secondary" onClick={() => ackRequest(v)} title="Acknowledge request">
-                        <AcknowledgeIcon />
-                      </button>
-                    )}
-                    <button className="btn secondary" onClick={() => handOver(v.tag)} title="Hand over vehicle to guest">
-                      <HandOverIcon />
-                    </button>
-                    <button className="btn secondary" onClick={() => cancelRequestFor(v.tag)} title="Cancel request">
-                      <CancelIcon />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RequestQueueTileView
+          vehicles={requestQueue}
+          onAck={ackRequest}
+          onHandOver={handOver}
+          onCancel={cancelRequestFor}
+        />
       </section>
 
       {/* Scheduled Pickups */}
       <section className="card pad" style={{ marginBottom: 16 }}>
         <h3>Scheduled Pickups</h3>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Tag</th>
-                <th>Guest</th>
-                <th>Room</th>
-                <th>Vehicle</th>
-                <th>Scheduled At</th>
-                <th>Status</th>
-                <th>Bay</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scheduled.length === 0 && (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
-                    No scheduled pickups.
-                  </td>
-                </tr>
-              )}
-              {scheduled.map((v) => (
-                <tr key={`s-${v.tag}`}>
-                  <td>{"#" + v.tag}</td>
-                  <td>{v.guestName}</td>
-                  <td>{v.roomNumber}</td>
-                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
-                  <td>{fmtDT(v.scheduledAt)}</td>
-                  <td>
-                    <span className={`status-pill status-${v.status}`}>
-                      {v.status === "out" ? "Out" : cap(v.status)}
-                    </span>
-                  </td>
-                  <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: 6 }}>
-                    <button className="btn secondary" onClick={() => queueNow(v)} title="Move to request queue immediately">
-                      Queue Now
-                    </button>
-                    <button className="btn secondary" onClick={() => cancelSched(v.tag)} title="Cancel scheduled pickup">
-                      <CancelIcon />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ScheduledPickupTileView
+          vehicles={scheduled}
+          onQueueNow={queueNow}
+          onCancel={cancelSched}
+        />
       </section>
 
       {/* Active Vehicles */}
@@ -907,19 +769,6 @@ export default function Staff() {
           <div style={{display: "flex",justifyContent: "flex-end",gap: "12px",position: "relative",marginLeft: "auto",alignItems: "center"}}>
             {/* View Mode Toggle */}
             <div style={{ display: "flex", gap: "4px", background: "#f0f0f0", borderRadius: "8px", padding: "4px" }}>
-              <button
-                className="btn secondary"
-                onClick={() => setViewMode("list")}
-                style={{
-                  padding: "6px 16px",
-                  background: viewMode === "list" ? "#fff" : "transparent",
-                  border: "none",
-                  boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
-                  fontSize: "14px"
-                }}
-              >
-                List
-              </button>
               <button
                 className="btn secondary"
                 onClick={() => setViewMode("tiles")}
@@ -1058,96 +907,16 @@ export default function Staff() {
           </div>
         </div>
 
-        {viewMode === "list" ? (
-          <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Tag</th>
-                <th>Guest</th>
-                <th>Room</th>
-                <th>Departure</th>
-                <th>Vehicle</th>
-                <th>Status</th>
-                <th>Bay</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {active.length === 0 && (
-                <tr>
-                  <td colSpan="8" style={{ textAlign: "center", opacity: 0.7 }}>
-                    No vehicles to display.
-                  </td>
-                </tr>
-              )}
-              {active.map((v) => (
-                <tr key={`a-${v.tag}`}>
-                  <td>{"#" + v.tag}</td>
-                  <td>{v.guestName}</td>
-                  <td>{v.roomNumber}</td>
-                  <td><EditableDepartureDate vehicle={v} /></td>
-                  <td>{v.color + " " + v.make + " • " + (v.license || "—")}</td>
-                  <td>
-                    <span className={`status-pill status-${v.status}`}>
-                      {v.status === "out" ? "Out" : cap(v.status)}
-                    </span>
-                  </td>
-                  <td>{v.bay || "—"}</td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {/* Request (only visible when allowed) */}
-                    {/* {v.status === "parked" && !v.requested && (
-                      <button className="btn secondary" onClick={() =>
-                        updateVehicle(v.tag, {
-                          status: "retrieving",
-                          requested: true,
-                          requestedAt: Date.now(),
-                          ack: false,
-                          prevStatus: v.status
-                        })
-                      }>
-                        Retrieve
-                      </button>
-                    )} */}
-
-                    {/* Park */}
-                    <button className="btn secondary" onClick={() => openPark(v)} title="Park / update parking details">
-                      <ParkIcon />
-                    </button>
-
-                    {/* Ready */}
-                    {(v.status === "retrieving" || v.status === "parked" || v.status === "requested") && (
-                      <button className="btn secondary" onClick={() => setReady(v.tag)} title="Mark vehicle as ready for handover">
-                        <ReadyIcon />
-                      </button>
-                    )}
-                    
-                    {/* Hand Over */}
-                    {(v.status === "ready" || v.status === "parked" || v.status === "requested" || v.status === "retrieving") && (
-                      <button className="btn secondary" onClick={() => handOver(v.tag)} title="Hand over vehicle to guest">
-                        <HandOverIcon />
-                      </button>
-                    )}
-
-                    {/* Add & View Photos */}
-                    <button className="btn secondary" onClick={() => openPhotos(v.tag)} title="View or add vehicle photos">
-                      <CameraIcon />
-                    </button>
-
-                    {/* View Audit Log */}
-                    <button className="btn secondary" onClick={() => handleViewAudit(v.tag)} title="View Audit Log">
-                      <AuditIcon />
-                    </button>
-
-                    {/* Schedule pickup */}
-                    <ScheduleInline v={v} onSet={setSchedule} onClear={cancelSched} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        ) : viewMode === "tiles" ? (
+        {viewMode === "map" ? (
+          <ParkingMapView 
+            vehicles={active} 
+            onPark={openPark}
+            onReady={setReady}
+            onHandOver={handOver}
+            onPhotos={openPhotos}
+            onAudit={handleViewAudit}
+          />
+        ) : (
           <VehicleTileView
             vehicles={active}
             onPark={openPark}
@@ -1157,15 +926,6 @@ export default function Staff() {
             onAudit={handleViewAudit}
             onSchedule={setSchedule}
             onCancelSchedule={cancelSched}
-          />
-        ) : (
-          <ParkingMapView 
-            vehicles={active} 
-            onPark={openPark}
-            onReady={setReady}
-            onHandOver={handOver}
-            onPhotos={openPhotos}
-            onAudit={handleViewAudit}
           />
         )}
       </section>
@@ -1848,7 +1608,7 @@ function EditableDepartureDate({ vehicle }) {
   );
 }
 
-// inline scheduling widget for Active table
+// inline scheduling widget for vehicle tiles
 function ScheduleInline({ v, onSet, onClear }) {
   const [open, setOpen] = useState(false);
   const [iso, setIso] = useState("");
@@ -1915,6 +1675,149 @@ function ScheduleInline({ v, onSet, onClear }) {
   );
 }
 
+function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) {
+  if (rows.length === 0) {
+    return (
+      <div style={{ padding: 16, border: "1px dashed #d0d5dd", borderRadius: 12, color: "#667085", fontSize: 14 }}>
+        No PMS rows received yet.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+      {rows.map((row) => {
+        const amountMismatch = Math.abs((row.amount || 0) - valetParkingPrice) > 0.01;
+        return (
+          <div
+            key={row.id}
+            style={{
+              border: "1px solid #d0d5dd",
+              borderRadius: 12,
+              padding: 14,
+              background: "#fff",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <strong>Res {row.resNo || "-"}</strong>
+              <span className="status-pill">Confirmed</span>
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.9 }}>
+              <div><strong>Guest:</strong> {row.surname || "-"}</div>
+              <div><strong>Arrive:</strong> {row.arrive || "-"}</div>
+              <div><strong>Depart:</strong> {row.depart || "-"}</div>
+              <div><strong>Amount:</strong> {formatMoney(row.amount)}</div>
+            </div>
+            <span
+              className="status-pill"
+              style={{
+                alignSelf: "flex-start",
+                background: amountMismatch ? "#ffebee" : "#e8f5e9",
+                color: amountMismatch ? "#c62828" : "#2e7d32",
+              }}
+            >
+              {amountMismatch ? `Mismatch vs AUD ${valetParkingPrice.toFixed(2)}` : "Matches valet price"}
+            </span>
+            <button className="btn secondary" onClick={() => onCreateArrival(row)} title="Use this PMS row for manual arrival check-in">
+              Create Arrival
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RequestQueueTileView({ vehicles, onAck, onHandOver, onCancel }) {
+  if (vehicles.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: 24, opacity: 0.7 }}>
+        No vehicles in request queue.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+      {vehicles.map((v) => (
+        <div
+          key={`q-${v.tag}`}
+          style={{ border: "1px solid #d0d5dd", borderRadius: 12, padding: 14, background: "#fff", display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong>#{v.tag}</strong>
+            <span className={`status-pill status-${v.status}`}>{v.status === "out" ? "Out" : cap(v.status)}</span>
+          </div>
+          <div style={{ fontSize: 14, opacity: 0.9 }}>
+            <div><strong>Guest:</strong> {v.guestName}</div>
+            <div><strong>Room:</strong> {v.roomNumber}</div>
+            <div><strong>Vehicle:</strong> {v.color} {v.make} {v.license ? `• ${v.license}` : ""}</div>
+            <div><strong>Requested:</strong> {fmtTime(v.requestedAt)}</div>
+            <div><strong>Bay:</strong> {v.bay || "-"}</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {!v.ack && (
+              <button className="btn secondary" onClick={() => onAck(v)} title="Acknowledge request">
+                <AcknowledgeIcon />
+              </button>
+            )}
+            <button className="btn secondary" onClick={() => onHandOver(v.tag)} title="Hand over vehicle to guest">
+              <HandOverIcon />
+            </button>
+            <button className="btn secondary" onClick={() => onCancel(v.tag)} title="Cancel request">
+              <CancelIcon />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScheduledPickupTileView({ vehicles, onQueueNow, onCancel }) {
+  if (vehicles.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: 24, opacity: 0.7 }}>
+        No scheduled pickups.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+      {vehicles.map((v) => (
+        <div
+          key={`s-${v.tag}`}
+          style={{ border: "1px solid #d0d5dd", borderRadius: 12, padding: 14, background: "#fff", display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong>#{v.tag}</strong>
+            <span className={`status-pill status-${v.status}`}>{v.status === "out" ? "Out" : cap(v.status)}</span>
+          </div>
+          <div style={{ fontSize: 14, opacity: 0.9 }}>
+            <div><strong>Guest:</strong> {v.guestName}</div>
+            <div><strong>Room:</strong> {v.roomNumber}</div>
+            <div><strong>Vehicle:</strong> {v.color} {v.make} {v.license ? `• ${v.license}` : ""}</div>
+            <div><strong>Scheduled:</strong> {fmtDT(v.scheduledAt)}</div>
+            <div><strong>Bay:</strong> {v.bay || "-"}</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button className="btn secondary" onClick={() => onQueueNow(v)} title="Move to request queue immediately">
+              Queue Now
+            </button>
+            <button className="btn secondary" onClick={() => onCancel(v.tag)} title="Cancel scheduled pickup">
+              <CancelIcon />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Vehicle Tile View Component
 function VehicleTileView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAudit, onSchedule, onCancelSchedule }) {
   if (vehicles.length === 0) {
@@ -1975,7 +1878,7 @@ function VehicleTileView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAu
               color: "#856404",
               fontWeight: "500"
             }}>
-              ⚠️ Missing details - activate to complete check-in
+              ! Missing details - activate to complete check-in
             </div>
           )}
 
@@ -2035,6 +1938,7 @@ function VehicleTileView({ vehicles, onPark, onReady, onHandOver, onPhotos, onAu
               <AuditIcon />
             </button>
           </div>
+          <ScheduleInline v={v} onSet={onSchedule} onClear={onCancelSchedule} />
         </div>
       ))}
     </div>
