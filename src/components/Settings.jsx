@@ -208,6 +208,11 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [activeSmsTemplateKey, setActiveSmsTemplateKey] = useState(null)
   const [smsTemplateSuccess, setSmsTemplateSuccess] = useState(false)
   const [smsTemplateError, setSmsTemplateError] = useState('')
+  const [twilioBalance, setTwilioBalance] = useState(null)
+  const [twilioBalanceCurrency, setTwilioBalanceCurrency] = useState('USD')
+  const [twilioBalanceUpdatedAt, setTwilioBalanceUpdatedAt] = useState('')
+  const [twilioBalanceLoading, setTwilioBalanceLoading] = useState(false)
+  const [twilioBalanceError, setTwilioBalanceError] = useState('')
   const [loading, setLoading] = useState(true)
   const [usersLoading, setUsersLoading] = useState(false)
   
@@ -804,6 +809,50 @@ export default function Settings({open = false, onClose, asPage = false}){
     }
   }
 
+  async function handleRefreshTwilioBalance() {
+    if (!isAdmin) return
+
+    setTwilioBalanceLoading(true)
+    setTwilioBalanceError('')
+    try {
+      const { auth } = await import('../firebase')
+      const authUser = auth.currentUser
+      if (!authUser) {
+        setTwilioBalanceError('You must be signed in to view Twilio balance.')
+        return
+      }
+
+      const idToken = await authUser.getIdToken()
+      const response = await fetch('/api/twilio-balance', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      })
+
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setTwilioBalanceError(result?.error || 'Failed to load Twilio balance.')
+        return
+      }
+
+      const numericBalance = Number(result?.balance)
+      setTwilioBalance(Number.isFinite(numericBalance) ? numericBalance : null)
+      setTwilioBalanceCurrency(String(result?.currency || 'USD'))
+      setTwilioBalanceUpdatedAt(String(result?.fetchedAt || new Date().toISOString()))
+    } catch (err) {
+      console.error('Error loading Twilio balance:', err)
+      setTwilioBalanceError('Failed to load Twilio balance.')
+    } finally {
+      setTwilioBalanceLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isVisible || !isAdmin) return
+    handleRefreshTwilioBalance()
+  }, [isVisible, isAdmin])
+
   async function handleSaveActiveSmsTemplate() {
     const saved = await handleSaveSmsTemplates()
     if (saved) {
@@ -1191,6 +1240,39 @@ export default function Settings({open = false, onClose, asPage = false}){
                 )}
                 {smsTemplateSuccess && (
                   <div style={{color: '#4CAF50', fontSize: 12}}>SMS templates updated successfully!</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Twilio Account Balance</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                View the current Twilio balance used for outbound SMS billing.
+              </p>
+
+              <div style={{maxWidth: 360, border: '1px solid #e5e7eb', borderRadius: 12, padding: 14, background: '#fafafa'}}>
+                <div style={{fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 8}}>Current Balance</div>
+                <div style={{fontSize: 28, fontWeight: 700, color: '#111827'}}>
+                  {twilioBalance === null
+                    ? '--'
+                    : `${twilioBalanceCurrency} ${twilioBalance.toFixed(2)}`}
+                </div>
+                <div style={{fontSize: 12, color: '#6b7280', marginTop: 6, marginBottom: 10}}>
+                  {twilioBalanceUpdatedAt
+                    ? `Last checked: ${new Date(twilioBalanceUpdatedAt).toLocaleString()}`
+                    : 'Not checked yet'}
+                </div>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={handleRefreshTwilioBalance}
+                  disabled={twilioBalanceLoading}
+                  style={{padding: '4px 10px', fontSize: 12}}
+                >
+                  {twilioBalanceLoading ? 'Checking...' : 'Refresh Balance'}
+                </button>
+                {twilioBalanceError && (
+                  <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{twilioBalanceError}</div>
                 )}
               </div>
             </div>
