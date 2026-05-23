@@ -12,6 +12,7 @@ const DEFAULT_SMS_WELCOME_TEMPLATE = "Welcome to The Royce Hotel. Your valet tag
 const DEFAULT_SMS_VEHICLE_READY_TEMPLATE = 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!'
 const DEFAULT_SMS_ROOM_READY_TEMPLATE = 'Greetings from The Royce! We are pleased to inform you that your room is ready. Please stop by the front desk to collect your keys.'
 const DEFAULT_SMS_DEPARTURE_TEMPLATE = 'Your bags are in very good company.\nTag numbers: [DEP_TAGS].\nGo explore, indulge, wander - we\'ll mind the details.'
+const DEFAULT_MAINTENANCE_JOB_CATEGORIES = ['General', 'Electrical', 'Plumbing', 'HVAC', 'Carpentry']
 
 const summarizeSmsTemplate = (value) => {
   const normalized = String(value || '').replace(/\s+/g, ' ').trim()
@@ -171,6 +172,7 @@ export default function Settings({open = false, onClose, asPage = false}){
     vehiclePhotoRetentionDays: 7,
     pdfRetentionDays: 90,
     guestLinkRetentionDays: 2,
+    maintenanceJobCategories: DEFAULT_MAINTENANCE_JOB_CATEGORIES,
     smsWelcomeTemplate: DEFAULT_SMS_WELCOME_TEMPLATE,
     smsWelcomeEnabled: true,
     smsVehicleReadyTemplate: DEFAULT_SMS_VEHICLE_READY_TEMPLATE,
@@ -197,6 +199,9 @@ export default function Settings({open = false, onClose, asPage = false}){
   const [guestLinkRetentionDaysInput, setGuestLinkRetentionDaysInput] = useState('2')
   const [guestLinkRetentionSuccess, setGuestLinkRetentionSuccess] = useState(false)
   const [guestLinkRetentionError, setGuestLinkRetentionError] = useState('')
+  const [maintenanceCategoriesInput, setMaintenanceCategoriesInput] = useState(DEFAULT_MAINTENANCE_JOB_CATEGORIES.join(', '))
+  const [maintenanceCategoriesSuccess, setMaintenanceCategoriesSuccess] = useState(false)
+  const [maintenanceCategoriesError, setMaintenanceCategoriesError] = useState('')
   const [smsWelcomeTemplateInput, setSmsWelcomeTemplateInput] = useState(DEFAULT_SMS_WELCOME_TEMPLATE)
   const [smsWelcomeEnabledInput, setSmsWelcomeEnabledInput] = useState(true)
   const [smsVehicleReadyTemplateInput, setSmsVehicleReadyTemplateInput] = useState(DEFAULT_SMS_VEHICLE_READY_TEMPLATE)
@@ -286,6 +291,13 @@ export default function Settings({open = false, onClose, asPage = false}){
   useEffect(() => {
     setGuestLinkRetentionDaysInput(String(settings.guestLinkRetentionDays || 2))
   }, [settings.guestLinkRetentionDays])
+
+  useEffect(() => {
+    const list = Array.isArray(settings.maintenanceJobCategories)
+      ? settings.maintenanceJobCategories.map((item) => String(item || '').trim()).filter(Boolean)
+      : []
+    setMaintenanceCategoriesInput((list.length > 0 ? list : DEFAULT_MAINTENANCE_JOB_CATEGORIES).join(', '))
+  }, [settings.maintenanceJobCategories])
 
   useEffect(() => {
     setSmsWelcomeTemplateInput(settings.smsWelcomeTemplate || DEFAULT_SMS_WELCOME_TEMPLATE)
@@ -761,6 +773,39 @@ export default function Settings({open = false, onClose, asPage = false}){
     } catch (err) {
       console.error('Error updating guest link retention days:', err)
       setGuestLinkRetentionError('Failed to update guest link retention days.')
+    }
+  }
+
+  async function handleSaveMaintenanceCategories() {
+    try {
+      setMaintenanceCategoriesError('')
+      setMaintenanceCategoriesSuccess(false)
+
+      const categories = String(maintenanceCategoriesInput || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 20)
+
+      const unique = []
+      categories.forEach((item) => {
+        const value = item.slice(0, 40)
+        if (!value) return
+        if (!unique.includes(value)) unique.push(value)
+      })
+
+      if (unique.length === 0) {
+        setMaintenanceCategoriesError('Please enter at least one category.')
+        return
+      }
+
+      await updateSettings({ maintenanceJobCategories: unique })
+      setMaintenanceCategoriesSuccess(true)
+      setMaintenanceCategoriesInput(unique.join(', '))
+      setTimeout(() => setMaintenanceCategoriesSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error updating maintenance categories:', err)
+      setMaintenanceCategoriesError('Failed to update maintenance categories.')
     }
   }
 
@@ -1240,6 +1285,35 @@ export default function Settings({open = false, onClose, asPage = false}){
                 )}
                 {smsTemplateSuccess && (
                   <div style={{color: '#4CAF50', fontSize: 12}}>SMS templates updated successfully!</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee'}}>
+              <h3 style={{margin: '0 0 8px 0', fontSize: 16}}>Maintenance Job Categories</h3>
+              <p style={{marginBottom: 10, fontSize: 14, color: '#666'}}>
+                Configure the category dropdown options for maintenance jobs. Enter a comma-separated list.
+              </p>
+              <div style={{maxWidth: 560, border: '1px solid #e5e7eb', borderRadius: 12, padding: 14, background: '#fafafa'}}>
+                <div style={{fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 8}}>Category list</div>
+                <input
+                  type="text"
+                  value={maintenanceCategoriesInput}
+                  onChange={(e) => setMaintenanceCategoriesInput(e.target.value)}
+                  placeholder="General, Electrical, Plumbing"
+                  style={{width: '100%', padding: '6px 8px', fontSize: 13, marginBottom: 10}}
+                />
+                <div style={{fontSize: 12, color: '#6b7280', marginBottom: 10}}>
+                  Up to 20 categories. Each category is limited to 40 characters.
+                </div>
+                <button type="button" className="btn secondary" onClick={handleSaveMaintenanceCategories} style={{padding: '4px 10px', fontSize: 12}}>
+                  Save
+                </button>
+                {maintenanceCategoriesError && (
+                  <div style={{color: '#ff4444', fontSize: 12, marginTop: 8}}>{maintenanceCategoriesError}</div>
+                )}
+                {maintenanceCategoriesSuccess && (
+                  <div style={{color: '#4CAF50', fontSize: 12, marginTop: 8}}>Maintenance categories updated successfully!</div>
                 )}
               </div>
             </div>

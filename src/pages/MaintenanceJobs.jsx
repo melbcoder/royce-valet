@@ -12,6 +12,7 @@ import {
   completeMaintenanceJob,
   deleteMaintenanceJob,
   subscribeMaintenanceJobs,
+  subscribeSettings,
 } from '../services/valetFirestore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ const STATUS_CONFIG = {
 
 const MAX_PHOTOS = 5;
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10 MB
+const DEFAULT_MAINTENANCE_CATEGORIES = ['General', 'Electrical', 'Plumbing', 'AC', 'Carpentry'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -213,6 +215,17 @@ function JobCard({ job, onView, onAccept, currentUsername }) {
         <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 6 }}>📍 {job.location}</div>
       )}
 
+      {!!job.category && (
+        <div style={{ marginBottom: 6 }}>
+          <Pill
+            label={job.category}
+            color="#6b7280"
+            bg="#f3f4f6"
+            style={{ fontWeight: 600, letterSpacing: 'normal' }}
+          />
+        </div>
+      )}
+
       {/* Footer row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>By {job.createdBy}</span>
@@ -245,7 +258,7 @@ const FILTERS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const BLANK_JOB = { title: '', description: '', location: '', priority: 'normal' };
+const BLANK_JOB = { title: '', description: '', location: '', category: '', priority: 'normal' };
 
 export default function MaintenanceJobs() {
   const currentUser = getCurrentUser();
@@ -254,10 +267,25 @@ export default function MaintenanceJobs() {
   // ── Live data ──
   const [jobs, setJobs] = useState([]);
   useEffect(() => subscribeMaintenanceJobs(setJobs), []);
+  const [maintenanceCategories, setMaintenanceCategories] = useState(DEFAULT_MAINTENANCE_CATEGORIES);
+  useEffect(() => {
+    const unsubscribe = subscribeSettings((settings) => {
+      const list = Array.isArray(settings?.maintenanceJobCategories)
+        ? settings.maintenanceJobCategories.map((item) => String(item || '').trim()).filter(Boolean)
+        : [];
+      setMaintenanceCategories(list.length > 0 ? list : DEFAULT_MAINTENANCE_CATEGORIES);
+    });
+    return () => unsubscribe && unsubscribe();
+  }, []);
 
   // ── Filters ──
   const [filter, setFilter] = useState('all');
-  const filteredJobs = filter === 'all' ? jobs : jobs.filter(j => j.status === filter);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const filteredJobs = jobs.filter((job) => {
+    if (filter !== 'all' && job.status !== filter) return false;
+    if (categoryFilter !== 'all' && String(job.category || '') !== categoryFilter) return false;
+    return true;
+  });
 
   // ── Create modal ──
   const [createOpen, setCreateOpen] = useState(false);
@@ -282,6 +310,16 @@ export default function MaintenanceJobs() {
   const [editJob, setEditJob] = useState({ ...BLANK_JOB });
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (maintenanceCategories.length === 0) return;
+    if (!newJob.category || !maintenanceCategories.includes(newJob.category)) {
+      setNewJob((prev) => ({ ...prev, category: maintenanceCategories[0] }));
+    }
+    if (editOpen && (!editJob.category || !maintenanceCategories.includes(editJob.category))) {
+      setEditJob((prev) => ({ ...prev, category: maintenanceCategories[0] }));
+    }
+  }, [maintenanceCategories, editOpen, editJob.category, newJob.category]);
+
   // ── Delete confirm ──
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [jobToDelete, setJobToDelete] = useState(null);
@@ -298,7 +336,7 @@ export default function MaintenanceJobs() {
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const openCreate = () => {
-    setNewJob({ ...BLANK_JOB });
+    setNewJob({ ...BLANK_JOB, category: maintenanceCategories[0] || '' });
     createPhotos.reset();
     setCreateOpen(true);
   };
@@ -361,6 +399,7 @@ export default function MaintenanceJobs() {
       title: selectedJob.title || '',
       description: selectedJob.description || '',
       location: selectedJob.location || '',
+      category: selectedJob.category || maintenanceCategories[0] || '',
       priority: selectedJob.priority || 'normal',
     });
     setEditOpen(true);
@@ -374,6 +413,7 @@ export default function MaintenanceJobs() {
         title: editJob.title.trim(),
         description: editJob.description.trim(),
         location: editJob.location.trim(),
+        category: editJob.category,
         priority: editJob.priority,
       });
       setEditOpen(false);
@@ -478,6 +518,20 @@ export default function MaintenanceJobs() {
         })}
       </div>
 
+      {/* ── Category filter ── */}
+      <div style={{ marginBottom: 16 }}>
+        <select
+          style={{ ...inputStyle, cursor: 'pointer' }}
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+        >
+          <option value="all">All Categories</option>
+          {maintenanceCategories.map((category) => (
+            <option key={category} value={category}>{category}</option>
+          ))}
+        </select>
+      </div>
+
       {/* ── Job cards ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {filteredJobs.length === 0 ? (
@@ -523,6 +577,19 @@ export default function MaintenanceJobs() {
               maxLength={100}
               onChange={e => setNewJob(p => ({ ...p, location: e.target.value }))}
             />
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Category</label>
+            <select
+              style={{ ...inputStyle, cursor: 'pointer' }}
+              value={newJob.category}
+              onChange={e => setNewJob(p => ({ ...p, category: e.target.value }))}
+            >
+              {maintenanceCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
           </div>
 
           <div style={fieldStyle}>
@@ -575,6 +642,9 @@ export default function MaintenanceJobs() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
               <Pill label={detailPc.label} color={detailPc.color} bg={detailPc.bg} />
               <Pill label={detailSc.label} color={detailSc.color} bg={detailSc.bg} />
+              {detailJob.category && (
+                <Pill label={detailJob.category} color="#6b7280" bg="#f3f4f6" style={{ fontWeight: 600, letterSpacing: 'normal' }} />
+              )}
               {detailJob.location && (
                 <span style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                   📍 {detailJob.location}
@@ -696,6 +766,19 @@ export default function MaintenanceJobs() {
               maxLength={100}
               onChange={e => setEditJob(p => ({ ...p, location: e.target.value }))}
             />
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Category</label>
+            <select
+              style={{ ...inputStyle, cursor: 'pointer' }}
+              value={editJob.category}
+              onChange={e => setEditJob(p => ({ ...p, category: e.target.value }))}
+            >
+              {maintenanceCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
           </div>
 
           <div style={fieldStyle}>

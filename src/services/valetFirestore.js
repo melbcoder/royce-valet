@@ -41,6 +41,22 @@ const maintenanceJobsRef = collection(db, "maintenanceJobs");
 const roomStatusRef = collection(db, "roomStatus");
 const expectedArrivalsRef = collection(db, "valetExpectedArrivals");
 
+const DEFAULT_MAINTENANCE_JOB_CATEGORIES = ['General', 'Electrical', 'Plumbing', 'HVAC', 'Carpentry'];
+
+const normalizeMaintenanceCategories = (value) => {
+  const source = Array.isArray(value) ? value : DEFAULT_MAINTENANCE_JOB_CATEGORIES;
+  const cleaned = source
+    .map((item) => String(item || '').trim().slice(0, 40))
+    .filter(Boolean);
+
+  const unique = [];
+  cleaned.forEach((item) => {
+    if (!unique.includes(item)) unique.push(item);
+  });
+
+  return unique.length > 0 ? unique : [...DEFAULT_MAINTENANCE_JOB_CATEGORIES];
+};
+
 // ===== ROOM STATUS =====
 
 /**
@@ -133,6 +149,7 @@ export async function getSettings() {
         guestLinkRetentionDays: Number.isInteger(data.guestLinkRetentionDays)
           ? data.guestLinkRetentionDays
           : 2,
+        maintenanceJobCategories: normalizeMaintenanceCategories(data.maintenanceJobCategories),
         smsWelcomeTemplate: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
           ? data.smsWelcomeTemplate
           : 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
@@ -159,6 +176,7 @@ export async function getSettings() {
       valetParkingPrice: 70,
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
+      maintenanceJobCategories: [...DEFAULT_MAINTENANCE_JOB_CATEGORIES],
       smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
       smsWelcomeEnabled: true,
       smsVehicleReadyTemplate: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
@@ -177,6 +195,7 @@ export async function getSettings() {
       valetParkingPrice: 70,
       pdfRetentionDays: 90,
       guestLinkRetentionDays: 2,
+      maintenanceJobCategories: [...DEFAULT_MAINTENANCE_JOB_CATEGORIES],
       smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
       smsWelcomeEnabled: true,
       smsVehicleReadyTemplate: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
@@ -220,6 +239,7 @@ export function subscribeSettings(callback) {
         guestLinkRetentionDays: Number.isInteger(data.guestLinkRetentionDays)
           ? data.guestLinkRetentionDays
           : 2,
+        maintenanceJobCategories: normalizeMaintenanceCategories(data.maintenanceJobCategories),
         smsWelcomeTemplate: typeof data.smsWelcomeTemplate === 'string' && data.smsWelcomeTemplate.trim()
           ? data.smsWelcomeTemplate
           : 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
@@ -245,6 +265,7 @@ export function subscribeSettings(callback) {
         valetParkingPrice: 70,
         pdfRetentionDays: 90,
         guestLinkRetentionDays: 2,
+        maintenanceJobCategories: [...DEFAULT_MAINTENANCE_JOB_CATEGORIES],
         smsWelcomeTemplate: 'Welcome to The Royce Hotel. Your valet tag is #[VALET_TAG] - we\'ll take care of the rest.\n\nWhen you\'re ready for your vehicle, request it here: [VALET_LINK]',
         smsWelcomeEnabled: true,
         smsVehicleReadyTemplate: 'Your vehicle (#[VALET_TAG]) is ready at the driveway. Thank you for choosing The Royce Hotel!',
@@ -1333,6 +1354,7 @@ export async function createMaintenanceJob(data) {
     title: sanitizeString(data.title || '', 200),
     description: sanitizeString(data.description || '', 1000),
     location: sanitizeString(data.location || '', 100),
+    category: sanitizeString(data.category || '', 80),
     priority: ['low', 'normal', 'high', 'urgent'].includes(data.priority) ? data.priority : 'normal',
     status: 'open',
     createdBy: currentUser?.username || 'unknown',
@@ -1349,7 +1371,20 @@ export async function createMaintenanceJob(data) {
 }
 
 export async function updateMaintenanceJob(id, updates) {
-  await updateDoc(doc(maintenanceJobsRef, id), updates);
+  const payload = { ...updates };
+  if (Object.prototype.hasOwnProperty.call(payload, 'title')) {
+    payload.title = sanitizeString(payload.title, 200);
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'description')) {
+    payload.description = sanitizeString(payload.description, 1000);
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'location')) {
+    payload.location = sanitizeString(payload.location, 100);
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'category')) {
+    payload.category = sanitizeString(payload.category, 80);
+  }
+  await updateDoc(doc(maintenanceJobsRef, id), payload);
 }
 
 export async function acceptMaintenanceJob(id) {
