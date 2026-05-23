@@ -823,7 +823,7 @@ export default function Settings({open = false, onClose, asPage = false}){
       }
 
       const idToken = await authUser.getIdToken()
-      const response = await fetch('/api/twilio-balance', {
+      const response = await fetch('/api/send-sms', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${idToken}`,

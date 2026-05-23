@@ -51,8 +51,8 @@ async function enforceRateLimits(db, uid, ip, to) {
 
 // Vercel Serverless Function for sending SMS via Twilio
 export default async function handler(req, res) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
+  // Allow POST for sending SMS and GET for admin balance checks
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -77,6 +77,47 @@ export default async function handler(req, res) {
 
   const userData = userDoc.data() || {};
   const pages = Array.isArray(userData.pages) ? userData.pages : [];
+
+  if (req.method === 'GET') {
+    if (userData.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken) {
+      return res.status(500).json({ error: 'Twilio credentials not configured' });
+    }
+
+    try {
+      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Balance.json`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return res.status(502).json({ error: data?.message || 'Failed to fetch Twilio balance' });
+      }
+
+      return res.status(200).json({
+        balance: data?.balance ?? null,
+        currency: data?.currency ?? 'USD',
+        fetchedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error fetching Twilio balance:', error);
+      return res.status(500).json({ error: 'Failed to fetch Twilio balance' });
+    }
+  }
+
   const hasSmsAccess = userData.role === 'admin' || pages.some((p) => ['valet', 'luggage', 'amenities'].includes(p));
   if (!hasSmsAccess) {
     return res.status(403).json({ error: 'Forbidden' });
