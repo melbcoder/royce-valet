@@ -74,6 +74,21 @@ export async function updateRoomStatus(roomNumber, status, metadata = {}) {
 
   const roomRef = doc(roomStatusRef, roomNo);
   const statusLabel = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+  const nowIso = new Date().toISOString();
+
+  let statusChangedAt = nowIso;
+  try {
+    const existingSnap = await getDoc(roomRef);
+    if (existingSnap.exists()) {
+      const existing = existingSnap.data() || {};
+      const existingStatus = String(existing.status || '').trim().toLowerCase();
+      if (existingStatus === normalizedStatus) {
+        statusChangedAt = String(existing.statusChangedAt || existing.updatedAt || '').trim() || nowIso;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not read existing room status before update:', error);
+  }
 
   await setDoc(
     roomRef,
@@ -81,7 +96,8 @@ export async function updateRoomStatus(roomNumber, status, metadata = {}) {
       roomNo,
       status: normalizedStatus,
       rawStatus: `Manual - ${statusLabel}`,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
+      statusChangedAt,
       updatedBy: {
         uid: auth.currentUser?.uid || '',
         mode: 'user',

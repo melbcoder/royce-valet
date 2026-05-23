@@ -11,11 +11,36 @@ const STATUS_META = {
 
 const STATUS_META_FALLBACK = { label: 'Unknown', color: '#455a64', bg: '#eceff1' };
 
+function parseRoomStatusTimestamp(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value?.toDate === 'function') {
+    const parsed = value.toDate();
+    return parsed instanceof Date && !Number.isNaN(parsed.getTime()) ? parsed : null;
+  }
+  if (typeof value?.seconds === 'number') {
+    const parsed = new Date(value.seconds * 1000);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatTimestamp(value) {
-  if (!value) return 'N/A';
-  const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) return 'N/A';
+  const dt = parseRoomStatusTimestamp(value);
+  if (!dt) return 'N/A';
   return dt.toLocaleString();
+}
+
+function getLatestRoomStatusUpdatedAt(map) {
+  let latest = null;
+  Object.values(map || {}).forEach((entry) => {
+    const candidate = parseRoomStatusTimestamp(entry?.statusChangedAt || entry?.updatedAt);
+    if (candidate && (!latest || candidate > latest)) {
+      latest = candidate;
+    }
+  });
+  return latest;
 }
 
 function getStatusMeta(status) {
@@ -35,11 +60,18 @@ export default function RoomStatus() {
   const [query, setQuery] = useState('');
   const [loadError, setLoadError] = useState('');
   const [hasLoadedSnapshot, setHasLoadedSnapshot] = useState(false);
+  const [roomStatusUpdatedAt, setRoomStatusUpdatedAt] = useState(null);
+  const [timeAgoValue, setTimeAgoValue] = useState(0);
+  const [timeAgoUnit, setTimeAgoUnit] = useState('second');
 
   useEffect(() => {
     const unsubscribe = subscribeRoomStatus(
       (map) => {
         setRoomMap(map || {});
+        const latestUpdatedAt = getLatestRoomStatusUpdatedAt(map);
+        setRoomStatusUpdatedAt(latestUpdatedAt || new Date());
+        setTimeAgoValue(0);
+        setTimeAgoUnit('second');
         setHasLoadedSnapshot(true);
         setLoadError('');
       },
@@ -51,13 +83,31 @@ export default function RoomStatus() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!roomStatusUpdatedAt) return;
+    const updateDisplay = () => {
+      const now = new Date();
+      const diffSecs = Math.max(0, Math.floor((now - roomStatusUpdatedAt) / 1000));
+      if (diffSecs < 60) {
+        setTimeAgoValue(diffSecs);
+        setTimeAgoUnit('second');
+        return;
+      }
+      setTimeAgoValue(Math.floor(diffSecs / 60));
+      setTimeAgoUnit('minute');
+    };
+    updateDisplay();
+    const interval = setInterval(updateDisplay, 1000);
+    return () => clearInterval(interval);
+  }, [roomStatusUpdatedAt]);
+
   const rooms = useMemo(() => {
     return Object.entries(roomMap || {})
       .map(([docId, item]) => ({
         roomNo: String(item.roomNo || docId || '').trim(),
         status: String(item.status || '').toLowerCase() || 'unknown',
         rawStatus: String(item.rawStatus || ''),
-        updatedAt: item.updatedAt || '',
+        statusChangedAt: item.statusChangedAt || item.updatedAt || '',
       }))
       .filter((item) => item.roomNo)
       .sort((a, b) => normalizeRoomSortKey(a.roomNo).localeCompare(normalizeRoomSortKey(b.roomNo), undefined, { numeric: true }));
@@ -139,6 +189,12 @@ export default function RoomStatus() {
         </div>
       </section>
 
+      {roomStatusUpdatedAt && (
+        <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
+          room statuses updated {timeAgoValue} {timeAgoUnit}{timeAgoValue !== 1 ? 's' : ''} ago
+        </div>
+      )}
+
       <section className="card pad" style={{ marginBottom: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 10 }}>
           <input
@@ -166,7 +222,7 @@ export default function RoomStatus() {
                 <th>Room</th>
                 <th>Status</th>
                 <th>Raw Status</th>
-                <th>Updated</th>
+                <th>Last Changed</th>
               </tr>
             </thead>
             <tbody>
@@ -210,7 +266,7 @@ export default function RoomStatus() {
                       </span>
                     </td>
                     <td>{room.rawStatus || 'N/A'}</td>
-                    <td>{formatTimestamp(room.updatedAt)}</td>
+                    <td>{formatTimestamp(room.statusChangedAt)}</td>
                   </tr>
                 );
               })}

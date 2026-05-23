@@ -158,9 +158,32 @@ export async function ingestRoomStatusCsvPayload({ csv, db }) {
   const updatedAt  = new Date().toISOString();
   const BATCH_SIZE = 500; // Firestore batch limit
 
+  const existingByRoom = new Map();
+  for (let i = 0; i < rooms.length; i += BATCH_SIZE) {
+    const refs = rooms
+      .slice(i, i + BATCH_SIZE)
+      .map((room) => db.collection('roomStatus').doc(room.roomNo));
+
+    if (refs.length === 0) continue;
+
+    const snapshots = await db.getAll(...refs);
+    snapshots.forEach((snap) => {
+      if (snap.exists) {
+        existingByRoom.set(snap.id, snap.data() || {});
+      }
+    });
+  }
+
   for (let i = 0; i < rooms.length; i += BATCH_SIZE) {
     const batch = db.batch();
     for (const room of rooms.slice(i, i + BATCH_SIZE)) {
+      const existing = existingByRoom.get(room.roomNo) || null;
+      const existingStatus = String(existing?.status || '').trim().toLowerCase();
+      const existingStatusChangedAt = String(existing?.statusChangedAt || existing?.updatedAt || '').trim();
+      const statusChangedAt = existingStatus === room.status
+        ? (existingStatusChangedAt || updatedAt)
+        : updatedAt;
+
       const docRef = db.collection('roomStatus').doc(room.roomNo);
       batch.set(docRef, {
         roomNo:    room.roomNo,
@@ -170,6 +193,7 @@ export async function ingestRoomStatusCsvPayload({ csv, db }) {
         depart:    room.depart,
         pax:       room.pax,
         updatedAt,
+        statusChangedAt,
       });
     }
     await batch.commit();
