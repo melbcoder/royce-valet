@@ -15,7 +15,7 @@ export default function Nav() {
   const [frontOfficeOpen, setFrontOfficeOpen] = useState(false);
   const [housekeepingOpen, setHousekeepingOpen] = useState(false);
   const isAccountsPayablePage = location.pathname.startsWith('/accounts-payable');
-  const isHousekeepingPage = ['/housekeeping', '/room-status'].includes(location.pathname);
+  const isHousekeepingPage = location.pathname === '/room-status';
   const isFrontOfficePage = [
     '/valet',
     '/valet-history',
@@ -32,7 +32,6 @@ export default function Nav() {
     '/amenities',
     '/luggage-history',
     '/amenities-history',
-    '/housekeeping',
     '/room-status',
     '/maintenance',
     '/maintenance/jobs',
@@ -52,7 +51,7 @@ export default function Nav() {
     || hasAccess('accounts-payable/travel-agents')
     || hasAccess('accounts-payable/suppliers');
   const canAccessFrontOffice = hasAccess('valet') || hasAccess('luggage') || hasAccess('amenities') || hasAccess('dashboard');
-  const canAccessHousekeeping = hasAccess('housekeeping') || hasAccess('room-status');
+  const canAccessHousekeeping = hasAccess('room-status');
   const apDefaultPath = hasAccess('accounts-payable')
     ? '/accounts-payable'
     : hasAccess('accounts-payable/travel-agents')
@@ -369,19 +368,6 @@ export default function Nav() {
                       minWidth: 180,
                     }}
                   >
-                    {hasAccess('housekeeping') && (
-                      <NavLink
-                        to="/housekeeping"
-                        onClick={() => setHousekeepingOpen(false)}
-                        style={({ isActive }) => ({
-                          ...navLinkStyle(isActive),
-                          display: 'block',
-                          marginRight: 0,
-                        })}
-                      >
-                        Housekeeping Home
-                      </NavLink>
-                    )}
                     {hasAccess('room-status') && (
                       <NavLink
                         to="/room-status"
