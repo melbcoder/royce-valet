@@ -711,7 +711,7 @@ export function subscribeActiveVehicles(callback) {
 }
 
 export function subscribeExpectedArrivals(callback) {
-  return onSnapshot(query(expectedArrivalsRef, orderBy('updatedAt', 'desc')), (snapshot) => {
+  return onSnapshot(expectedArrivalsRef, (snapshot) => {
     const list = snapshot.docs.map((d) => ({
       ...d.data(),
       id: d.id,
