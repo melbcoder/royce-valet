@@ -1,3 +1,5 @@
+import { FieldPath } from 'firebase-admin/firestore';
+
 /**
  * Arrival List CSV report parser and Firestore enrichment.
  *
@@ -209,7 +211,7 @@ export async function ingestArrivalListPayload({ csv, db, sourceEmail = '', subj
     const inChunkSize = 30;
     for (let j = 0; j < chunk.length; j += inChunkSize) {
       const ids = chunk.slice(j, j + inChunkSize);
-      const snap = await collectionRef.where('__name__', 'in', ids).get();
+      const snap = await collectionRef.where(FieldPath.documentId(), 'in', ids).get();
       if (snap.empty) continue;
 
       const batch = db.batch();
