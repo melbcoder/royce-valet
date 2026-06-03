@@ -10,6 +10,7 @@ import { ingestOpenFoliosCsvPayload } from '../server/lib/openFoliosReport.js';
 import { ingestCancellationCsvPayload } from '../server/lib/cancellationReport.js';
 import { ingestRoomStatusCsvPayload, isRoomStatusCsv } from '../server/lib/roomStatusReport.js';
 import { ingestValetExpectedArrivalsCsvPayload } from '../server/lib/valetExpectedArrivalsReport.js';
+import { isArrivalListCsv, ingestArrivalListPayload } from '../server/lib/arrivalListReport.js';
 import { getDefaultReportTimezone } from '../server/lib/reportDate.js';
 
 function normalizeBucketName(raw = '') {
@@ -325,6 +326,14 @@ function inferReportTypeFromCsv({ csvBuffer, filename = '', subject = '' } = {})
     && headers.has('amount');
 
   if (isValetAddOnCsv) return 'valet-add-on';
+
+  const isArrivalListReport =
+    headers.has('res_no')
+    && headers.has('room_no')
+    && (headers.has('phone') || headers.has('name'))
+    && !headers.has('add_on_type');
+
+  if (isArrivalListReport) return 'arrival-list';
 
   const isLowRateCsv =
     headers.has('res_no')
@@ -1189,6 +1198,18 @@ export default async function handler(req, res) {
         });
 
         return res.status(200).json({ received: true, roomCount: result.count });
+      }
+
+      if (inferredReportType === 'arrival-list' || isArrivalListCsv(csvText)) {
+        const result = await ingestArrivalListPayload({
+          csv: csvText,
+          sourceEmail: fromEmail,
+          subject,
+          filename: csvFile.info?.filename || csvFile.name || '',
+          db,
+        });
+
+        return res.status(200).json({ received: true, enriched: result.enriched, total: result.total });
       }
 
       if (inferredReportType === 'valet-add-on' || looksLikeValetAddOnMail || lowerSubject.includes('daily addon')) {

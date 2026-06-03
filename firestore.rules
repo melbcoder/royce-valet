@@ -218,7 +218,8 @@ service cloud.firestore {
     // Valet expected arrivals - created server-side from emailed PMS AddOn reports
     match /valetExpectedArrivals/{arrivalId} {
       allow read: if hasAnyPageAccess(['dashboard', 'valet']);
-      allow write: if false;
+      // Allow valet staff to update merge/workflow fields when creating a ticket
+      allow write: if hasAnyPageAccess(['valet']);
     }
 
     // Valet expected arrivals webhook log - server-side only

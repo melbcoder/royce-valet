@@ -73,6 +73,28 @@ const resolveCountryCode = (value) => {
   return "";
 };
 
+// Split a raw phone (e.g. "+61419503937" or "0416745550") into
+// { countryCode: "+61", localDigits: "419503937" } for form pre-fill.
+const parsePhoneForForm = (raw) => {
+  const s = String(raw || '').replace(/[\s\-\(\)]/g, '');
+  if (!s) return { countryCode: '', localDigits: '' };
+
+  if (!s.startsWith('+')) {
+    const digits = s.replace(/\D/g, '').replace(/^0+/, '');
+    if (!digits) return { countryCode: '', localDigits: '' };
+    return { countryCode: '+61', localDigits: digits };
+  }
+
+  const withoutPlus = s.slice(1).replace(/\D/g, '');
+  for (const len of [3, 2, 1]) {
+    if (withoutPlus.length <= len) continue;
+    const candidateCode = '+' + withoutPlus.slice(0, len);
+    const found = countryCodes.find((c) => getPrimaryCode(c.code) === candidateCode);
+    if (found) return { countryCode: candidateCode, localDigits: withoutPlus.slice(len) };
+  }
+  return { countryCode: '', localDigits: withoutPlus };
+};
+
 const parseMoney = (value) => {
   const normalized = String(value || '').replace(/[^\d.-]/g, '');
   const parsed = Number(normalized);
@@ -391,13 +413,14 @@ export default function Staff() {
   // ---------- actions ----------
   const startExpectedArrival = (row) => {
     setArrivalSource(row);
+    const { countryCode: preFillCode, localDigits: preFillPhone } = parsePhoneForForm(row.phone || '');
     setNewVehicle({
       resNo: row.resNo || '',
       tag: '',
-      guestName: row.surname || '',
-      roomNumber: '',
-      countryCode: '',
-      phone: '',
+      guestName: row.fullName || row.surname || '',
+      roomNumber: row.roomNumber || '',
+      countryCode: preFillCode,
+      phone: preFillPhone,
       departureDate: row.depart || row.departureDate || '',
     });
     setNewVehicleErrors({
@@ -438,21 +461,52 @@ export default function Staff() {
     // Format phone number to international format
     const formattedPhone = formatPhoneNumber(`${effectiveCode}${phoneDigits}`);
 
-    await createVehicle({
-      resNo,
-      expectedArrivalId: arrivalSource?.id || '',
-      tag,
-      guestName,
-      roomNumber,
-      phone: formattedPhone,
-      departureDate,
-    });
-    
+    const resetForm = () => {
+      setNewVehicle({
+        resNo: '',
+        tag: '',
+        guestName: '',
+        roomNumber: '',
+        countryCode: '',
+        phone: '',
+        departureDate: '',
+      });
+      setNewVehicleErrors({
+        resNo: false,
+        tag: false,
+        guestName: false,
+        roomNumber: false,
+        countryCode: false,
+        phone: false,
+        departureDate: false,
+      });
+      setNewOpen(false);
+      setArrivalSource(null);
+    };
+
+    try {
+      await createVehicle({
+        resNo,
+        expectedArrivalId: arrivalSource?.id || '',
+        tag,
+        guestName,
+        roomNumber,
+        phone: formattedPhone,
+        departureDate,
+      });
+    } catch (error) {
+      console.error("Failed to create vehicle:", error);
+      showToast("Failed to create vehicle. Please try again.");
+      return;
+    }
+
+    resetForm();
+
     // Send welcome SMS with guest link
     try {
       const smsResult = await sendWelcomeSMS(formattedPhone, tag);
       if (smsResult?.skipped) {
-        showToast('Vehicle created (welcome SMS is disabled in settings).')
+        showToast('Vehicle created (welcome SMS is disabled in settings).');
       } else {
         showToast("Vehicle created and guest notified via SMS.");
       }
@@ -460,27 +514,6 @@ export default function Staff() {
       console.error("Failed to send SMS:", error);
       showToast("Vehicle created (SMS failed to send).");
     }
-    
-    setNewVehicle({
-      resNo: '',
-      tag: '',
-      guestName: '',
-      roomNumber: '',
-      countryCode: '',
-      phone: '',
-      departureDate: '',
-    });
-    setNewVehicleErrors({
-      resNo: false,
-      tag: false,
-      guestName: false,
-      roomNumber: false,
-      countryCode: false,
-      phone: false,
-      departureDate: false,
-    });
-    setNewOpen(false);
-    setArrivalSource(null);
   };
 
   const openPark = (v) => {
@@ -958,10 +991,17 @@ export default function Staff() {
         <div className="col" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {arrivalSource && (
             <div style={{ border: '1px solid #d0d5dd', borderRadius: 12, padding: 12, background: '#f8fafc', fontSize: 13 }}>
-              <strong>Imported PMS row:</strong> {arrivalSource.resNo} / {arrivalSource.surname}
-              <div style={{ marginTop: 4, color: '#667085' }}>
-                Enter the guest's first name, tag number, room number, and phone to complete the check-in.
-              </div>
+              <strong>Imported PMS row:</strong> {arrivalSource.resNo} / {arrivalSource.fullName || arrivalSource.surname}
+              {arrivalSource.fullName && (
+                <div style={{ marginTop: 4, color: '#667085' }}>
+                  Contact details pre-filled from Arrival List. Please assign a tag number to complete check-in.
+                </div>
+              )}
+              {!arrivalSource.fullName && (
+                <div style={{ marginTop: 4, color: '#667085' }}>
+                  Enter the guest's full name, tag number, room number, and phone to complete the check-in.
+                </div>
+              )}
               <div style={{ marginTop: 4, color: Math.abs((arrivalSource.amount || 0) - valetParkingPrice) > 0.01 ? '#c62828' : '#2e7d32' }}>
                 {Math.abs((arrivalSource.amount || 0) - valetParkingPrice) > 0.01
                   ? `Amount ${formatMoney(arrivalSource.amount)} does not match valet price ${formatMoney(valetParkingPrice)}.`
@@ -1711,6 +1751,8 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
       {rows.map((row) => {
         const amountMismatch = Math.abs((row.amount || 0) - valetParkingPrice) > 0.01;
+        const isEnriched = Boolean(row.phone || row.roomNumber || row.fullName);
+        const displayName = row.fullName || row.surname || '-';
         return (
           <div
             key={row.id}
@@ -1726,12 +1768,23 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <strong>Res {row.resNo || "-"}</strong>
-              <span className="status-pill">Expected</span>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {isEnriched && (
+                  <span className="status-pill" style={{ background: "#e3f2fd", color: "#1565c0", fontSize: 11 }}>
+                    Enriched
+                  </span>
+                )}
+                <span className="status-pill">Expected</span>
+              </div>
             </div>
             <div style={{ fontSize: 14, opacity: 0.9 }}>
-              <div><strong>Guest:</strong> {row.surname || "-"}</div>
+              <div><strong>Guest:</strong> {displayName}</div>
+              {row.roomNumber && <div><strong>Room:</strong> {row.roomNumber}</div>}
+              {row.phone && <div><strong>Phone:</strong> {row.phone}</div>}
               <div><strong>Arrive:</strong> {row.arrive || "-"}</div>
               <div><strong>Depart:</strong> {row.depart || "-"}</div>
+              {row.eta && <div><strong>ETA:</strong> {row.eta}</div>}
+              {row.rego && <div><strong>Rego:</strong> {row.rego}</div>}
               <div><strong>Amount:</strong> {formatMoney(row.amount)}</div>
             </div>
             <span
