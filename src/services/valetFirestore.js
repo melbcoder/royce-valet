@@ -720,6 +720,11 @@ export function subscribeExpectedArrivals(callback) {
   });
 }
 
+export async function updateExpectedArrival(docId, fields) {
+  const ref = doc(db, 'valetExpectedArrivals', docId);
+  await setDoc(ref, { ...fields, updatedAt: new Date().toISOString() }, { merge: true });
+}
+
 // Subscribe: guest page
 export function subscribeVehicleByTag(tag, callback) {
   return onSnapshot(doc(db, "vehicles", tag), (snap) => {

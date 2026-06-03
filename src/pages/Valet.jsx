@@ -5,6 +5,7 @@ import {
   subscribeActiveVehicles,
   subscribeExpectedArrivals,
   updateVehicle,
+  updateExpectedArrival,
   requestVehicle,
   cancelRequest,
   markReady,
@@ -209,6 +210,14 @@ export default function Staff() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
 
+  // Edit expected arrival modal
+  const [editArrivalOpen, setEditArrivalOpen] = useState(false);
+  const [editArrivalRow, setEditArrivalRow] = useState(null);
+  const [editArrivalForm, setEditArrivalForm] = useState({
+    resNo: '', fullName: '', roomNumber: '', phone: '', arrive: '', depart: '', amount: '',
+  });
+  const [editArrivalSaving, setEditArrivalSaving] = useState(false);
+
   // notification count & chime
   const unseenCount = useRef(0);
   const [badgeCount, setBadgeCount] = useState(0);
@@ -357,7 +366,7 @@ export default function Staff() {
       if (rowId && linkedExpectedArrivalIds.has(rowId)) return false;
 
       const workflowStatus = String(row.workflowStatus || '').trim().toLowerCase();
-      if (workflowStatus) return workflowStatus === 'expected';
+      if (workflowStatus) return workflowStatus === 'expected' || workflowStatus === 'arrived';
 
       // Backward compatibility for older rows before workflowStatus existed.
       const status = String(row.status || '').trim().toLowerCase();
@@ -713,6 +722,46 @@ export default function Staff() {
     setPhotoModalOpen(true);
   };
 
+  const openEditArrival = (row) => {
+    setEditArrivalRow(row);
+    setEditArrivalForm({
+      resNo:      row.resNo || '',
+      fullName:   row.fullName || row.surname || '',
+      roomNumber: row.roomNumber || '',
+      phone:      row.phone || '',
+      arrive:     row.arrive || '',
+      depart:     row.depart || '',
+      amount:     row.amount != null ? String(row.amount) : '',
+    });
+    setEditArrivalOpen(true);
+  };
+
+  const handleSaveArrival = async () => {
+    if (!editArrivalRow?.id) return;
+    setEditArrivalSaving(true);
+    try {
+      const fields = {
+        resNo:      editArrivalForm.resNo.trim(),
+        fullName:   editArrivalForm.fullName.trim(),
+        roomNumber: editArrivalForm.roomNumber.trim(),
+        phone:      editArrivalForm.phone.trim(),
+        arrive:     editArrivalForm.arrive.trim(),
+        depart:     editArrivalForm.depart.trim(),
+      };
+      const parsed = parseMoney(editArrivalForm.amount);
+      if (parsed !== null) fields.amount = parsed;
+      await updateExpectedArrival(editArrivalRow.id, fields);
+      setEditArrivalOpen(false);
+      setEditArrivalRow(null);
+      showToast('Guest details updated.');
+    } catch (err) {
+      console.error('Failed to update expected arrival:', err);
+      showToast('Failed to save changes.');
+    } finally {
+      setEditArrivalSaving(false);
+    }
+  };
+
   const handleViewAudit = async (tag) => {
     setAuditTag(tag);
     setAuditModalOpen(true);
@@ -793,6 +842,7 @@ export default function Staff() {
           rows={filteredExpectedArrivals}
           valetParkingPrice={valetParkingPrice}
           onCreateArrival={startExpectedArrival}
+          onEditArrival={openEditArrival}
         />
       </section>
 
@@ -1310,6 +1360,50 @@ export default function Staff() {
           </div>
         </div>
       </Modal>
+
+      {/* Edit Expected Arrival Modal */}
+      <Modal
+        open={editArrivalOpen}
+        onClose={() => { setEditArrivalOpen(false); setEditArrivalRow(null); }}
+        title="Edit Guest Details"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Reservation Number</label>
+            <input value={editArrivalForm.resNo} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, resNo: e.target.value })} placeholder="Reservation Number" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Full Name</label>
+            <input value={editArrivalForm.fullName} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, fullName: e.target.value })} placeholder="Full Name" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Room Number</label>
+            <input value={editArrivalForm.roomNumber} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, roomNumber: e.target.value })} placeholder="Room Number" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Phone</label>
+            <input value={editArrivalForm.phone} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, phone: e.target.value })} placeholder="e.g. +61412345678" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Arrive</label>
+            <input value={editArrivalForm.arrive} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, arrive: e.target.value })} placeholder="Arrive date" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Depart</label>
+            <input value={editArrivalForm.depart} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, depart: e.target.value })} placeholder="Depart date" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, opacity: 0.7, marginBottom: 4, display: 'block' }}>Amount (AUD)</label>
+            <input value={editArrivalForm.amount} onChange={(e) => setEditArrivalForm({ ...editArrivalForm, amount: e.target.value })} placeholder="e.g. 70" />
+          </div>
+          <div className="row" style={{ gap: 8, marginTop: 4 }}>
+            <button className="btn primary" onClick={handleSaveArrival} disabled={editArrivalSaving}>
+              {editArrivalSaving ? 'Saving...' : 'Save'}
+            </button>
+            <button className="btn secondary" onClick={() => { setEditArrivalOpen(false); setEditArrivalRow(null); }}>Cancel</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -1738,7 +1832,7 @@ function ScheduleInline({ v, onSet, onClear }) {
   );
 }
 
-function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) {
+function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival, onEditArrival }) {
   if (rows.length === 0) {
     return (
       <div style={{ padding: 16, border: "1px dashed #d0d5dd", borderRadius: 12, color: "#667085", fontSize: 14 }}>
@@ -1750,6 +1844,7 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
       {rows.map((row) => {
+        const isArrived = String(row.workflowStatus || '').toLowerCase() === 'arrived';
         const amountMismatch = Math.abs((row.amount || 0) - valetParkingPrice) > 0.01;
         const isEnriched = Boolean(row.phone || row.roomNumber || row.fullName);
         const displayName = row.fullName || row.surname || '-';
@@ -1757,10 +1852,10 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
           <div
             key={row.id}
             style={{
-              border: "1px solid #d0d5dd",
+              border: `1px solid ${isArrived ? '#ffe0b2' : '#d0d5dd'}`,
               borderRadius: 12,
               padding: 14,
-              background: "#fff",
+              background: isArrived ? '#fffaf5' : '#fff',
               display: "flex",
               flexDirection: "column",
               gap: 10
@@ -1774,7 +1869,10 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
                     Enriched
                   </span>
                 )}
-                <span className="status-pill">Expected</span>
+                {isArrived
+                  ? <span className="status-pill" style={{ background: "#fff3e0", color: "#e65100" }}>Arrived</span>
+                  : <span className="status-pill">Expected</span>
+                }
               </div>
             </div>
             <div style={{ fontSize: 14, opacity: 0.9 }}>
@@ -1797,9 +1895,16 @@ function ExpectedArrivalsTileView({ rows, valetParkingPrice, onCreateArrival }) 
             >
               {amountMismatch ? `Mismatch vs AUD ${valetParkingPrice.toFixed(2)}` : "Matches valet price"}
             </span>
-            <button className="btn secondary" onClick={() => onCreateArrival(row)} title="Use this PMS row for manual arrival check-in">
-              Create Arrival
-            </button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn secondary" onClick={() => onEditArrival(row)} title="Edit guest details">
+                Edit
+              </button>
+              {!isArrived && (
+                <button className="btn secondary" onClick={() => onCreateArrival(row)} title="Use this PMS row for manual arrival check-in">
+                  Create Arrival
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
