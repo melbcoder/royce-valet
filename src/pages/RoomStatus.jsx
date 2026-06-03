@@ -35,7 +35,7 @@ function formatTimestamp(value) {
 function getLatestRoomStatusUpdatedAt(map) {
   let latest = null;
   Object.values(map || {}).forEach((entry) => {
-    const candidate = parseRoomStatusTimestamp(entry?.statusChangedAt || entry?.updatedAt);
+    const candidate = parseRoomStatusTimestamp(entry?.updatedAt || entry?.statusChangedAt);
     if (candidate && (!latest || candidate > latest)) {
       latest = candidate;
     }
@@ -191,7 +191,7 @@ export default function RoomStatus() {
 
       {roomStatusUpdatedAt && (
         <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 12 }}>
-          room statuses updated {timeAgoValue} {timeAgoUnit}{timeAgoValue !== 1 ? 's' : ''} ago
+          room status report received {timeAgoValue} {timeAgoUnit}{timeAgoValue !== 1 ? 's' : ''} ago
         </div>
       )}
 
