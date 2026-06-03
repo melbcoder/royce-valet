@@ -1189,17 +1189,9 @@ export default async function handler(req, res) {
         || lowerSubject.includes('status verification');
       const roomStatusCsv = isRoomStatusCsv(csvText);
 
-      if (roomStatusCsv || (isReportsMailbox && looksLikeRoomStatusMail)) {
-        const result = await ingestRoomStatusCsvPayload({ csv: csvText, db });
-
-        await logRoomStatusWebhook('ingested-via-ap-webhook', {
-          roomCount: result.count,
-          filename: csvFile.info?.filename || csvFile.name || '',
-        });
-
-        return res.status(200).json({ received: true, roomCount: result.count });
-      }
-
+      // Arrival-list check must run before room-status: the Arrival List CSV
+      // also contains "Room No" and "Status" columns which would otherwise
+      // cause isRoomStatusCsv() to return true and swallow the email.
       if (inferredReportType === 'arrival-list' || isArrivalListCsv(csvText)) {
         const result = await ingestArrivalListPayload({
           csv: csvText,
@@ -1210,6 +1202,17 @@ export default async function handler(req, res) {
         });
 
         return res.status(200).json({ received: true, enriched: result.enriched, total: result.total });
+      }
+
+      if (roomStatusCsv || (isReportsMailbox && looksLikeRoomStatusMail)) {
+        const result = await ingestRoomStatusCsvPayload({ csv: csvText, db });
+
+        await logRoomStatusWebhook('ingested-via-ap-webhook', {
+          roomCount: result.count,
+          filename: csvFile.info?.filename || csvFile.name || '',
+        });
+
+        return res.status(200).json({ received: true, roomCount: result.count });
       }
 
       if (inferredReportType === 'valet-add-on' || looksLikeValetAddOnMail || lowerSubject.includes('daily addon')) {
