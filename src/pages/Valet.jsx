@@ -57,10 +57,48 @@ const normalizeImportedGuestName = (value) => {
   const cleaned = String(value || '').trim().replace(/\s+/g, ' ');
   if (!cleaned) return '';
 
+  const titleAliases = {
+    mr: 'Mr',
+    mrs: 'Mrs',
+    ms: 'Ms',
+    miss: 'Miss',
+    mx: 'Mx',
+    dr: 'Dr',
+    prof: 'Prof',
+    sir: 'Sir',
+    dame: 'Dame',
+    lady: 'Lady',
+  };
+
+  const normalizeTitle = (token) => {
+    const key = String(token || '').replace(/\./g, '').trim().toLowerCase();
+    return titleAliases[key] || '';
+  };
+
+  const applyTitleOrdering = (parts) => {
+    if (!Array.isArray(parts) || parts.length === 0) return [];
+    const copy = [...parts];
+
+    const firstTitle = normalizeTitle(copy[0]);
+    if (firstTitle) {
+      copy[0] = firstTitle;
+      return copy;
+    }
+
+    const lastTitle = normalizeTitle(copy[copy.length - 1]);
+    if (lastTitle) {
+      const withoutLast = copy.slice(0, -1);
+      return [lastTitle, ...withoutLast];
+    }
+
+    return copy;
+  };
+
   // Handle "Surname, First".
   if (cleaned.includes(',')) {
     const [lastName, firstName] = cleaned.split(',').map((part) => part.trim());
-    return [firstName, lastName].filter(Boolean).join(' ').trim();
+    const orderedFirstNameParts = applyTitleOrdering(String(firstName || '').split(' ').filter(Boolean));
+    return [...orderedFirstNameParts, lastName].filter(Boolean).join(' ').trim();
   }
 
   const parts = cleaned.split(' ');
@@ -71,7 +109,8 @@ const normalizeImportedGuestName = (value) => {
   if (!firstTokenLooksLikeSurname) return cleaned;
 
   const [surname, ...firstNames] = parts;
-  return [...firstNames, surname].join(' ').trim();
+  const orderedFirstNames = applyTitleOrdering(firstNames);
+  return [...orderedFirstNames, surname].join(' ').trim();
 };
 
 const resolveCountryCode = (value) => {
