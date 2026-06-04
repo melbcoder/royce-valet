@@ -91,6 +91,25 @@ function tinyHash(value) {
   return acc.toString(36).toUpperCase().slice(0, 5) || '0';
 }
 
+function buildExpectedArrivalDocId(row) {
+  const resPart = normalizeKeyToken(row.resNo, 'unknown');
+  const fingerprint = [
+    row.guestNo,
+    row.surname,
+    row.arrive,
+    row.depart,
+    row.addOn,
+    row.from,
+    row.to,
+    row.addOnSundry,
+    row.amountRaw,
+  ]
+    .map((value) => normalizeKeyToken(value, 'na'))
+    .join('__');
+
+  return `${resPart}__${tinyHash(fingerprint)}`;
+}
+
 function buildArrivedVehicleTag(row, docId) {
   const resPart = normalizeTagToken(row.resNo, 'RES').slice(-8);
   const guestPart = normalizeTagToken(row.guestNo || row.surname, 'G').slice(-4);
@@ -200,13 +219,17 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
     return { count: 0 };
   }
 
-  // Build resNo-keyed doc IDs for this CSV batch (dedupe: first row wins per resNo)
-  const seenResNos = new Set();
+  // Build one doc ID per CSV row so a reservation can carry multiple vehicles.
+  const seenDocIds = new Set();
+  const occurrenceByBaseDocId = new Map();
   const rowsWithDocIds = [];
   for (const row of rows) {
-    const docId = normalizeKeyToken(row.resNo, 'unknown');
-    if (seenResNos.has(docId)) continue; // skip duplicate resNo in same CSV
-    seenResNos.add(docId);
+    const baseDocId = buildExpectedArrivalDocId(row);
+    const seenCount = occurrenceByBaseDocId.get(baseDocId) || 0;
+    occurrenceByBaseDocId.set(baseDocId, seenCount + 1);
+
+    const docId = seenCount === 0 ? baseDocId : `${baseDocId}__${seenCount + 1}`;
+    seenDocIds.add(docId);
     rowsWithDocIds.push({ row, docId });
   }
 
@@ -248,7 +271,7 @@ export async function ingestValetExpectedArrivalsCsvPayload({ csv, db, sourceEma
 
   // Delete stale docs: in Firestore but not in this CSV, and not yet merged
   const stale = existingSnap.docs.filter((docSnap) => {
-    if (seenResNos.has(docSnap.id)) return false; // still in CSV
+    if (seenDocIds.has(docSnap.id)) return false; // still in CSV
     const data = docSnap.data() || {};
     // Keep merged records so history is preserved
     return data.workflowStatus !== 'arrived' && !data.mergedAt;

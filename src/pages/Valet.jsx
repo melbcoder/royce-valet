@@ -467,12 +467,11 @@ export default function Staff() {
       const workflowStatus = String(row.workflowStatus || '').trim().toLowerCase();
       if (workflowStatus !== 'arrived') return false;
 
-      const linkedVehicle = vehiclesByExpectedArrivalId.get(rowId);
       const arrivalDayKey = getArrivalDayKey(row);
       const isTodayArrival = arrivalDayKey === todayArrivalKey;
+      if (!isTodayArrival) return false;
 
-      // Hide old rows with no created ticket.
-      if (!isTodayArrival && !linkedVehicle) return false;
+      const linkedVehicle = vehiclesByExpectedArrivalId.get(rowId);
       if (!linkedVehicle) return true;
 
       return linkedVehicle.autoCreatedFromCsv && linkedVehicle.status === 'received';
@@ -556,6 +555,10 @@ export default function Staff() {
 
   const handleCreate = async () => {
     const { resNo, tag, guestName, roomNumber, countryCode, phone, departureDate } = newVehicle;
+    const sourceExpectedArrivalId = String(arrivalSource?.id || '').trim();
+    const linkedFromSource = sourceExpectedArrivalId
+      ? vehiclesByExpectedArrivalId.get(sourceExpectedArrivalId)
+      : null;
     const parsedCode = resolveCountryCode(countryCode);
     const effectiveCode = parsedCode || "+61";
     const phoneDigits = String(phone).replace(/\D/g, "").replace(/^0+/, "");
@@ -604,9 +607,17 @@ export default function Staff() {
     };
 
     try {
+      const normalizedTag = String(tag || '').trim();
+      const linkedTag = String(linkedFromSource?.tag || '').trim();
+
+      // If the operator changed the pre-filled tag from an already-linked ticket,
+      // treat this as an additional vehicle for the same guest/reservation.
+      const isAdditionalVehicle = Boolean(linkedFromSource && linkedTag && normalizedTag && normalizedTag !== linkedTag);
+
       await createVehicle({
         resNo,
-        expectedArrivalId: arrivalSource?.id || '',
+        expectedArrivalId: isAdditionalVehicle ? '' : sourceExpectedArrivalId,
+        allowExpectedArrivalAutoLink: !isAdditionalVehicle,
         tag,
         guestName,
         roomNumber,

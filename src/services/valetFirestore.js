@@ -390,8 +390,9 @@ export async function createVehicle(data) {
   const tag = sanitizeString(data.tag, 20);
   let expectedArrivalId = sanitizeString(data.expectedArrivalId || '', 120);
   const cleanResNo = sanitizeString(data.resNo || '', 80);
+  const allowExpectedArrivalAutoLink = data.allowExpectedArrivalAutoLink !== false;
 
-  if (!expectedArrivalId && cleanResNo) {
+  if (!expectedArrivalId && cleanResNo && allowExpectedArrivalAutoLink) {
     const byResQ = query(expectedArrivalsRef, where('resNo', '==', cleanResNo));
     const byResSnap = await getDocs(byResQ);
     const firstUnmerged = byResSnap.docs.find((d) => {
