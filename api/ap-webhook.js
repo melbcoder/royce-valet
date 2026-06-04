@@ -4,6 +4,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import Busboy from 'busboy';
 import { Readable } from 'node:stream';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import pdfParse from 'pdf-parse';
 import { ingestLowRateCsvPayload } from '../server/lib/lowRateReport.js';
 import { ingestOpenFoliosCsvPayload } from '../server/lib/openFoliosReport.js';
@@ -1018,6 +1019,82 @@ function extractWebhookSecret(req) {
   return '';
 }
 
+function extractMailgunSignatureFields(fields = {}) {
+  if (!fields || typeof fields !== 'object') {
+    return { timestamp: '', token: '', signature: '' };
+  }
+
+  const nestedSig = fields.signature && typeof fields.signature === 'object'
+    ? fields.signature
+    : {};
+
+  const timestamp = String(
+    fields.timestamp
+      ?? fields['signature.timestamp']
+      ?? nestedSig.timestamp
+      ?? ''
+  ).trim();
+  const token = String(
+    fields.token
+      ?? fields['signature.token']
+      ?? nestedSig.token
+      ?? ''
+  ).trim();
+  const signature = String(
+    fields.signature && typeof fields.signature === 'string'
+      ? fields.signature
+      : fields['signature.signature']
+        ?? nestedSig.signature
+        ?? ''
+  ).trim();
+
+  return { timestamp, token, signature };
+}
+
+function safeCompareHex(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const left = a.trim().toLowerCase();
+  const right = b.trim().toLowerCase();
+  if (!left || !right || left.length !== right.length) return false;
+  if (!/^[a-f0-9]+$/.test(left) || !/^[a-f0-9]+$/.test(right)) return false;
+  const aBuf = Buffer.from(left, 'hex');
+  const bBuf = Buffer.from(right, 'hex');
+  if (aBuf.length !== bBuf.length || aBuf.length === 0) return false;
+  return timingSafeEqual(aBuf, bBuf);
+}
+
+function verifyMailgunSignature(fields, signingKey) {
+  const key = String(signingKey || '').trim();
+  if (!key) return { ok: false, reason: 'missing-signing-key' };
+
+  const { timestamp, token, signature } = extractMailgunSignatureFields(fields);
+  if (!timestamp || !token || !signature) {
+    return { ok: false, reason: 'missing-signature-fields' };
+  }
+
+  const timestampSeconds = Number.parseInt(timestamp, 10);
+  if (!Number.isFinite(timestampSeconds)) {
+    return { ok: false, reason: 'invalid-timestamp' };
+  }
+
+  const toleranceRaw = Number.parseInt(process.env.MAILGUN_WEBHOOK_TOLERANCE_SECONDS || '', 10);
+  const toleranceSeconds = Number.isFinite(toleranceRaw) ? Math.max(toleranceRaw, 0) : 15 * 60;
+  const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - timestampSeconds);
+  if (ageSeconds > toleranceSeconds) {
+    return { ok: false, reason: 'stale-signature' };
+  }
+
+  const expected = createHmac('sha256', key)
+    .update(`${timestamp}${token}`)
+    .digest('hex');
+
+  if (!safeCompareHex(signature, expected)) {
+    return { ok: false, reason: 'signature-mismatch' };
+  }
+
+  return { ok: true };
+}
+
 export default async function handler(req, res) {
   // Minimal request metadata only. Do not log payload contents.
   console.log('AP webhook hit:', req.method);
@@ -1080,45 +1157,70 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, reportId: result.reportId, summary: result.summary });
     }
 
+    let fields, files;
     const secret = extractWebhookSecret(req);
-    const expectedSecret = process.env.SENDGRID_WEBHOOK_SECRET;
-    if (!expectedSecret) {
-      console.error('AP webhook: SENDGRID_WEBHOOK_SECRET env var is not configured');
+    const expectedSecret = String(process.env.SENDGRID_WEBHOOK_SECRET || '').trim();
+    const hasLegacySecretAuth = Boolean(expectedSecret);
+    const mailgunSigningKey = String(process.env.MAILGUN_WEBHOOK_SIGNING_KEY || '').trim();
+    const hasMailgunAuth = Boolean(mailgunSigningKey);
+
+    if (!hasLegacySecretAuth && !hasMailgunAuth) {
+      console.error('AP webhook: no inbound webhook auth configured (set SENDGRID_WEBHOOK_SECRET or MAILGUN_WEBHOOK_SIGNING_KEY)');
       return res.status(500).json({ error: 'Server configuration error' });
     }
-    if (!secret || secret !== expectedSecret) {
-      console.log('AP webhook: auth failed');
-      return res.status(401).json({ error: 'Unauthorized' });
+
+    const isLegacySecretValid = hasLegacySecretAuth && secret && secret === expectedSecret;
+    if (!isLegacySecretValid) {
+      try {
+        const parsed = await parseMultipart(req);
+        fields = parsed.fields;
+        files = parsed.files;
+      } catch (parseErr) {
+        console.error('AP webhook: multipart parse failed during auth:', parseErr?.message);
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const mailgunAuth = hasMailgunAuth ? verifyMailgunSignature(fields, mailgunSigningKey) : { ok: false, reason: 'mailgun-disabled' };
+      if (!mailgunAuth.ok) {
+        console.log('AP webhook: auth failed', {
+          legacyConfigured: hasLegacySecretAuth,
+          legacyProvided: Boolean(secret),
+          mailgunConfigured: hasMailgunAuth,
+          mailgunReason: mailgunAuth.reason,
+        });
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
     }
 
-    let fields, files;
-    try {
-      const parsed = await parseMultipart(req);
-      fields = parsed.fields;
-      files = parsed.files;
-    } catch (parseErr) {
-      console.error('AP webhook: multipart parse failed:', parseErr?.message);
-      // Still save a record so the user knows an email arrived
-      await db.collection('ap_invoices').add({
-        fromEmail: 'unknown (parse failed)',
-        subject: '',
-        toEmail: '',
-        storagePath: null,
-        originalFilename: null,
-        receivedAt: new Date().toISOString(),
-        status: 'pending',
-        supplier: null,
-        invoiceNumber: null,
-        invoiceDate: null,
-        department: null,
-        confirmedAmount: null,
-        paidDate: null,
-        lineItems: [],
-        notes: '',
-        hasPdf: false,
-        pdfSource: null,
-      });
-      return res.status(200).json({ received: true, warning: 'Parse failed, saved placeholder' });
+    if (!fields || !files) {
+      try {
+        const parsed = await parseMultipart(req);
+        fields = parsed.fields;
+        files = parsed.files;
+      } catch (parseErr) {
+        console.error('AP webhook: multipart parse failed:', parseErr?.message);
+        // Still save a record so the user knows an email arrived
+        await db.collection('ap_invoices').add({
+          fromEmail: 'unknown (parse failed)',
+          subject: '',
+          toEmail: '',
+          storagePath: null,
+          originalFilename: null,
+          receivedAt: new Date().toISOString(),
+          status: 'pending',
+          supplier: null,
+          invoiceNumber: null,
+          invoiceDate: null,
+          department: null,
+          confirmedAmount: null,
+          paidDate: null,
+          lineItems: [],
+          notes: '',
+          hasPdf: false,
+          pdfSource: null,
+        });
+        return res.status(200).json({ received: true, warning: 'Parse failed, saved placeholder' });
+      }
     }
 
     const fromEmail = fields.from || 'unknown';
