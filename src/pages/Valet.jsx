@@ -50,6 +50,37 @@ const fmtDate = (dateStr) => {
 const nowMs = () => Date.now();
 const TEN_MIN = 10 * 60 * 1000;
 
+const toLocalDayKey = (date) => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+const getArrivalDayKey = (row) => {
+  const raw = String(row?.arrive || row?.arriveDate || row?.arrivalDate || '').trim();
+  if (!raw) return '';
+
+  // Handle direct parseable formats first (ISO, RFC, etc.)
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return toLocalDayKey(parsed);
+
+  // Handle DD/MM/YYYY and DD-MM-YYYY formats from CSV-style feeds.
+  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const day = Number(m[1]);
+    const month = Number(m[2]);
+    const year = Number(m[3]);
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  return '';
+};
+
 const getPrimaryCode = (codeStr) =>
   String(codeStr || "").split(",")[0]?.trim() || "";
 
@@ -401,6 +432,7 @@ export default function Staff() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [viewMode, setViewMode] = useState("tiles"); // "tiles" or "map"
   const [showPendingArrivals, setShowPendingArrivals] = useState(false);
+  const todayArrivalKey = useMemo(() => toLocalDayKey(new Date()), []);
 
   const vehiclesByExpectedArrivalId = useMemo(() => {
     const map = new Map();
@@ -414,6 +446,9 @@ export default function Staff() {
   // Expected arrivals that are still waiting to be ticketed.
   const expectedArrivalRows = useMemo(() => {
     return expectedArrivals.filter((row) => {
+      const arrivalDayKey = getArrivalDayKey(row);
+      if (arrivalDayKey !== todayArrivalKey) return false;
+
       const workflowStatus = String(row.workflowStatus || '').trim().toLowerCase();
       if (workflowStatus) return workflowStatus === 'expected';
 
@@ -433,11 +468,16 @@ export default function Staff() {
       if (workflowStatus !== 'arrived') return false;
 
       const linkedVehicle = vehiclesByExpectedArrivalId.get(rowId);
+      const arrivalDayKey = getArrivalDayKey(row);
+      const isTodayArrival = arrivalDayKey === todayArrivalKey;
+
+      // Hide old rows with no created ticket.
+      if (!isTodayArrival && !linkedVehicle) return false;
       if (!linkedVehicle) return true;
 
       return linkedVehicle.autoCreatedFromCsv && linkedVehicle.status === 'received';
     });
-  }, [expectedArrivals, vehiclesByExpectedArrivalId]);
+  }, [expectedArrivals, vehiclesByExpectedArrivalId, todayArrivalKey]);
 
   // Close status dropdown when clicking outside
   useEffect(() => {
