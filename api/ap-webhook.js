@@ -1254,14 +1254,19 @@ export default async function handler(req, res) {
       attachmentMimeTypes: (Array.isArray(files) ? files : []).map((f) => String(f?.info?.mimeType || f?.info?.mimetype || '')).slice(0, 10),
     });
 
-    let csvFile = files.find((f) => isCsvFileCandidate(f));
+    const parsedCsvFiles = (Array.isArray(files) ? files : []).filter((f) => isCsvFileCandidate(f));
+    const mimeCsvFiles = hasRawMime ? extractCsvsFromRawMime(fields.email) : [];
+    const seenCsvKeys = new Set();
+    const csvFiles = [...parsedCsvFiles, ...mimeCsvFiles].filter((file) => {
+      const filename = String(file?.info?.filename || file?.name || 'report.csv').toLowerCase();
+      const key = `${filename}:${Buffer.isBuffer(file?.buffer) ? file.buffer.length : 0}`;
+      if (seenCsvKeys.has(key)) return false;
+      seenCsvKeys.add(key);
+      return true;
+    });
+
+    let csvFile = csvFiles[0] || null;
     const looksLikeValetAddOnMail = lowerSubject.includes('daily addon') || lowerSubject.includes('daily add on') || lowerSubject.includes('addon');
-    if (!csvFile && hasRawMime) {
-      const mimeCsvs = extractCsvsFromRawMime(fields.email);
-      if (mimeCsvs.length > 0) {
-        csvFile = mimeCsvs[0];
-      }
-    }
 
     const looksLikeReportMail = lowerSubject.includes('daily reservation activity') || lowerSubject.includes('low rate');
     const looksLikeOpenFoliosMail = lowerSubject.includes('open folio') || lowerSubject.includes('open folios');
@@ -1272,6 +1277,7 @@ export default async function handler(req, res) {
       const roomStatusAttachment = findRoomStatusAttachment(files);
       if (roomStatusAttachment) {
         csvFile = roomStatusAttachment;
+        csvFiles.push(roomStatusAttachment);
       }
     }
 
@@ -1283,59 +1289,70 @@ export default async function handler(req, res) {
         })
       : 'unknown';
 
-    if (csvFile) {
-      const csvText = csvFile.buffer.toString('utf8');
-      const looksLikeRoomStatusMail =
-        lowerSubject.includes('room no status')
-        || lowerSubject.includes('room status')
-        || lowerSubject.includes('status verification');
-      const roomStatusCsv = isRoomStatusCsv(csvText);
+    if (csvFiles.length > 0) {
+      const processedReports = [];
 
-      // Arrival-list check must run before room-status: the Arrival List CSV
-      // also contains "Room No" and "Status" columns which would otherwise
-      // cause isRoomStatusCsv() to return true and swallow the email.
-      if (inferredReportType === 'arrival-list' || isArrivalListCsv(csvText)) {
-        const result = await ingestArrivalListPayload({
-          csv: csvText,
-          sourceEmail: fromEmail,
+      for (const file of csvFiles) {
+        const filename = file.info?.filename || file.name || '';
+        const csvText = file.buffer.toString('utf8');
+        const reportType = inferReportTypeFromCsv({
+          csvBuffer: file.buffer,
+          filename,
           subject,
-          filename: csvFile.info?.filename || csvFile.name || '',
-          db,
         });
 
-        return res.status(200).json({ received: true, enriched: result.enriched, total: result.total });
+        // Arrival-list check must run before room-status.
+        if (reportType === 'arrival-list' || isArrivalListCsv(csvText)) {
+          const result = await ingestArrivalListPayload({
+            csv: csvText,
+            sourceEmail: fromEmail,
+            subject,
+            filename,
+            db,
+          });
+          processedReports.push({ type: 'arrival-list', filename, enriched: result.enriched, total: result.total });
+          continue;
+        }
+
+        if (isRoomStatusCsv(csvText)) {
+          const result = await ingestRoomStatusCsvPayload({ csv: csvText, db });
+
+          await logRoomStatusWebhook('ingested-via-ap-webhook', {
+            roomCount: result.count,
+            filename,
+          });
+
+          processedReports.push({ type: 'room-status', filename, roomCount: result.count });
+          continue;
+        }
+
+        if (reportType === 'valet-add-on' || (looksLikeValetAddOnMail && reportType === 'unknown')) {
+          const result = await ingestValetExpectedArrivalsCsvPayload({
+            csv: csvText,
+            sourceEmail: 'reports@mail.concierge.xin',
+            subject,
+            filename,
+            db,
+          });
+
+          await db.collection('valet_expected_arrivals_webhook_log').add({
+            receivedAt: new Date().toISOString(),
+            fromEmail,
+            toEmail,
+            subject,
+            status: 'ingested',
+            expectedArrivalCount: result.count,
+          });
+
+          processedReports.push({ type: 'valet-add-on', filename, count: result.count });
+        }
       }
 
-      if (roomStatusCsv || (isReportsMailbox && looksLikeRoomStatusMail)) {
-        const result = await ingestRoomStatusCsvPayload({ csv: csvText, db });
-
-        await logRoomStatusWebhook('ingested-via-ap-webhook', {
-          roomCount: result.count,
-          filename: csvFile.info?.filename || csvFile.name || '',
+      if (processedReports.length > 0) {
+        return res.status(200).json({
+          received: true,
+          processed: processedReports,
         });
-
-        return res.status(200).json({ received: true, roomCount: result.count });
-      }
-
-      if (inferredReportType === 'valet-add-on' || looksLikeValetAddOnMail || lowerSubject.includes('daily addon')) {
-        const result = await ingestValetExpectedArrivalsCsvPayload({
-          csv: csvText,
-          sourceEmail: 'reports@mail.concierge.xin',
-          subject,
-          filename: csvFile.info?.filename || csvFile.name || '',
-          db,
-        });
-
-        await db.collection('valet_expected_arrivals_webhook_log').add({
-          receivedAt: new Date().toISOString(),
-          fromEmail,
-          toEmail,
-          subject,
-          status: 'ingested',
-          expectedArrivalCount: result.count,
-        });
-
-        return res.status(200).json({ received: true, count: result.count });
       }
     }
 

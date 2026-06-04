@@ -1,5 +1,3 @@
-import { FieldPath } from 'firebase-admin/firestore';
-
 /**
  * Arrival List CSV report parser and Firestore enrichment.
  *
@@ -176,20 +174,21 @@ export async function ingestArrivalListPayload({ csv, db, sourceEmail = '', subj
   const nowIso = new Date().toISOString();
   const batchSize = 400;
 
-  // Build a map: docId (normalizedResNo) → enrichment payload
+  // Build a map: resNo -> enrichment payload.
+  // Multiple expected-arrival docs can share the same reservation number.
   const enrichments = new Map();
   for (const row of rows) {
-    const docId = normalizeKeyToken(row.resNo, 'unknown');
-    if (docId === 'unknown') continue;
+    const reservationNumber = String(row.resNo || '').trim();
+    if (!reservationNumber) continue;
 
     // Merge multiple rows for the same resNo (e.g. linked reservations) — first phone wins
-    if (enrichments.has(docId)) {
-      const existing = enrichments.get(docId);
+    if (enrichments.has(reservationNumber)) {
+      const existing = enrichments.get(reservationNumber);
       if (!existing.phone && row.phone) existing.phone = row.phone;
       if (!existing.roomNumber && row.roomNumber) existing.roomNumber = row.roomNumber;
       if (!existing.rego && row.rego) existing.rego = row.rego;
     } else {
-      enrichments.set(docId, {
+      enrichments.set(reservationNumber, {
         fullName: row.fullName,
         phone: row.phone,
         roomNumber: row.roomNumber,
@@ -200,23 +199,25 @@ export async function ingestArrivalListPayload({ csv, db, sourceEmail = '', subj
     }
   }
 
-  // Only enrich docs that already exist in valetExpectedArrivals
+  // Only enrich docs that already exist in valetExpectedArrivals.
+  // Match by stored resNo field so all rows for the same reservation are updated.
   let enriched = 0;
-  const docIds = [...enrichments.keys()];
+  const reservationNumbers = [...enrichments.keys()];
 
-  for (let i = 0; i < docIds.length; i += batchSize) {
-    const chunk = docIds.slice(i, i + batchSize);
+  for (let i = 0; i < reservationNumbers.length; i += batchSize) {
+    const chunk = reservationNumbers.slice(i, i + batchSize);
 
     // Firestore 'in' queries are limited to 30 items
     const inChunkSize = 30;
     for (let j = 0; j < chunk.length; j += inChunkSize) {
-      const ids = chunk.slice(j, j + inChunkSize);
-      const snap = await collectionRef.where(FieldPath.documentId(), 'in', ids).get();
+      const values = chunk.slice(j, j + inChunkSize);
+      const snap = await collectionRef.where('resNo', 'in', values).get();
       if (snap.empty) continue;
 
       const batch = db.batch();
       for (const docSnap of snap.docs) {
-        const enrichment = enrichments.get(docSnap.id);
+        const resNo = String(docSnap.data()?.resNo || '').trim();
+        const enrichment = enrichments.get(resNo);
         if (!enrichment) continue;
         const payload = {};
         if (enrichment.fullName) payload.fullName = enrichment.fullName;
