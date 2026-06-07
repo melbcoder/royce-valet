@@ -124,7 +124,7 @@ export function parseRoomStatusCsv(text) {
     const arrive     = idx.arrive    >= 0 ? parseDate(cols[idx.arrive])               : '';
     const depart     = idx.depart    >= 0 ? parseDate(cols[idx.depart])               : '';
     const paxRaw     = idx.pax       >= 0 ? String(cols[idx.pax]       || '').trim() : '';
-    const pax        = paxRaw ? (parseInt(paxRaw, 10) || 0) : 0;
+    const pax        = /^\d+$/.test(paxRaw) ? parseInt(paxRaw, 10) : '';
 
     rooms.push({ roomNo, status: normalizeRoomStatus(rawStatus), rawStatus, arrive, depart, pax });
   }

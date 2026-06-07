@@ -1359,6 +1359,7 @@ export async function createMaintenanceJob(data) {
   await setDoc(doc(maintenanceJobsRef, id), {
     title: sanitizeString(data.title || '', 200),
     description: sanitizeString(data.description || '', 1000),
+    roomNo: sanitizeString(data.roomNo || '', 20).toUpperCase(),
     location: sanitizeString(data.location || '', 100),
     category: sanitizeString(data.category || '', 80),
     priority: ['low', 'normal', 'high', 'urgent'].includes(data.priority) ? data.priority : 'normal',
@@ -1386,6 +1387,9 @@ export async function updateMaintenanceJob(id, updates) {
   }
   if (Object.prototype.hasOwnProperty.call(payload, 'location')) {
     payload.location = sanitizeString(payload.location, 100);
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'roomNo')) {
+    payload.roomNo = sanitizeString(payload.roomNo, 20).toUpperCase();
   }
   if (Object.prototype.hasOwnProperty.call(payload, 'category')) {
     payload.category = sanitizeString(payload.category, 80);

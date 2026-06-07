@@ -4,7 +4,6 @@ import Modal from '../components/Modal';
 import { showToast } from '../components/Toast';
 import {
   storage,
-  getCurrentUser,
   createMaintenanceJob,
   updateMaintenanceJob,
   acceptMaintenanceJob,
@@ -13,6 +12,7 @@ import {
   deleteMaintenanceJob,
   subscribeMaintenanceJobs,
   subscribeSettings,
+  subscribeRoomStatus,
 } from '../services/valetFirestore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -30,6 +30,15 @@ const STATUS_CONFIG = {
   completed: { label: 'Completed', color: '#3d9e5f', bg: '#e8f8ef' },
 };
 
+const ROOM_STATUS_META = {
+  clean: { label: 'Clean', color: '#2e7d32', bg: '#e8f5e9' },
+  dirty: { label: 'Dirty', color: '#c62828', bg: '#ffebee' },
+  inspection: { label: 'Inspection', color: '#c62828', bg: '#ffebee' },
+  occupied: { label: 'Occupied', color: '#ef6c00', bg: '#fff3e0' },
+  maintenance: { label: 'Maintenance', color: '#6a1b9a', bg: '#f3e5f5' },
+};
+const ROOM_STATUS_FALLBACK = { label: 'Unknown', color: '#455a64', bg: '#eceff1' };
+
 const MAX_PHOTOS = 5;
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10 MB
 const DEFAULT_MAINTENANCE_CATEGORIES = ['General', 'Electrical', 'Plumbing', 'AC', 'Carpentry'];
@@ -46,6 +55,43 @@ function timeAgo(ms) {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+function normalizeRoomNo(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function getRoomStatusMeta(status) {
+  return ROOM_STATUS_META[String(status || '').toLowerCase()] || ROOM_STATUS_FALLBACK;
+}
+
+function formatIsoDate(isoDate) {
+  const value = String(isoDate || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function getRelativeDayLabel(isoDate) {
+  const value = String(isoDate || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+
+  const [year, month, day] = value.split('-').map(Number);
+  const target = new Date(year, month - 1, day);
+  if (Number.isNaN(target.getTime())) return '';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / (24 * 60 * 60 * 1000));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays === -1) return 'Yesterday';
+  if (diffDays > 1) return `In ${diffDays} days`;
+  return `${Math.abs(diffDays)} days ago`;
 }
 
 function Pill({ label, color, bg, style = {} }) {
@@ -182,12 +228,15 @@ function PhotoUploadRow({ photoState, label = 'Add Photos' }) {
   );
 }
 
-function JobCard({ job, onView, onAccept, currentUsername }) {
+function JobCard({ job, onView, onAccept, roomStatus }) {
   const pc = PRIORITY_CONFIG[job.priority] || PRIORITY_CONFIG.normal;
   const sc = STATUS_CONFIG[job.status] || STATUS_CONFIG.open;
   const isOpen = job.status === 'open';
   const photoCount = (job.photoUrls || []).length;
   const updateCount = (job.updates || []).length;
+  const roomStatusMeta = getRoomStatusMeta(roomStatus);
+  const nextArrivalLabel = formatIsoDate(job.nextArrival);
+  const nextArrivalRelative = getRelativeDayLabel(job.nextArrival);
 
   return (
     <div
@@ -223,6 +272,30 @@ function JobCard({ job, onView, onAccept, currentUsername }) {
             bg="#f3f4f6"
             style={{ fontWeight: 600, letterSpacing: 'normal' }}
           />
+          {!!job.roomNo && (
+            <Pill
+              label={`Room ${job.roomNo}`}
+              color="#1f2937"
+              bg="#f9fafb"
+              style={{ marginLeft: 6, fontWeight: 600, letterSpacing: 'normal' }}
+            />
+          )}
+          {!!job.roomNo && (
+            <Pill
+              label={roomStatusMeta.label}
+              color={roomStatusMeta.color}
+              bg={roomStatusMeta.bg}
+              style={{ marginLeft: 6, fontWeight: 600, letterSpacing: 'normal' }}
+            />
+          )}
+          {!!nextArrivalLabel && (
+            <Pill
+              label={`Next Arrival ${nextArrivalLabel}${nextArrivalRelative ? ` (${nextArrivalRelative})` : ''}`}
+              color="#0f5d8d"
+              bg="#e7f3fb"
+              style={{ marginLeft: 6, fontWeight: 600, letterSpacing: 'normal' }}
+            />
+          )}
         </div>
       )}
 
@@ -258,12 +331,9 @@ const FILTERS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const BLANK_JOB = { title: '', description: '', location: '', category: '', priority: 'normal' };
+const BLANK_JOB = { title: '', description: '', roomNo: '', location: '', category: '', priority: 'normal' };
 
 export default function MaintenanceJobs() {
-  const currentUser = getCurrentUser();
-  const currentUsername = currentUser?.username || 'unknown';
-
   // ── Live data ──
   const [jobs, setJobs] = useState([]);
   useEffect(() => subscribeMaintenanceJobs(setJobs), []);
@@ -278,12 +348,21 @@ export default function MaintenanceJobs() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
+  const [roomStatusMap, setRoomStatusMap] = useState({});
+  useEffect(() => subscribeRoomStatus(setRoomStatusMap), []);
+
   // ── Filters ──
   const [filter, setFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [roomStatusFilter, setRoomStatusFilter] = useState('all');
   const filteredJobs = jobs.filter((job) => {
     if (filter !== 'all' && job.status !== filter) return false;
     if (categoryFilter !== 'all' && String(job.category || '') !== categoryFilter) return false;
+    if (roomStatusFilter !== 'all') {
+      const roomNo = normalizeRoomNo(job.roomNo);
+      const currentRoomStatus = String(roomStatusMap[roomNo]?.status || '').toLowerCase() || 'unknown';
+      if (currentRoomStatus !== roomStatusFilter) return false;
+    }
     return true;
   });
 
@@ -398,6 +477,7 @@ export default function MaintenanceJobs() {
     setEditJob({
       title: selectedJob.title || '',
       description: selectedJob.description || '',
+      roomNo: selectedJob.roomNo || '',
       location: selectedJob.location || '',
       category: selectedJob.category || maintenanceCategories[0] || '',
       priority: selectedJob.priority || 'normal',
@@ -412,6 +492,7 @@ export default function MaintenanceJobs() {
       await updateMaintenanceJob(selectedJob.id, {
         title: editJob.title.trim(),
         description: editJob.description.trim(),
+        roomNo: normalizeRoomNo(editJob.roomNo),
         location: editJob.location.trim(),
         category: editJob.category,
         priority: editJob.priority,
@@ -496,6 +577,10 @@ export default function MaintenanceJobs() {
   const detailPc = detailJob ? (PRIORITY_CONFIG[detailJob.priority] || PRIORITY_CONFIG.normal) : null;
   const detailSc = detailJob ? (STATUS_CONFIG[detailJob.status] || STATUS_CONFIG.open) : null;
   const sortedUpdates = detailJob ? [...(detailJob.updates || [])].sort((a, b) => b.timestamp - a.timestamp) : [];
+  const detailRoomNo = normalizeRoomNo(detailJob?.roomNo);
+  const detailRoomState = roomStatusMap[detailRoomNo] || null;
+  const detailNextArrival = formatIsoDate(detailRoomState?.arrive);
+  const detailNextArrivalRelative = getRelativeDayLabel(detailRoomState?.arrive);
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '8px 0' }}>
@@ -520,16 +605,31 @@ export default function MaintenanceJobs() {
 
       {/* ── Category filter ── */}
       <div style={{ marginBottom: 16 }}>
-        <select
-          style={{ ...inputStyle, cursor: 'pointer' }}
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-        >
-          <option value="all">All Categories</option>
-          {maintenanceCategories.map((category) => (
-            <option key={category} value={category}>{category}</option>
-          ))}
-        </select>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr 220px' }}>
+          <select
+            style={{ ...inputStyle, cursor: 'pointer' }}
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            <option value="all">All Categories</option>
+            {maintenanceCategories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+          <select
+            style={{ ...inputStyle, cursor: 'pointer' }}
+            value={roomStatusFilter}
+            onChange={(e) => setRoomStatusFilter(e.target.value)}
+          >
+            <option value="all">All Room Statuses</option>
+            <option value="clean">Clean</option>
+            <option value="occupied">Occupied</option>
+            <option value="dirty">Dirty</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="inspection">Inspection</option>
+            <option value="unknown">Unknown</option>
+          </select>
+        </div>
       </div>
 
       {/* ── Job cards ── */}
@@ -539,15 +639,20 @@ export default function MaintenanceJobs() {
             No {filter === 'all' ? '' : filter + ' '}jobs found
           </div>
         ) : (
-          filteredJobs.map(job => (
+          filteredJobs.map(job => {
+            const roomNo = normalizeRoomNo(job.roomNo);
+            const nextArrival = String(roomStatusMap[roomNo]?.arrive || '').trim();
+            const roomStatus = String(roomStatusMap[roomNo]?.status || '').toLowerCase();
+            return (
             <JobCard
               key={job.id}
-              job={job}
+              job={{ ...job, nextArrival }}
               onView={openDetail}
               onAccept={handleAccept}
-              currentUsername={currentUsername}
+              roomStatus={roomStatus}
             />
-          ))
+            );
+          })
         )}
       </div>
 
@@ -565,6 +670,17 @@ export default function MaintenanceJobs() {
               value={newJob.title}
               maxLength={200}
               onChange={e => setNewJob(p => ({ ...p, title: e.target.value }))}
+            />
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Room Number</label>
+            <input
+              style={inputStyle}
+              placeholder="e.g. 412"
+              value={newJob.roomNo}
+              maxLength={20}
+              onChange={e => setNewJob(p => ({ ...p, roomNo: normalizeRoomNo(e.target.value) }))}
             />
           </div>
 
@@ -645,6 +761,16 @@ export default function MaintenanceJobs() {
               {detailJob.category && (
                 <Pill label={detailJob.category} color="#6b7280" bg="#f3f4f6" style={{ fontWeight: 600, letterSpacing: 'normal' }} />
               )}
+              {detailJob.roomNo && (
+                <Pill label={`Room ${detailJob.roomNo}`} color="#1f2937" bg="#f9fafb" style={{ fontWeight: 600, letterSpacing: 'normal' }} />
+              )}
+              {detailJob.roomNo && (
+                (() => {
+                  const status = String(roomStatusMap[normalizeRoomNo(detailJob.roomNo)]?.status || '').toLowerCase();
+                  const meta = getRoomStatusMeta(status);
+                  return <Pill label={meta.label} color={meta.color} bg={meta.bg} style={{ fontWeight: 600, letterSpacing: 'normal' }} />;
+                })()
+              )}
               {detailJob.location && (
                 <span style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                   📍 {detailJob.location}
@@ -655,6 +781,15 @@ export default function MaintenanceJobs() {
             {/* Meta */}
             <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.7 }}>
               <span>Logged by <strong>{detailJob.createdBy}</strong> · {timeAgo(detailJob.createdAtMs)}</span>
+              {detailNextArrival && (
+                <>
+                  <br />
+                  <span>
+                    Next arrival: <strong>{detailNextArrival}</strong>
+                    {detailNextArrivalRelative ? ` (${detailNextArrivalRelative})` : ''}
+                  </span>
+                </>
+              )}
               {detailJob.acceptedBy && (
                 <><br /><span>Accepted by <strong>{detailJob.acceptedBy}</strong> · {timeAgo(detailJob.acceptedAtMs)}</span></>
               )}
@@ -755,6 +890,16 @@ export default function MaintenanceJobs() {
               value={editJob.title}
               maxLength={200}
               onChange={e => setEditJob(p => ({ ...p, title: e.target.value }))}
+            />
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Room Number</label>
+            <input
+              style={inputStyle}
+              value={editJob.roomNo}
+              maxLength={20}
+              onChange={e => setEditJob(p => ({ ...p, roomNo: normalizeRoomNo(e.target.value) }))}
             />
           </div>
 

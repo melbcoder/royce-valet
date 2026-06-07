@@ -995,7 +995,6 @@ export default function Amenities() {
                 ...(match ? {
                   roomStatus: match.status !== 'unknown' ? match.status : newAmenity.roomStatus,
                   guestName: newAmenity.guestName || match.guestName || newAmenity.guestName,
-                  pax: newAmenity.pax || (match.pax ? String(match.pax) : newAmenity.pax),
                 } : {}),
               });
               if (errors.roomNumber) setErrors({ ...errors, roomNumber: false });
@@ -1096,7 +1095,6 @@ export default function Amenities() {
                     ...(match ? {
                       guestName: editingItem.guestName || match.guestName || editingItem.guestName,
                       roomStatus: match.status !== 'unknown' ? match.status : editingItem.roomStatus,
-                      pax: editingItem.pax || (match.pax ? String(match.pax) : editingItem.pax),
                     } : {}),
                   });
                   if (errors.roomNumber) setErrors({ ...errors, roomNumber: false });
