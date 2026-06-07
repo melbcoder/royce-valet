@@ -31,13 +31,18 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Calculate valet statistics
-  const totalVehicles = vehicles.length;
-  const inHouseVehicles = vehicles.filter(v => v.status === 'parked' || v.status === 'received' || v.status === 'requested' || v.status === 'retrieving' || v.status === 'ready').length;
-  const outVehicles = vehicles.filter(v => v.status === 'out').length;
-  
   // Get today's date for departure comparison
   const today = new Date().toISOString().split('T')[0];
+
+  // Calculate valet statistics
+  const totalVehicles = vehicles.length;
+  const inHouseVehicles = vehicles.filter((v) => {
+    const status = String(v.status || '').toLowerCase();
+    if (status === 'out' || status === 'departed') return false;
+    return true;
+  }).length;
+  const outVehicles = vehicles.filter(v => v.status === 'out').length;
+
   const departingToday = vehicles.filter(v => v.departureDate === today).length;
 
   // Calculate luggage statistics
